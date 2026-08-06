@@ -58,7 +58,7 @@ provider "aws" {
 }
 
 locals {
-  bucket_name = "shubhshreekh-frontend-${var.environment}"
+  bucket_name = "${var.environment}-shubhshreekh-frontend"
 }
 
 ##############################################################################

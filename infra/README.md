@@ -64,7 +64,7 @@ aws cloudfront create-invalidation --distribution-id <id> --paths '/*'
 ## Custom domain (later)
 When Route 53 DNS is ready: create an ACM cert **in us-east-1**, then enable
 the `aliases` + `viewer_certificate` ACM lines in `main.tf`. See
-`../docs/domain-setup.md`.
+`../plan.md` (Domain & subdomains section).
 
 ## Cost
-S3 + CloudFront at low traffic is ~₹0. See `../docs/costs.md`.
+S3 + CloudFront at low traffic is ~₹0. See `../plan.md` (Cost breakdown section).
