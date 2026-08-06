@@ -1,0 +1,3 @@
+# Copy to terraform.tfvars (gitignored) and adjust if needed.
+environment = "dev"
+# domain_name = "shubhshreekh.com"

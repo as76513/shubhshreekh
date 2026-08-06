@@ -1,0 +1,129 @@
+# Build Plan — ShubShreekh (part-time, ~7.5 hrs/week)
+
+**Constraint:** 1.5 hrs/day, weekdays only (no weekends) = ~7.5 hrs/week.
+**Approach:** MVP first (auth → plans → payment → ship), AI layer later.
+**Honesty note:** timelines are padded for a part-time learning curve on Next.js, Razorpay, and PWA. Slipping a week here or there is normal — a live, secure MVP is the goal, not speed.
+
+---
+
+## Phase 1 — Foundation & Landing (Weeks 1–3)
+
+Goal: the responsive landing page live on a real URL, one codebase.
+
+**Week 1 — Project setup**
+- Mon: `create-next-app`, repo, push. Get "hello world" deploying to AWS Amplify (Mumbai).
+- Tue: Port the chosen landing HTML (hybrid) into a Next.js page/component.
+- Wed: Make the plan-comparison a reusable component (Free/Pro/Premium data-driven).
+- Thu: Wire the signup popup + phone field as a React component (state, not vanilla JS).
+- Fri: Responsive pass — test on real phone. Fix mobile breakpoints.
+
+**Week 2 — Domain & polish**
+- Mon: Point `shubshreekh.com` (or subdomain) at the deployment. HTTPS.
+- Tue–Wed: Content pass — real copy, testimonials, disclosures placeholder.
+- Thu: Add the SEBI disclosure block (real reg. no. when you have it).
+- Fri: Lighthouse audit — performance, accessibility, SEO. Fix top issues.
+
+**Week 3 — Backend skeleton**
+- Mon–Tue: Go API running locally + deployed (Lambda + API Gateway). `/healthz` live.
+- Wed: DynamoDB tables created (`users`, `subscriptions`, `orders`).
+- Thu–Fri: `/me` endpoint + JWT middleware wired (from `internal/auth`).
+
+*Milestone: landing page live, backend reachable, DB ready.*
+
+---
+
+## Phase 2 — Auth (phone OTP) (Weeks 4–6)
+
+Goal: a user can sign up and log in with phone + OTP.
+
+**Week 4 — OTP provider decision + setup**
+- Mon: Decide Cognito vs MSG91/Firebase (Indian SMS + DLT). Set up account.
+- Tue–Wed: Backend: send-OTP endpoint (calls provider).
+- Thu–Fri: Backend: verify-OTP endpoint → issues your session token.
+
+**Week 5 — Frontend auth flow**
+- Mon–Tue: Popup calls send-OTP, shows OTP stage.
+- Wed–Thu: Verify-OTP, store session token securely, redirect to app.
+- Fri: Session persistence + "logged in" state across pages.
+
+**Week 6 — User records & hardening**
+- Mon–Tue: On first verify, create the user in DynamoDB.
+- Wed: Protect routes — unauthenticated users bounce to login.
+- Thu–Fri: Rate-limit OTP, handle resend, error states. Test edge cases.
+
+*Milestone: real signup/login works end-to-end.*
+
+---
+
+## Phase 3 — Payments (Razorpay) (Weeks 7–9)
+
+Goal: a user can pick a plan and pay; access is granted only after server-side verification.
+
+**Week 7 — Order creation**
+- Mon: Razorpay account, test keys, keys into Secrets Manager/env.
+- Tue–Wed: Go handler `POST /orders` — looks up price server-side, calls Razorpay, returns order_id. (Uses `internal/payments`.)
+- Thu–Fri: Frontend: plan button → calls `/orders` → opens Razorpay checkout (`razorpay-checkout.js`).
+
+**Week 8 — Verification & granting access**
+- Mon–Tue: Go handler `POST /payments/verify` — `VerifyPaymentSignature`, then write subscription to DynamoDB.
+- Wed: Frontend success/failure handling → land verified users in the app.
+- Thu–Fri: Subscription state everywhere — gate Pro/Premium features by tier.
+
+**Week 9 — Robustness**
+- Mon: Razorpay webhook (backup confirmation if browser closes mid-flow).
+- Tue: Failed/abandoned payment handling; idempotency (don't double-grant).
+- Wed–Thu: Test with Razorpay test cards end-to-end.
+- Fri: Basic invoice/receipt (compliance hook — coordinate with advisor).
+
+*Milestone: paid subscriptions work, verified server-side.*
+
+---
+
+## Phase 4 — Ship it (PWA + Android) (Weeks 10–12)
+
+Goal: installable app, on the Play Store internal track.
+
+**Week 10 — PWA**
+- Mon: Wire `manifest.json` + register `service-worker.js`.
+- Tue: Generate real icons (192/512, maskable).
+- Wed–Thu: Test "Add to Home Screen" + offline shell on Android.
+- Fri: Lighthouse PWA audit → green.
+
+**Week 11 — Android wrapper (TWA)**
+- Mon–Tue: Bubblewrap — generate the TWA project from the PWA.
+- Wed: `assetlinks.json` on the domain (deep-link verification).
+- Thu–Fri: Build signed APK/AAB, test on a real device.
+
+**Week 12 — Play Store**
+- Mon: Play Console account, app listing, screenshots, privacy policy URL.
+- Tue–Wed: Upload to internal testing track, add testers.
+- Thu–Fri: Fix review flags, CI/CD for the web build (GitHub Actions).
+
+*Milestone: installable app live on internal track.*
+
+---
+
+## Phase 5 — AI layer (later, Weeks 13+)
+
+Only after MVP is live, tested, and has users. See main README Phase 4.
+- MCP server exposing governed app data
+- RAG over market news/filings
+- Agent answering tier-aware questions
+
+---
+
+## Realistic totals
+
+| Phase | Weeks | Calendar (part-time) |
+|---|---|---|
+| 1 · Foundation + landing | 1–3 | ~3 weeks |
+| 2 · Auth (OTP) | 4–6 | ~3 weeks |
+| 3 · Payments | 7–9 | ~3 weeks |
+| 4 · Ship (PWA + Android) | 10–12 | ~3 weeks |
+| **MVP total** | | **~12 weeks (3 months)** |
+| 5 · AI layer | 13+ | +6–8 weeks |
+
+Buffer expectation: at 7.5 hrs/week, plan for **3–4 months to a live MVP**. If it stretches, that's normal — protect momentum by shipping something every single session, however small.
+
+## Compliance runs in parallel (not a phase)
+Coordinate with your SEBI compliance advisor from Week 1 on: fee norms, GST invoicing, subscriber KYC, grievance/refund handling, advice audit records, and mandatory disclosures. These gate *charging real users*, not building.
