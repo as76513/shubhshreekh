@@ -4,6 +4,12 @@ variable "aws_region" {
   default     = "ap-south-1"
 }
 
+variable "aws_profile" {
+  description = "Named AWS CLI profile to use (avoids falling back to a work/SSO 'default' profile)."
+  type        = string
+  default     = "shubhshreekh-dev"
+}
+
 variable "environment" {
   description = "Environment name (dev / prod)."
   type        = string
