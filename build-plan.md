@@ -11,14 +11,14 @@
 Goal: the responsive landing page live on a real URL, one codebase.
 
 **Week 1 — Project setup**
-- Mon: `create-next-app`, repo, push. Get "hello world" deploying to AWS Amplify (Mumbai).
+- Mon: `create-next-app`, repo, push. Get "hello world" deploying via the `infra/` Terraform (S3 + CloudFront, Mumbai) — see `infra/README.md`.
 - Tue: Port the chosen landing HTML (hybrid) into a Next.js page/component.
 - Wed: Make the plan-comparison a reusable component (Free/Pro/Premium data-driven).
 - Thu: Wire the signup popup + phone field as a React component (state, not vanilla JS).
 - Fri: Responsive pass — test on real phone. Fix mobile breakpoints.
 
 **Week 2 — Domain & polish**
-- Mon: Point `shubshreekh.com` (or subdomain) at the deployment. HTTPS.
+- Mon: Point `shubhshreekh.com` (or subdomain) at the deployment. HTTPS.
 - Tue–Wed: Content pass — real copy, testimonials, disclosures placeholder.
 - Thu: Add the SEBI disclosure block (real reg. no. when you have it).
 - Fri: Lighthouse audit — performance, accessibility, SEO. Fix top issues.
@@ -105,10 +105,18 @@ Goal: installable app, on the Play Store internal track.
 
 ## Phase 5 — AI layer (later, Weeks 13+)
 
-Only after MVP is live, tested, and has users. See main README Phase 4.
+Only after MVP is live, tested, and has users. See [architecture.md](architecture.md)'s Phase 5 section.
 - MCP server exposing governed app data
 - RAG over market news/filings
 - Agent answering tier-aware questions
+
+## Phase 6 — Live price feed (later, after Phase 5 or in parallel)
+
+A WebSocket fast path for streaming quotes, separate from the standard
+request/response API. Design is already sketched in
+[architecture.md](architecture.md) §3 — not scheduled with specific weeks
+yet since it depends on which market-data provider is chosen and real usage
+data from the live MVP.
 
 ---
 
@@ -125,5 +133,5 @@ Only after MVP is live, tested, and has users. See main README Phase 4.
 
 Buffer expectation: at 7.5 hrs/week, plan for **3–4 months to a live MVP**. If it stretches, that's normal — protect momentum by shipping something every single session, however small.
 
-## Compliance runs in parallel (not a phase)
-Coordinate with your SEBI compliance advisor from Week 1 on: fee norms, GST invoicing, subscriber KYC, grievance/refund handling, advice audit records, and mandatory disclosures. These gate *charging real users*, not building.
+Compliance runs in parallel with all of this, not as a phase of its own —
+see [plan.md](plan.md)'s compliance section.
