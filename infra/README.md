@@ -3,6 +3,15 @@
 Provisions **S3 + CloudFront** static hosting for the Next.js frontend
 (built as a static export), in Mumbai (`ap-south-1`).
 
+> **⚠️ Temporary: CloudFront is currently blocked in this AWS account/org.**
+> `hosting_mode` defaults to `"amplify"`, which provisions an AWS Amplify
+> app as a stand-in for testing instead. This is **not** a change to the
+> committed architecture — [plan.md](../plan.md) and
+> [architecture.md](../architecture.md) still say S3 + CloudFront, and
+> `main.tf` still has the CloudFront resources (just gated off). Set
+> `hosting_mode = "cloudfront"` in `terraform.tfvars` once access is
+> restored. See "Amplify mode (temporary)" below for the manual-deploy flow.
+
 ## Architecture
 
 ```
@@ -50,7 +59,30 @@ Outputs give you the CloudFront `live_url` and a ready-made `deploy_command`.
 aws s3 sync ./out s3://<bucket> --delete
 aws cloudfront create-invalidation --distribution-id <id> --paths '/*'
 ```
-(The exact command is printed as the `deploy_command` output.)
+(The exact command is printed as the `deploy_command` output. This is the
+`hosting_mode = "cloudfront"` flow — see below for `"amplify"`.)
+
+## Amplify mode (temporary)
+
+While `hosting_mode = "amplify"` (the current default), there's no
+CloudFront/S3 to sync to. The Amplify app has no `repository` configured, so
+deploys are manual (zip upload) rather than git-triggered builds:
+
+```bash
+cd out && zip -r ../out.zip . && cd ..
+
+# Starts a deployment, returns a jobId + a zipUploadUrl
+aws amplify create-deployment --app-id <amplify_app_id> --branch-name main
+
+# Upload the zip to the returned zipUploadUrl
+curl -T out.zip "<zipUploadUrl>"
+
+# Kick off the deployment with the jobId from step 1
+aws amplify start-deployment --app-id <amplify_app_id> --branch-name main --job-id <jobId>
+```
+
+`terraform output amplify_app_id` and `terraform output live_url` give you
+the app ID and the resulting `https://main.<app-id>.amplifyapp.com` URL.
 
 ## Security notes
 - S3 bucket is **private** — no public access. Only CloudFront reads it, via

@@ -10,6 +10,12 @@
 #     via Origin Access Control (OAC) — the modern replacement for OAI.
 #   - HTTPS enforced; HTTP redirects to HTTPS.
 #   - SPA fallback: 403/404 -> index.html so client-side routes work.
+#
+# TEMPORARY: CloudFront is currently blocked in this AWS account/org, so
+# these resources are gated behind `var.hosting_mode == "cloudfront"` and
+# disabled by default. An AWS Amplify app (below) stands in for testing
+# until CloudFront access is restored — see infra/README.md. This is not a
+# change to the committed architecture in ../plan.md / ../architecture.md.
 ##############################################################################
 
 terraform {
@@ -22,15 +28,17 @@ terraform {
     }
   }
 
-  # Remote state (recommended before collaborating). Uncomment once the
-  # bucket + lock table exist.
-  # backend "s3" {
-  #   bucket         = "shubhshreekh-tfstate"
-  #   key            = "frontend/terraform.tfstate"
-  #   region         = "ap-south-1"
-  #   dynamodb_table = "shubhshreekh-tf-lock"
-  #   encrypt        = true
-  # }
+  # Remote state — avoids local state files getting corrupted by cloud-sync
+  # tools (e.g. OneDrive) racing Terraform's in-place writes. Locking uses
+  # S3's native conditional writes (Terraform >= 1.10), no DynamoDB needed.
+  backend "s3" {
+    bucket       = "shubhshreekh-tfstate"
+    key          = "frontend/terraform.tfstate"
+    region       = "ap-south-1"
+    profile      = "shubhshreekh-dev"
+    use_lockfile = true
+    encrypt      = true
+  }
 }
 
 # Primary provider — Mumbai, where the S3 origin lives.
@@ -64,15 +72,18 @@ locals {
 
 ##############################################################################
 # S3 bucket — private origin for the static site
+# (disabled while hosting_mode = "amplify" — see note above)
 ##############################################################################
 
 resource "aws_s3_bucket" "site" {
+  count  = var.hosting_mode == "cloudfront" ? 1 : 0
   bucket = local.bucket_name
 }
 
 # Block ALL public access — CloudFront reaches the bucket via OAC, not the public internet.
 resource "aws_s3_bucket_public_access_block" "site" {
-  bucket                  = aws_s3_bucket.site.id
+  count                   = var.hosting_mode == "cloudfront" ? 1 : 0
+  bucket                  = aws_s3_bucket.site[0].id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -80,14 +91,16 @@ resource "aws_s3_bucket_public_access_block" "site" {
 }
 
 resource "aws_s3_bucket_versioning" "site" {
-  bucket = aws_s3_bucket.site.id
+  count  = var.hosting_mode == "cloudfront" ? 1 : 0
+  bucket = aws_s3_bucket.site[0].id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
-  bucket = aws_s3_bucket.site.id
+  count  = var.hosting_mode == "cloudfront" ? 1 : 0
+  bucket = aws_s3_bucket.site[0].id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -100,6 +113,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
 ##############################################################################
 
 resource "aws_cloudfront_origin_access_control" "site" {
+  count                             = var.hosting_mode == "cloudfront" ? 1 : 0
   name                              = "shubhshreekh-oac"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
@@ -111,15 +125,16 @@ resource "aws_cloudfront_origin_access_control" "site" {
 ##############################################################################
 
 resource "aws_cloudfront_distribution" "site" {
+  count               = var.hosting_mode == "cloudfront" ? 1 : 0
   enabled             = true
   default_root_object = "index.html"
   comment             = "shubhshreekh frontend (${var.environment})"
   price_class         = "PriceClass_200" # includes India edge locations
 
   origin {
-    domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
+    domain_name              = aws_s3_bucket.site[0].bucket_regional_domain_name
     origin_id                = "s3-${local.bucket_name}"
-    origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+    origin_access_control_id = aws_cloudfront_origin_access_control.site[0].id
   }
 
   default_cache_behavior {
@@ -172,9 +187,11 @@ resource "aws_cloudfront_distribution" "site" {
 ##############################################################################
 
 data "aws_iam_policy_document" "s3_policy" {
+  count = var.hosting_mode == "cloudfront" ? 1 : 0
+
   statement {
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.site.arn}/*"]
+    resources = ["${aws_s3_bucket.site[0].arn}/*"]
 
     principals {
       type        = "Service"
@@ -184,12 +201,44 @@ data "aws_iam_policy_document" "s3_policy" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.site.arn]
+      values   = [aws_cloudfront_distribution.site[0].arn]
     }
   }
 }
 
 resource "aws_s3_bucket_policy" "site" {
-  bucket = aws_s3_bucket.site.id
-  policy = data.aws_iam_policy_document.s3_policy.json
+  count  = var.hosting_mode == "cloudfront" ? 1 : 0
+  bucket = aws_s3_bucket.site[0].id
+  policy = data.aws_iam_policy_document.s3_policy[0].json
+}
+
+##############################################################################
+# TEMPORARY: AWS Amplify — stand-in static hosting while CloudFront is
+# blocked (see note at top of file). No `repository` block, so this expects
+# manual deploys (zip upload), not GitHub-connected CI builds:
+#
+#   aws amplify create-deployment --app-id <id> --branch-name main
+#   # PUT the built ./out (zipped) to the returned zipUploadUrl, then:
+#   aws amplify start-deployment --app-id <id> --branch-name main --job-id <jobId>
+#
+# See infra/README.md for the full manual-deploy walkthrough.
+##############################################################################
+
+resource "aws_amplify_app" "site" {
+  count = var.hosting_mode == "amplify" ? 1 : 0
+  name  = "shubhshreekh-${var.environment}"
+
+  # SPA fallback — client-side routes resolve to index.html instead of 404.
+  custom_rule {
+    source = "</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json)$)([^.]+$)/>"
+    target = "/index.html"
+    status = "200"
+  }
+}
+
+resource "aws_amplify_branch" "main" {
+  count       = var.hosting_mode == "amplify" ? 1 : 0
+  app_id      = aws_amplify_app.site[0].id
+  branch_name = "main"
+  stage       = "PRODUCTION"
 }

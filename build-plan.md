@@ -12,6 +12,12 @@ Goal: the responsive landing page live on a real URL, one codebase.
 
 **Week 1 — Project setup**
 - Mon: `create-next-app`, repo, push. Get "hello world" deploying via the `infra/` Terraform (S3 + CloudFront, Mumbai) — see `infra/README.md`.
+  **Temporary:** CloudFront is currently blocked in the AWS account/org, so
+  `infra/` defaults to provisioning an AWS Amplify app (`hosting_mode =
+  "amplify"`) as a stand-in for testing instead. S3 + CloudFront remains the
+  committed target (plan.md / architecture.md unchanged) — switch back via
+  `hosting_mode = "cloudfront"` once access is restored. See
+  `infra/README.md`'s "Amplify mode (temporary)" section.
 - Tue: Port the chosen landing HTML (hybrid) into a Next.js page/component.
 - Wed: Make the plan-comparison a reusable component (Free/Pro/Premium data-driven).
 - Thu: Wire the signup popup + phone field as a React component (state, not vanilla JS).

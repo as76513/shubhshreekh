@@ -6,3 +6,7 @@
 terraform.tfvars
 *.auto.tfvars
 crash.log
+
+# saved plans can embed sensitive resource values
+*.tfplan
+tfplan.out
