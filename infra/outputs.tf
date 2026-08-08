@@ -23,10 +23,10 @@ output "live_url" {
 }
 
 output "deploy_command" {
-  description = "How to deploy the built site after `next build`, for whichever hosting_mode is active."
+  description = "How to deploy, for whichever hosting_mode is active. Amplify mode is GitHub-connected: pushing to `main` auto-deploys; this command is only for forcing a redeploy without a new push."
   value = var.hosting_mode == "cloudfront" ? (
     "aws s3 sync ./out s3://${aws_s3_bucket.site[0].id} --delete && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.site[0].id} --paths '/*'"
     ) : (
-    "cd out && zip -r ../out.zip . && cd .. && aws amplify create-deployment --app-id ${aws_amplify_app.site[0].id} --branch-name main"
+    "aws amplify start-job --app-id ${aws_amplify_app.site[0].id} --branch-name main --job-type RELEASE"
   )
 }

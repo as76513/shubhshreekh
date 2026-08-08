@@ -65,24 +65,38 @@ aws cloudfront create-invalidation --distribution-id <id> --paths '/*'
 ## Amplify mode (temporary)
 
 While `hosting_mode = "amplify"` (the current default), there's no
-CloudFront/S3 to sync to. The Amplify app has no `repository` configured, so
-deploys are manual (zip upload) rather than git-triggered builds:
+CloudFront/S3 to sync to. The Amplify app is connected to
+[github.com/as76513/shubhshreekh](https://github.com/as76513/shubhshreekh)
+(`platform = "WEB_COMPUTE"`, Amplify's Next.js-aware runtime — handles SSR
+and static alike, no `output: 'export'` needed), so **pushing to `main`
+auto-builds and deploys**. No manual zip upload in this flow.
+
+### One-time: connect the repo
+
+Terraform needs a GitHub token *once* to create the build webhook (the repo
+is public, but Amplify still requires a token to set that up):
+- Classic PAT with `repo` + `admin:repo_hook` scopes, **or**
+- Fine-grained PAT scoped to just this repo: Contents (read), Metadata
+  (read), Webhooks (read/write).
+
+Never commit it or put it in `terraform.tfvars` if that file is tracked —
+this repo's `.gitignore` excludes `terraform.tfvars`, but double-check.
+Pass it as an env var instead:
 
 ```bash
-cd out && zip -r ../out.zip . && cd ..
-
-# Starts a deployment, returns a jobId + a zipUploadUrl
-aws amplify create-deployment --app-id <amplify_app_id> --branch-name main
-
-# Upload the zip to the returned zipUploadUrl
-curl -T out.zip "<zipUploadUrl>"
-
-# Kick off the deployment with the jobId from step 1
-aws amplify start-deployment --app-id <amplify_app_id> --branch-name main --job-id <jobId>
+export TF_VAR_github_access_token="<your token>"
+terraform apply
 ```
 
-`terraform output amplify_app_id` and `terraform output live_url` give you
-the app ID and the resulting `https://main.<app-id>.amplifyapp.com` URL.
+### After it's connected
+
+- Push to `main` → Amplify builds and deploys automatically. Watch progress
+  in the console (make sure you're in **ap-south-1 / Mumbai** — see the
+  region note above) or via `aws amplify list-jobs --app-id <id> --branch-name main`.
+- To force a rebuild without a new commit, use the `deploy_command` output
+  (`aws amplify start-job ... --job-type RELEASE`).
+- `terraform output amplify_app_id` and `terraform output live_url` give you
+  the app ID and the resulting `https://main.<app-id>.amplifyapp.com` URL.
 
 ## Security notes
 - S3 bucket is **private** — no public access. Only CloudFront reads it, via

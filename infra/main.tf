@@ -213,27 +213,23 @@ resource "aws_s3_bucket_policy" "site" {
 }
 
 ##############################################################################
-# TEMPORARY: AWS Amplify — stand-in static hosting while CloudFront is
-# blocked (see note at top of file). No `repository` block, so this expects
-# manual deploys (zip upload), not GitHub-connected CI builds:
+# TEMPORARY: AWS Amplify — stand-in hosting while CloudFront is blocked (see
+# note at top of file). Connected to the GitHub repo, so pushes to `main`
+# auto-build and deploy — no manual zip upload needed (see infra/README.md
+# for the one-time token setup and how the old manual-deploy flow relates).
 #
-#   aws amplify create-deployment --app-id <id> --branch-name main
-#   # PUT the built ./out (zipped) to the returned zipUploadUrl, then:
-#   aws amplify start-deployment --app-id <id> --branch-name main --job-id <jobId>
-#
-# See infra/README.md for the full manual-deploy walkthrough.
+# platform = "WEB_COMPUTE": Amplify's Next.js-aware compute runtime (SSR +
+# static in one), so it works whether or not the app ever adopts
+# `output: 'export'`. Amplify auto-detects the Next.js build; no custom
+# rewrite rules needed (that's only for plain static SPAs).
 ##############################################################################
 
 resource "aws_amplify_app" "site" {
-  count = var.hosting_mode == "amplify" ? 1 : 0
-  name  = "shubhshreekh-${var.environment}"
-
-  # SPA fallback — client-side routes resolve to index.html instead of 404.
-  custom_rule {
-    source = "</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json)$)([^.]+$)/>"
-    target = "/index.html"
-    status = "200"
-  }
+  count        = var.hosting_mode == "amplify" ? 1 : 0
+  name         = "shubhshreekh-${var.environment}"
+  platform     = "WEB_COMPUTE"
+  repository   = "https://github.com/as76513/shubhshreekh.git"
+  access_token = "var.github_access_token"
 }
 
 resource "aws_amplify_branch" "main" {
@@ -241,4 +237,5 @@ resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.site[0].id
   branch_name = "main"
   stage       = "PRODUCTION"
+  framework   = "Next.js - SSR"
 }

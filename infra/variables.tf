@@ -38,3 +38,19 @@ variable "hosting_mode" {
     error_message = "hosting_mode must be \"cloudfront\" or \"amplify\"."
   }
 }
+
+variable "github_access_token" {
+  description = <<-EOT
+    GitHub personal access token used once to connect the Amplify app to
+    https://github.com/as76513/shubhshreekh.git (repo is public, but Amplify
+    still needs a token to create the build webhook). Needs either:
+      - a classic PAT with `repo` + `admin:repo_hook` scopes, or
+      - a fine-grained PAT scoped to just this repo with Contents: read,
+        Metadata: read, Webhooks: read/write.
+    Only used when hosting_mode = "amplify". NEVER commit this — pass it via
+    `TF_VAR_github_access_token` env var or an untracked terraform.tfvars.
+  EOT
+  type        = string
+  default     = null
+  sensitive   = true
+}
