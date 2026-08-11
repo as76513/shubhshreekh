@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(npx shadcn@latest add button card dialog input badge label separator -y)",
+      "Bash(PLAYWRIGHT_BROWSERS_PATH=/Users/amol.shinde/Library/Caches/ms-playwright node check2.js)",
+      "Bash(PLAYWRIGHT_BROWSERS_PATH=/Users/amol.shinde/Library/Caches/ms-playwright node -e ' *)"
+    ]
+  }
+}

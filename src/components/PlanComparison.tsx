@@ -1,3 +1,9 @@
+import { Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 export type PlanId = "Free" | "Pro" | "Premium";
 
 export type Plan = {
@@ -10,7 +16,7 @@ export type Plan = {
   badge?: string;
   features: { text: string; included: boolean }[];
   ctaLabel: string;
-  ctaVariant: "btn-outline" | "btn-primary" | "btn-navy";
+  ctaVariant: "outline" | "gold" | "navy";
 };
 
 export const plans: Plan[] = [
@@ -27,7 +33,7 @@ export const plans: Plan[] = [
       { text: "Portfolio review", included: false },
     ],
     ctaLabel: "Start free",
-    ctaVariant: "btn-outline",
+    ctaVariant: "outline",
   },
   {
     id: "Pro",
@@ -45,7 +51,7 @@ export const plans: Plan[] = [
       { text: "1-on-1 advisor calls", included: false },
     ],
     ctaLabel: "Choose Pro",
-    ctaVariant: "btn-primary",
+    ctaVariant: "gold",
   },
   {
     id: "Premium",
@@ -61,31 +67,65 @@ export const plans: Plan[] = [
       { text: "Exclusive webinars", included: true },
     ],
     ctaLabel: "Choose Premium",
-    ctaVariant: "btn-navy",
+    ctaVariant: "navy",
   },
 ];
 
 function PlanCard({ plan, onSelect }: { plan: Plan; onSelect: (planId: PlanId) => void }) {
   return (
-    <div className={`plan${plan.featured ? " featured" : ""}`}>
-      {plan.badge && <div className="badge-pop">{plan.badge}</div>}
-      <h3>{plan.name}</h3>
-      <div className="price">
-        {plan.price}
-        {plan.priceSuffix && <small>{plan.priceSuffix}</small>}
-      </div>
-      <div className="per">{plan.period}</div>
-      <ul>
-        {plan.features.map((feature) => (
-          <li key={feature.text} className={feature.included ? undefined : "no"}>
-            <span className="ic">{feature.included ? "✓" : "✕"}</span> {feature.text}
-          </li>
-        ))}
-      </ul>
-      <button className={`btn ${plan.ctaVariant}`} onClick={() => onSelect(plan.id)}>
-        {plan.ctaLabel}
-      </button>
-    </div>
+    <Card
+      className={cn(
+        "relative min-w-[85%] snap-start gap-0 rounded-2xl border-0 py-6 shadow-sm ring-1 ring-border transition-all duration-200 md:min-w-0 md:hover:-translate-y-1 md:hover:shadow-lg",
+        plan.featured &&
+          "shadow-lg shadow-gold-500/15 ring-2 ring-gold-400 md:-translate-y-2 md:hover:-translate-y-3"
+      )}
+    >
+      {plan.badge && (
+        <Badge className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-500 px-3 py-1 text-navy-950">
+          {plan.badge}
+        </Badge>
+      )}
+      <CardHeader className="px-6">
+        <h3 className="text-xl font-semibold">{plan.name}</h3>
+        <div className="mt-2 flex items-baseline gap-1">
+          <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
+          {plan.priceSuffix && (
+            <span className="text-base font-medium text-muted-foreground">{plan.priceSuffix}</span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">{plan.period}</p>
+      </CardHeader>
+      <CardContent className="flex-1 px-6">
+        <ul className="flex flex-col gap-2.5">
+          {plan.features.map((feature) => (
+            <li
+              key={feature.text}
+              className={cn(
+                "flex items-start gap-2 text-sm",
+                feature.included ? "text-foreground" : "text-muted-foreground/70"
+              )}
+            >
+              {feature.included ? (
+                <Check className="mt-0.5 size-4 shrink-0 text-gold-600" />
+              ) : (
+                <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/50" />
+              )}
+              {feature.text}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+      <CardFooter className="px-6">
+        <Button
+          variant={plan.ctaVariant}
+          size="lg"
+          className="w-full"
+          onClick={() => onSelect(plan.id)}
+        >
+          {plan.ctaLabel}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -95,7 +135,7 @@ export default function PlanComparison({
   onSelectPlan: (planId: PlanId) => void;
 }) {
   return (
-    <div className="plan-grid">
+    <div className="flex gap-5 overflow-x-auto pb-2 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
       {plans.map((plan) => (
         <PlanCard key={plan.id} plan={plan} onSelect={onSelectPlan} />
       ))}
