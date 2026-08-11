@@ -4,7 +4,20 @@
       "Bash(node -e ' *)",
       "Bash(npx shadcn@latest add button card dialog input badge label separator -y)",
       "Bash(PLAYWRIGHT_BROWSERS_PATH=/Users/amol.shinde/Library/Caches/ms-playwright node check2.js)",
-      "Bash(PLAYWRIGHT_BROWSERS_PATH=/Users/amol.shinde/Library/Caches/ms-playwright node -e ' *)"
+      "Bash(PLAYWRIGHT_BROWSERS_PATH=/Users/amol.shinde/Library/Caches/ms-playwright node -e ' *)",
+      "Bash(go get *)",
+      "Bash(grep -n \"^func \" \"/Users/nitiraj.patne/go/pkg/mod/github.com/awslabs/aws-lambda-go-api-proxy@v0.16.2/httpadapter/adapter.go\" 2>&1)",
+      "Read(//Users/nitiraj.patne/go/pkg/mod/github.com/awslabs/aws-lambda-go-api-proxy@v0.16.2/httpadapter/**)",
+      "Bash(go mod *)",
+      "Bash(go build *)",
+      "Bash(go vet *)",
+      "Bash(make build-lambda *)",
+      "Bash(openssl rand *)",
+      "Bash(git check-ignore *)",
+      "Bash(cp terraform.tfvars.example terraform.tfvars)",
+      "Bash(terraform init *)",
+      "Bash(export TF_VAR_session_token_signing_secret=\"7ifstmMIaj0wRQtauxLROd+bKYAINlumEaU2094cO6A=\")",
+      "Bash(terraform plan *)"
     ]
   }
 }

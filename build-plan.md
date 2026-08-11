@@ -23,16 +23,18 @@ Goal: the responsive landing page live on a real URL, one codebase.
 - Thu: Wire the signup popup + phone field as a React component (state, not vanilla JS).
 - Fri: Responsive pass — test on real phone. Fix mobile breakpoints.
 
-**Week 2 — Domain & polish**
-- Mon: Point `shubhshreekh.com` (or subdomain) at the deployment. HTTPS.
-- Tue–Wed: Content pass — real copy, testimonials, disclosures placeholder.
-- Thu: Add the SEBI disclosure block (real reg. no. when you have it).
-- Fri: Lighthouse audit — performance, accessibility, SEO. Fix top issues.
-
-**Week 3 — Backend skeleton**
+**Week 2 — Backend skeleton**
 - Mon–Tue: Go API running locally + deployed (Lambda + API Gateway). `/healthz` live.
 - Wed: DynamoDB tables created (`users`, `subscriptions`, `orders`).
 - Thu–Fri: `/me` endpoint + JWT middleware wired (from `internal/auth`).
+
+**Week 3 — Domain & polish**
+- Mon: ~~Point domain at the deployment.~~ **Done ahead of schedule** —
+  `app.shubhshreeknowldgehub.com` already points at the Amplify deployment,
+  HTTPS live. See plan.md's "Domain & subdomains" section.
+- Tue–Wed: Content pass — real copy, testimonials, disclosures placeholder.
+- Thu: Add the SEBI disclosure block (real reg. no. when you have it).
+- Fri: Lighthouse audit — performance, accessibility, SEO. Fix top issues.
 
 *Milestone: landing page live, backend reachable, DB ready.*
 

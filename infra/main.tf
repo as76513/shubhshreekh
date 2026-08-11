@@ -172,14 +172,15 @@ resource "aws_cloudfront_distribution" "site" {
   # Default CloudFront cert now; swap to ACM + custom domain when DNS is ready.
   viewer_certificate {
     cloudfront_default_certificate = true
-    # To use shubhshreekh.com, comment the line above and uncomment below,
-    # and add the aliases + aws_acm_certificate (see docs/domain-setup.md):
+    # To use app.shubhshreeknowldgehub.com (var.domain_name), comment the
+    # line above and uncomment below, and add the aliases + aws_acm_certificate
+    # (see docs/domain-setup.md):
     # acm_certificate_arn      = aws_acm_certificate.site.arn
     # ssl_support_method       = "sni-only"
     # minimum_protocol_version = "TLSv1.2_2021"
   }
 
-  # aliases = [var.domain_name, "www.${var.domain_name}"]  # enable with ACM
+  # aliases = [var.domain_name]  # enable with ACM — app subdomain only, no "www."
 }
 
 ##############################################################################

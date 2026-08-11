@@ -28,7 +28,7 @@ and architecture.md's "Identity provider" section together.
 |---|---|---|
 | Entitlement model | Cognito **groups** → JWT claim, verified via JWKS | Custom signed session token issued by your own verify-OTP endpoint |
 | Indian SMS/DLT fit | Supports phone/OTP, but DLT compliance is more manual | Purpose-built for Indian SMS/DLT |
-| Custom domain | `auth.shubhshreekh.com` needs an ACM cert in us-east-1 (Cognito requirement) | Not needed — OTP flow lives under `api.shubhshreekh.com` |
+| Custom domain | `auth.shubhshreeknowldgehub.com` needs an ACM cert in us-east-1 (Cognito requirement) | Not needed — OTP flow lives under `api.shubhshreeknowldgehub.com` |
 | Backend work | Less custom auth code (JWKS verification is standard) | You own OTP send/verify/session-issuance end to end |
 
 Either way, the tier claim must be server-signed and client-unforgeable —
@@ -38,36 +38,53 @@ this doesn't change the entitlement model in architecture.md.
 
 ## Domain & subdomains
 
+**Registered domain:** `shubhshreeknowldgehub.com` (superseded the earlier
+`shubhshreekh.com` placeholder used in early drafts of these docs — the
+product/brand name is unchanged, only the registered domain string is
+different).
+
 **Status:** web-first (Next.js web app + installable PWA), with a **TWA**
 (Trusted Web Activity) wrapper for the Play Store listing — see
 [build-plan.md](build-plan.md) Phase 4. There is no separate native app
 codebase; the TWA just wraps the same PWA.
 
-A domain plays **four distinct roles** here. The marketing site stays as-is;
-add subdomains and a couple of well-known files.
+**Root vs. app split (decided):** unlike the original single-domain draft,
+the product and the marketing site live on different subdomains:
+- `app.shubhshreeknowldgehub.com` — the actual Next.js PWA/product. **Already
+  live**: the Amplify stand-in (see build-plan.md Week 1 / infra/README.md)
+  is pointed here.
+- `shubhshreeknowldgehub.com` (root) — a separate marketing/landing site,
+  not yet built.
 
-### 1. API subdomain — `api.shubhshreekh.com`
+A domain plays **five distinct roles** here.
+
+### 1. App subdomain — `app.shubhshreeknowldgehub.com`
+Where the Next.js PWA itself is served from (Amplify now; CloudFront once
+restored — see infra/README.md's "Amplify mode (temporary)" section).
+
+### 2. API subdomain — `api.shubhshreeknowldgehub.com`
 The Next.js frontend needs a stable, branded endpoint to call.
 - Route 53 record → API Gateway (or ALB / your Go server)
 - ACM certificate for HTTPS
-- Frontend config points at `https://api.shubhshreekh.com`
+- Frontend config points at `https://api.shubhshreeknowldgehub.com`
 
-### 2. Auth custom domain — `auth.shubhshreekh.com`
+### 3. Auth custom domain — `auth.shubhshreeknowldgehub.com`
 **Only if Cognito is the chosen identity provider** (see the open decision
 above). If phone-OTP is chosen instead, this subdomain isn't needed.
 
 So the hosted login screen shows **your** brand, not
 `something.auth.us-east-1.amazoncognito.com`.
-- Cognito → App integration → Custom domain → `auth.shubhshreekh.com`
+- Cognito → App integration → Custom domain → `auth.shubhshreeknowldgehub.com`
 - Requires an ACM cert in **us-east-1** (Cognito requirement)
 - Route 53 alias record to the Cognito CloudFront distribution
 
-### 3. Android App Links (deep linking) — the well-known file
-Lets `https://shubhshreekh.com/...` links open **directly in the installed
-TWA** instead of a browser (password resets, verification links, share
-links).
+### 4. Android App Links (deep linking) — the well-known file
+Lets `https://app.shubhshreeknowldgehub.com/...` links open **directly in
+the installed TWA** instead of a browser (password resets, verification
+links, share links) — the TWA wraps the `app.` subdomain, not the marketing
+root, so this file and the deep links it verifies both live under `app.`.
 
-Host this at `https://shubhshreekh.com/.well-known/assetlinks.json`:
+Host this at `https://app.shubhshreeknowldgehub.com/.well-known/assetlinks.json`:
 
 ```json
 [{
@@ -86,8 +103,8 @@ build-plan.md Phase 4, Week 11. (iOS later uses
 `apple-app-site-association` the same way, if an equivalent wrapper is ever
 built for iOS.)
 
-### 4. Marketing / landing page — `shubhshreekh.com`
-The existing website stays as the public face:
+### 5. Marketing / landing page — `shubhshreeknowldgehub.com` (root)
+A separate public face, not yet built:
 - App description + screenshots
 - "Get it on Google Play" button → your Play Store listing
 - Privacy policy + terms (Play Store **requires** a privacy-policy URL — host it here)
@@ -96,10 +113,11 @@ The existing website stays as the public face:
 
 | Subdomain / path | Role |
 |:---|:---|
-| `shubhshreekh.com` | Marketing site + privacy policy (required by Play Store) |
-| `api.shubhshreekh.com` | Backend API the frontend calls |
-| `auth.shubhshreekh.com` | Branded Cognito hosted login (only if Cognito is chosen) |
-| `shubhshreekh.com/.well-known/assetlinks.json` | Android App Links (TWA deep linking) |
+| `shubhshreeknowldgehub.com` (root) | Marketing site + privacy policy (required by Play Store) — not yet built |
+| `app.shubhshreeknowldgehub.com` | The Next.js PWA/product — **live now** via Amplify |
+| `api.shubhshreeknowldgehub.com` | Backend API the frontend calls |
+| `auth.shubhshreeknowldgehub.com` | Branded Cognito hosted login (only if Cognito is chosen) |
+| `app.shubhshreeknowldgehub.com/.well-known/assetlinks.json` | Android App Links (TWA deep linking) |
 
 All of this fits comfortably in Route 53 + ACM, and the certs are free.
 
