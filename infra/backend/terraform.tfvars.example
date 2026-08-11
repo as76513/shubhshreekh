@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) and adjust if needed.
+environment = "dev"
+
+# session_token_signing_secret is sensitive — do NOT put it here.
+# Pass it instead via:
+#   export TF_VAR_session_token_signing_secret="<same value as backend/.env>"
