@@ -30,7 +30,7 @@ Goal: the responsive landing page live on a real URL, one codebase.
 
 **Week 3 — Domain & polish**
 - Mon: ~~Point domain at the deployment.~~ **Done ahead of schedule** —
-  `app.shubhshreeknowldgehub.com` already points at the Amplify deployment,
+  `app.shubhshreeknowledgehub.com` already points at the Amplify deployment,
   HTTPS live. See plan.md's "Domain & subdomains" section.
 - Tue–Wed: Content pass — real copy, testimonials, disclosures placeholder.
 - Thu: Add the SEBI disclosure block (real reg. no. when you have it).

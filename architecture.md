@@ -173,9 +173,9 @@ The components and the single standard request/response path.
 
  Frontend hosting: S3 (private) + CloudFront — see infra/README.md
  Cross-cutting: SSM Parameter Store · CloudWatch · Route 53
- Domain: app.shubhshreeknowldgehub.com (frontend, live via Amplify) ·
-         api.shubhshreeknowldgehub.com (backend) ·
-         auth.shubhshreeknowldgehub.com (identity, if Cognito) — see plan.md
+ Domain: app.shubhshreeknowledgehub.com (frontend, live via Amplify) ·
+         api.shubhshreeknowledgehub.com (backend) ·
+         auth.shubhshreeknowledgehub.com (identity, if Cognito) — see plan.md
 ```
 
 **Standard path** (API Gateway → Lambda → DynamoDB): login, profile,

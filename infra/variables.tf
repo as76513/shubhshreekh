@@ -19,7 +19,13 @@ variable "environment" {
 variable "domain_name" {
   description = "Custom domain for the frontend app (used only when ACM + aliases are enabled). This is the app. subdomain, not the marketing root — see plan.md's Domain & subdomains section."
   type        = string
-  default     = "app.shubhshreeknowldgehub.com"
+  default     = "app.shubhshreeknowledgehub.com"
+}
+
+variable "apex_domain_name" {
+  description = "Registered root domain (no subdomain) — used by aws_amplify_domain_association, which takes the apex + a sub_domain prefix separately rather than the full hostname."
+  type        = string
+  default     = "shubhshreeknowledgehub.com"
 }
 
 variable "hosting_mode" {

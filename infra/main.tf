@@ -172,7 +172,7 @@ resource "aws_cloudfront_distribution" "site" {
   # Default CloudFront cert now; swap to ACM + custom domain when DNS is ready.
   viewer_certificate {
     cloudfront_default_certificate = true
-    # To use app.shubhshreeknowldgehub.com (var.domain_name), comment the
+    # To use app.shubhshreeknowledgehub.com (var.domain_name), comment the
     # line above and uncomment below, and add the aliases + aws_acm_certificate
     # (see docs/domain-setup.md):
     # acm_certificate_arn      = aws_acm_certificate.site.arn
@@ -230,7 +230,15 @@ resource "aws_amplify_app" "site" {
   name         = "shubhshreekh-${var.environment}"
   platform     = "WEB_COMPUTE"
   repository   = "https://github.com/as76513/shubhshreekh.git"
-  access_token = "var.github_access_token"
+  access_token = var.github_access_token
+
+  # access_token isn't returned by AWS's read API, so it always diffs
+  # against whatever's in config — ignore it so plan/apply don't try to
+  # touch a working GitHub connection (and don't reject on a stale/absent
+  # token, as just happened before this fix).
+  lifecycle {
+    ignore_changes = [access_token]
+  }
 }
 
 resource "aws_amplify_branch" "main" {
@@ -239,4 +247,28 @@ resource "aws_amplify_branch" "main" {
   branch_name = "main"
   stage       = "PRODUCTION"
   framework   = "Next.js - SSR"
+}
+
+##############################################################################
+# Custom domain association — a DNS CNAME pointing at the Amplify default
+# domain is NOT enough on its own: Amplify/CloudFront rejects the TLS
+# handshake for any hostname it doesn't recognize as an attached custom
+# domain with a certificate. This resource is what actually provisions that
+# certificate and attaches app.<domain> to the app.
+#
+# wait_for_verification = false so `apply` doesn't block — ACM/Amplify
+# validate asynchronously once the DNS record in the
+# amplify_domain_verification_record output is added at the registrar.
+##############################################################################
+
+resource "aws_amplify_domain_association" "site" {
+  count                 = var.hosting_mode == "amplify" ? 1 : 0
+  app_id                = aws_amplify_app.site[0].id
+  domain_name           = var.apex_domain_name
+  wait_for_verification = false
+
+  sub_domain {
+    branch_name = aws_amplify_branch.main[0].branch_name
+    prefix      = "app"
+  }
 }

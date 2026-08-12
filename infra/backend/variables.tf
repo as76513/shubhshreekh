@@ -25,5 +25,5 @@ variable "session_token_signing_secret" {
 variable "cors_allowed_origins" {
   description = "Origins allowed to call the API — the local dev frontend and the live app subdomain (see plan.md's Domain & subdomains section)."
   type        = list(string)
-  default     = ["http://localhost:3000", "https://app.shubhshreeknowldgehub.com"]
+  default     = ["http://localhost:3000", "https://app.shubhshreeknowledgehub.com"]
 }

@@ -3,7 +3,7 @@
 # One catch-all route proxies everything to the Lambda; the Go ServeMux
 # does the actual routing, so new routes need zero Terraform changes.
 #
-# Custom domain (api.shubhshreeknowldgehub.com + ACM cert) is a fast follow,
+# Custom domain (api.shubhshreeknowledgehub.com + ACM cert) is a fast follow,
 # not required for this skeleton — the default execute-api URL is enough,
 # same as how the frontend shipped on Amplify's default domain first.
 ##############################################################################

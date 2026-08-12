@@ -1,6 +1,6 @@
 # Copy to terraform.tfvars (gitignored) and adjust if needed.
 environment = "dev"
-# domain_name = "app.shubhshreeknowldgehub.com"
+# domain_name = "app.shubhshreeknowledgehub.com"
 
 # TEMPORARY: CloudFront is blocked in this AWS account/org — "amplify" is a
 # stand-in for testing. Switch to "cloudfront" once access is restored.

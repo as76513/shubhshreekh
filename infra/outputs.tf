@@ -22,6 +22,16 @@ output "live_url" {
   )
 }
 
+output "amplify_domain_verification_record" {
+  description = "DNS record to add at your registrar to prove domain ownership so ACM can issue the certificate (amplify mode only). Format: add a CNAME with this record's name -> value."
+  value       = var.hosting_mode == "amplify" ? aws_amplify_domain_association.site[0].certificate_verification_dns_record : null
+}
+
+output "amplify_subdomain_dns_record" {
+  description = "The actual CNAME target for app.<domain> once the domain association is verified (amplify mode only) — may be unset until verification completes."
+  value       = var.hosting_mode == "amplify" ? one(aws_amplify_domain_association.site[0].sub_domain).dns_record : null
+}
+
 output "deploy_command" {
   description = "How to deploy, for whichever hosting_mode is active. Amplify mode is GitHub-connected: pushing to `main` auto-deploys; this command is only for forcing a redeploy without a new push."
   value = var.hosting_mode == "cloudfront" ? (
