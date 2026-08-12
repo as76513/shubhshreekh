@@ -16,8 +16,27 @@
       "Bash(git check-ignore *)",
       "Bash(cp terraform.tfvars.example terraform.tfvars)",
       "Bash(terraform init *)",
-      "Bash(export TF_VAR_session_token_signing_secret=\"7ifstmMIaj0wRQtauxLROd+bKYAINlumEaU2094cO6A=\")",
-      "Bash(terraform plan *)"
+      "Bash(export TF_VAR_session_token_signing_secret=*)",
+      "Bash(terraform plan *)",
+      "Bash(openssl s_client -connect app.shubhshreeknowledgehub.com:443 -servername app.shubhshreeknowledgehub.com)",
+      "Bash(curl -v --max-time 10 https://app.shubhshreeknowledgehub.com/)",
+      "Bash(cd \"/Users/nitiraj.patne/Library/CloudStorage/OneDrive-Avalara/Desktop/nitiraj.patne/shubhshreekh\" && \\\\ *)",
+      "Bash(terraform apply *)",
+      "Bash(aws amplify *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" --max-time 10 https://app.shubhshreeknowledgehub.com/)",
+      "Bash(curl -sI --max-time 10 https://app.shubhshreeknowledgehub.com/)",
+      "Bash(git status *)",
+      "Bash(export AWS_PROFILE=shubhshreekh-dev)",
+      "Bash(aws dynamodb *)",
+      "Bash(aws lambda *)",
+      "Bash(aws apigatewayv2 *)",
+      "Bash(terraform state *)",
+      "Bash(gh repo *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://raw.githubusercontent.com/as76513/shubhshreekh/main/.claude/settings.json\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/as76513/shubhshreekh/main/.claude/settings.json\")",
+      "Bash(python3 -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\); print\\('valid JSON'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
