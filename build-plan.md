@@ -45,9 +45,14 @@ Goal: the responsive landing page live on a real URL, one codebase.
 Goal: a user can sign up and log in with phone + OTP.
 
 **Week 4 — OTP provider decision + setup**
-- Mon: Decide Cognito vs MSG91/Firebase (Indian SMS + DLT). Set up account.
-- Tue–Wed: Backend: send-OTP endpoint (calls provider).
-- Thu–Fri: Backend: verify-OTP endpoint → issues your session token.
+- Mon: **Decided: MSG91 SendOTP, SMS channel** (see plan.md's "Decided:
+  identity provider" section for the full tradeoff record). Next: sign up
+  for a business MSG91 account and start DLT registration (3–7 day
+  turnaround — kick this off first, it can run in parallel with the backend
+  work below).
+- Tue–Wed: Backend: send-OTP endpoint (calls MSG91).
+- Thu–Fri: Backend: verify-OTP endpoint → creates/looks up user in
+  DynamoDB → issues session token via the already-built `auth.IssueToken`.
 
 **Week 5 — Frontend auth flow**
 - Mon–Tue: Popup calls send-OTP, shows OTP stage.

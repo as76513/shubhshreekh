@@ -19,24 +19,20 @@ see — is made server-side from a **verified session token**.
 - Renders whatever the API returns — it does **not** decide entitlements
 
 ### Go API (backend/)
-- **auth.Middleware** — verifies the token signature (JWKS if Cognito, or a
-  server-held signing key if a custom OTP session — see "Identity provider"
-  below), puts trusted claims in the request context
+- **auth.Middleware** — verifies the self-signed session JWT (HMAC secret
+  held server-side), puts trusted claims in the request context — see
+  `backend/internal/auth`, already built
 - **auth.RequireSubscription** — gates premium routes server-side
 - Handlers read identity only from verified context claims
 
-### Identity provider — **open decision, not yet made**
-Two options are still on the table (see [plan.md](plan.md) for the tradeoffs):
-- **AWS Cognito** — user pool is the source of truth; Cognito **groups** map
-  to subscription tiers (`basic`, `premium`) and ride in the JWT as
-  `claims.Subscription`.
-- **MSG91 / Firebase phone-OTP** — your own send-OTP/verify-OTP backend
-  endpoints (see build-plan.md Phase 2) issue a custom signed session token
-  carrying the same tier claim.
-
-Whichever is chosen, the entitlement model below is unaffected — the tier
-claim must come from a server-signed, client-unforgeable token either way.
-**Decide before Phase 2 (Week 4)** and update this section + plan.md.
+### Identity provider — **decided: MSG91 SendOTP (SMS)**
+Decided 2026-08-13 (see [plan.md](plan.md) for the full tradeoff record
+against Cognito and Firebase). MSG91's send-OTP/verify-OTP endpoints
+(build-plan.md Phase 2) sit in front of the already-built `backend/internal/auth`
+package: on successful OTP verification, the backend creates/looks up the
+user row in DynamoDB and issues its own signed session token
+(`auth.IssueToken`) carrying the tier claim — no JWKS, no third-party token
+format, MSG91 never sees anything past OTP delivery/verification.
 
 ### DynamoDB
 - `users`, `subscriptions`, `orders` tables (always-free tier, unlike RDS)
@@ -58,7 +54,7 @@ memory/secure storage. All real data is server-side.
 ## Request flow
 
 ```
-1. User logs in (Cognito hosted UI, or phone-OTP — TBD) → app gets a session token
+1. User logs in (phone + MSG91 OTP) → app gets a session token
 2. App calls GET /market/premium-signals      → sends Bearer token
 3. auth.Middleware verifies token             → claims in context
 4. auth.RequireSubscription("premium") checks → 403 if not entitled
@@ -114,8 +110,7 @@ watchlist.
                          ▼
               ┌─────────────────────┐
               │      Logs in        │
-              │ Cognito hosted UI,  │
-              │ OR phone-OTP — TBD  │
+              │ phone + MSG91 OTP   │
               └──────────┬──────────┘
                          ▼
               ┌─────────────────────┐
@@ -146,8 +141,8 @@ The components and the single standard request/response path.
 ```
    ┌──────────────┐                    ┌──────────────────────┐
    │ Next.js app  │───── authn ───────▶│ Identity provider     │
-   │ (web / PWA,  │                    │ Cognito OR phone-OTP  │
-   │ later TWA)   │                    │ — open decision       │
+   │ (web / PWA,  │                    │ MSG91 SendOTP (SMS)   │
+   │ later TWA)   │                    │ + self-signed session │
    └──────┬───────┘                    └──────────────────────┘
           │
    STANDARD PATH
@@ -174,8 +169,8 @@ The components and the single standard request/response path.
  Frontend hosting: S3 (private) + CloudFront — see infra/README.md
  Cross-cutting: SSM Parameter Store · CloudWatch · Route 53
  Domain: app.shubhshreeknowledgehub.com (frontend, live via Amplify) ·
-         api.shubhshreeknowledgehub.com (backend) ·
-         auth.shubhshreeknowledgehub.com (identity, if Cognito) — see plan.md
+         api.shubhshreeknowledgehub.com (backend, incl. /auth/send-otp +
+         /auth/verify-otp — no separate auth subdomain needed) — see plan.md
 ```
 
 **Standard path** (API Gateway → Lambda → DynamoDB): login, profile,

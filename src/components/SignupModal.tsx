@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { confirmOtp, requestOtp } from "@/lib/api";
 
 type Stage = "phone" | "otp";
 
@@ -31,6 +32,7 @@ export default function SignupModal({
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPaid = plan !== null && PAID_PLANS.includes(plan);
 
@@ -39,6 +41,7 @@ export default function SignupModal({
     setPhone("");
     setOtp("");
     setError(null);
+    setIsSubmitting(false);
   }
 
   function handleOpenChange(open: boolean) {
@@ -48,27 +51,42 @@ export default function SignupModal({
     }
   }
 
-  function sendOtp() {
+  async function sendOtp() {
     if (phone.length !== 10) {
       setError("Enter a valid 10-digit number");
       return;
     }
     setError(null);
-    setStage("otp");
+    setIsSubmitting(true);
+    try {
+      await requestOtp(phone);
+      setStage("otp");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send OTP");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  function verifyOtp() {
+  async function verifyOtp() {
     if (otp.length < 4) {
       setError("Enter the OTP");
       return;
     }
     setError(null);
-    if (isPaid) {
-      alert(`Verified. In production this opens Razorpay checkout for the ${plan} plan.`);
-    } else {
-      alert("Verified. In production this creates a free account and lands you in the app.");
+    setIsSubmitting(true);
+    try {
+      const { token } = await confirmOtp(phone, otp);
+      localStorage.setItem("session_token", token);
+      if (isPaid) {
+        alert(`Verified. In production this opens Razorpay checkout for the ${plan} plan.`);
+      }
+      handleOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify OTP");
+    } finally {
+      setIsSubmitting(false);
     }
-    handleOpenChange(false);
   }
 
   return (
@@ -106,8 +124,14 @@ export default function SignupModal({
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button variant="gold" size="lg" className="w-full" onClick={sendOtp}>
-              Send OTP
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={sendOtp}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Sending…" : "Send OTP"}
             </Button>
           </div>
         )}
@@ -124,8 +148,14 @@ export default function SignupModal({
               className="h-11 text-center text-lg tracking-[0.3em]"
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button variant="navy" size="lg" className="w-full" onClick={verifyOtp}>
-              Verify &amp; continue
+            <Button
+              variant="navy"
+              size="lg"
+              className="w-full"
+              onClick={verifyOtp}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Verifying…" : "Verify & continue"}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               Enter the OTP sent to your phone

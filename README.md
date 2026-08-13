@@ -1,5 +1,21 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## ShubhShreekh docs map
+
+This repo's actual project documentation lives outside this boilerplate
+README — start here depending on what you're looking for:
+
+- [architecture.md](architecture.md) — how the system works end to end:
+  components, data flow, the entitlement model, diagrams
+- [plan.md](plan.md) — requirements/decisions: stack choices, domains,
+  costs, compliance, the identity-provider decision record
+- [build-plan.md](build-plan.md) — when things get built: phases, weeks,
+  milestones
+- [backend/README.md](backend/README.md) — the Go API's own technical map:
+  package structure and the concrete OTP-auth request flow, file to file
+- [infra/README.md](infra/README.md) — Terraform: hosting (S3+CloudFront /
+  Amplify), how to deploy
+
 ## Getting Started
 
 First, run the development server:

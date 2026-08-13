@@ -15,23 +15,36 @@ see [architecture.md](architecture.md); for *when things get built* see
 | Frontend hosting | *(unspecified)* | **CloudFront + S3** (static export, Mumbai origin) | All-AWS, IaC-native, full control, best AWS learning; frontend is a static Next.js export that calls the Go API |
 | Backend | Go API | **Go API** (unchanged) | — |
 | Primary DB | DynamoDB | **DynamoDB** (unchanged) | Key-based access patterns fit |
-| Auth | Cognito | **Cognito _or_ OTP provider (MSG91/Firebase)** — open, see below | Phone-OTP + Indian SMS/DLT overhead |
+| Auth | Cognito | **MSG91 phone-OTP (SendOTP), SMS channel** — decided, see below | Phone-OTP + Indian SMS/DLT fit; own the backend |
 | Payments | Stripe | **Razorpay** | UPI/INR native, India-first |
 | Hosting | Serverless | **Lambda + API Gateway** (unchanged) | Scales to zero |
 
-## Open decision: identity provider
+## Decided: identity provider — MSG91 (SendOTP, SMS channel)
 
-Not yet made — **decide before Phase 2 (Week 4)**, then update this section
-and architecture.md's "Identity provider" section together.
+**Decided 2026-08-13** (build-plan.md Week 4 Monday). Chosen over both AWS
+Cognito and Firebase phone-auth:
 
-| | AWS Cognito | MSG91 / Firebase phone-OTP |
-|---|---|---|
-| Entitlement model | Cognito **groups** → JWT claim, verified via JWKS | Custom signed session token issued by your own verify-OTP endpoint |
-| Indian SMS/DLT fit | Supports phone/OTP, but DLT compliance is more manual | Purpose-built for Indian SMS/DLT |
-| Custom domain | `auth.shubhshreeknowledgehub.com` needs an ACM cert in us-east-1 (Cognito requirement) | Not needed — OTP flow lives under `api.shubhshreeknowledgehub.com` |
-| Backend work | Less custom auth code (JWKS verification is standard) | You own OTP send/verify/session-issuance end to end |
+| | AWS Cognito | Firebase Phone Auth | **MSG91 SendOTP (chosen)** |
+|---|---|---|---|
+| Entitlement model | Cognito groups → JWT, verified via JWKS | Firebase-issued token | Custom signed session token (self-signed HMAC JWT — already built, see architecture.md) |
+| Indian SMS/DLT fit | Manual DLT linking to SNS; silent delivery failures if done wrong | Same underlying DLT problem, not India-specialized | Purpose-built for India; guided DLT onboarding |
+| Cost per OTP (India, SMS) | ~₹0.24–0.25 *(only if DLT correctly linked)* | ~₹0.85–0.88 (3.5–6x pricier) | ~₹0.15–0.25 (volume-based) |
+| Custom domain | `auth.<domain>` needs an ACM cert in us-east-1 | Not needed | Not needed — OTP flow lives under `api.<domain>` |
+| Backend work | Less custom auth code (JWKS verification is standard) | Firebase Admin SDK integration | You own send-OTP/verify-OTP/session-issuance — already scaffolded (`backend/internal/auth`) |
 
-Either way, the tier claim must be server-signed and client-unforgeable —
+**Why MSG91 over Cognito specifically:** near-identical per-message cost, but
+MSG91's guided DLT registration removes the single biggest early-stage risk —
+a new user's OTP silently failing to deliver because DLT wasn't linked
+correctly. Also keeps the vendor stack India-first, consistent with Razorpay.
+
+**Channel: SMS only for now, not WhatsApp.** WhatsApp OTP is cheaper per
+message (~₹0.115–0.134 domestic) but MSG91's WhatsApp product carries its own
+₹500/month platform fee (after a 2-month promo) on top of the per-message
+rate — at MVP volume that fixed cost outweighs the per-message savings
+(breakeven is roughly 6,000–7,000+ OTPs/month). Revisit once volume justifies
+it; the SendOTP integration doesn't need to change to add it later.
+
+The tier claim is still server-signed and client-unforgeable either way —
 this doesn't change the entitlement model in architecture.md.
 
 ---
@@ -68,15 +81,13 @@ The Next.js frontend needs a stable, branded endpoint to call.
 - ACM certificate for HTTPS
 - Frontend config points at `https://api.shubhshreeknowledgehub.com`
 
-### 3. Auth custom domain — `auth.shubhshreeknowledgehub.com`
-**Only if Cognito is the chosen identity provider** (see the open decision
-above). If phone-OTP is chosen instead, this subdomain isn't needed.
-
-So the hosted login screen shows **your** brand, not
-`something.auth.us-east-1.amazoncognito.com`.
-- Cognito → App integration → Custom domain → `auth.shubhshreeknowledgehub.com`
-- Requires an ACM cert in **us-east-1** (Cognito requirement)
-- Route 53 alias record to the Cognito CloudFront distribution
+### 3. Auth custom domain — not needed
+Was reserved for a Cognito-hosted login screen (`auth.shubhshreeknowledgehub.com`)
+as one branch of the identity-provider decision. Now that MSG91 SendOTP
+phone-OTP is decided (see "Decided: identity provider" above), there's no
+Cognito hosted UI to brand — the OTP flow is just two endpoints under
+`api.shubhshreeknowledgehub.com` (`/auth/send-otp`, `/auth/verify-otp`). No
+separate auth subdomain, no us-east-1 ACM cert.
 
 ### 4. Android App Links (deep linking) — the well-known file
 Lets `https://app.shubhshreeknowledgehub.com/...` links open **directly in
@@ -115,8 +126,7 @@ A separate public face, not yet built:
 |:---|:---|
 | `shubhshreeknowledgehub.com` (root) | Marketing site + privacy policy (required by Play Store) — not yet built |
 | `app.shubhshreeknowledgehub.com` | The Next.js PWA/product — **live now** via Amplify |
-| `api.shubhshreeknowledgehub.com` | Backend API the frontend calls |
-| `auth.shubhshreeknowledgehub.com` | Branded Cognito hosted login (only if Cognito is chosen) |
+| `api.shubhshreeknowledgehub.com` | Backend API the frontend calls, incl. `/auth/send-otp` + `/auth/verify-otp` |
 | `app.shubhshreeknowledgehub.com/.well-known/assetlinks.json` | Android App Links (TWA deep linking) |
 
 All of this fits comfortably in Route 53 + ACM, and the certs are free.
@@ -152,7 +162,7 @@ Fully serverless. Everything scales to zero.
 | Service | Config | Monthly (INR) |
 |---|---|---|
 | S3 + CloudFront | Frontend static hosting (Next.js export) — see `infra/` | ₹0–₹50 |
-| Cognito / OTP provider | 50 MAU, or equivalent OTP volume | ₹0 |
+| MSG91 SendOTP | ~50 users × a few OTPs each during launch testing, ~₹0.20/OTP | ₹0–₹50 |
 | DynamoDB | On-demand, tiny volume | ₹0–₹50 |
 | Lambda | Go API, few thousand calls | ₹0–₹50 |
 | API Gateway | HTTP API, low volume | ₹0–₹90 |
@@ -169,13 +179,13 @@ API becomes the biggest line item, not AWS.
 
 | Service | Monthly (INR) |
 |---|---|
-| Cognito (1k MAU) | ₹0 |
+| MSG91 SendOTP (~1k users, ~2–3 OTPs/user/mo) | ₹400–₹600 |
 | DynamoDB (on-demand) | ₹200–₹800 |
 | Lambda | ₹300–₹1,000 |
 | API Gateway | ₹300–₹900 |
 | CloudWatch + Route 53 + SSM | ~₹300 |
 | Market data API (paid, real-time) | ~₹2,600 (~$30) |
-| **Total** | **≈ ₹3,500–₹6,000 / month** |
+| **Total** | **≈ ₹3,900–₹6,600 / month** |
 
 > On delayed/free market data, this stays under ~₹2,000/month.
 
@@ -188,13 +198,13 @@ Introduce heavier pieces **only when metrics justify them**:
 
 | Service | Monthly (INR) |
 |---|---|
-| Cognito (~10k MAU, free-tier edge) | ₹0–₹1,300 |
+| MSG91 SendOTP (~10k users, ~2–3 OTPs/user/mo, volume pricing) | ₹3,000–₹6,000 |
 | DynamoDB (higher throughput) | ₹2,000–₹5,000 |
 | Lambda + API Gateway | ₹2,000–₹5,000 |
 | CloudFront + data transfer | ₹2,000–₹4,000 |
 | WAF + CloudWatch + SSM | ₹2,000 |
 | Market data API (higher tier) | ₹5,000–₹8,000 |
-| **Total** | **≈ ₹15,000–₹25,000 / month** |
+| **Total** | **≈ ₹17,000–₹30,000 / month** |
 
 Driven mostly by **market-data tier and DynamoDB throughput**, not fixed
 infrastructure.
@@ -226,8 +236,8 @@ free vector-DB tier.
 | Stage | Users | Monthly (INR) |
 |---|---|---|
 | 🟢 Launch | ~50 | **₹100–₹400** |
-| 🟡 Traction | ~1,000 | **₹3,500–₹6,000** |
-| 🔴 Scaling | ~10,000+ | **₹15,000–₹25,000** |
+| 🟡 Traction | ~1,000 | **₹3,900–₹6,600** |
+| 🔴 Scaling | ~10,000+ | **₹17,000–₹30,000** |
 | ⚡ + AI layer | any | **+₹500 (demo) → ₹35,000+ (heavy)** |
 
 *Prices tentative, converted at ~₹88/USD from AWS list rates; add 18% GST if
