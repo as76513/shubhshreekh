@@ -24,6 +24,114 @@ backend/
     └── db/         — DynamoDB access (users table)
 ```
 
+## Request dispatch: from `main.go` to a handler
+
+Before the auth flow below makes sense, it helps to see the plumbing it
+rides on. Two different entrypoints build the *exact same* handler tree —
+that's the whole point of `internal/api.NewRouter`: `cmd/server` and
+`cmd/lambda` are behaviorally identical despite completely different
+transports underneath.
+
+### 1. Startup — both entrypoints build the same router
+
+```
+┌────────────────────────┐         ┌──────────────────────────┐
+│ cmd/server/main.go      │         │ cmd/lambda/main.go        │
+│ func main()              │         │ func init()                │
+│ (local dev)              │         │ (deployed — runs once per  │
+│                          │         │  cold start, not per req)  │
+└────────────┬─────────────┘         └────────────┬───────────────┘
+             │                                     │
+             │  MSG91_AUTH_KEY unset?               │  MSG91_AUTH_KEY /
+             │   → otp.NewMock()                    │  TEMPLATE_ID /
+             │  else                                │  CORS_ALLOWED_ORIGINS
+             │   → otp.NewMSG91(...)                 │  missing?
+             │                                       │   → log.Fatal
+             │  CORS_ALLOWED_ORIGINS unset?          │  (deployed path never
+             │   → default localhost:3000            │   falls back silently)
+             │                                       │
+             ▼                                       ▼
+      api.Deps{ SigningSecret, Users, OTP, AllowedOrigins }
+                             │
+                             │  both call:
+                             ▼
+                    api.NewRouter(deps)
+                             │
+                             ▼
+        backend/internal/api/router.go
+        ┌─────────────────────────────────────────────────┐
+        │ mux := http.NewServeMux()                          │
+        │ mux.HandleFunc("GET /healthz", handleHealthz)       │
+        │ mux.Handle("GET /me",                               │
+        │    auth.Middleware(secret)(handleMe))  ◀── only this│
+        │ mux.HandleFunc("POST /auth/send-otp", ...)          │    route is
+        │ mux.HandleFunc("POST /auth/verify-otp", ...)        │    wrapped in
+        │                                                     │    auth
+        │ return CORS(allowedOrigins)(mux)                    │
+        └─────────────────────────────────────────────────────┘
+                             │
+                             ▼
+              one http.Handler — handed back to
+              whichever entrypoint called NewRouter
+```
+
+`cmd/server` keeps that `http.Handler` and calls `http.ListenAndServe`
+directly. `cmd/lambda` wraps it in an adapter instead — same handler, two
+different ways of feeding it requests. That's steps 2 and 3 below.
+
+### 2. A request arriving locally (`cmd/server`)
+
+```
+browser / frontend fetch()
+        │  HTTP request
+        ▼
+http.ListenAndServe(":8080", router)     — cmd/server/main.go
+        │
+        ▼
+CORS middleware                          — internal/api/cors.go
+  • method == OPTIONS?  → respond 204, request stops here
+  • else: Origin in allowlist? → set Access-Control-* headers
+        │
+        ▼
+mux.ServeHTTP                            — the http.ServeMux built above
+  matches "<METHOD> <path>" against the registered patterns:
+        │
+        ├─ GET  /healthz          → handleHealthz
+        ├─ POST /auth/send-otp    → deps.handleSendOTP
+        ├─ POST /auth/verify-otp  → deps.handleVerifyOTP
+        └─ GET  /me               → auth.Middleware(secret) runs FIRST:
+                                       verifies the Bearer token; only on
+                                       success does it call deps.handleMe.
+                                       Invalid/missing token → 401,
+                                       handleMe never executes.
+```
+
+### 3. A request arriving deployed (`cmd/lambda`)
+
+```
+API Gateway (HTTP API)
+        │  APIGatewayV2HTTPRequest event (JSON)
+        ▼
+lambda.Start(handler)                    — cmd/lambda/main.go, func main()
+        │
+        ▼
+handler(ctx, req)
+        │  adapter.ProxyWithContext(ctx, req)
+        ▼
+httpadapter.HandlerAdapterV2             — translates the API Gateway
+                                            event into a plain
+                                            http.Request/ResponseWriter
+        │
+        ▼
+(same CORS → mux → handler chain as local — identical code,
+ because both entrypoints called the same api.NewRouter(deps))
+```
+
+The `init()` vs `main()` split in `cmd/lambda` matters: `init()` runs once
+per Lambda cold start (building the router, connecting to DynamoDB), while
+`handler()` runs on every single invocation — the expensive setup isn't
+repeated per request.
+
 ## The auth flow, end to end
 
 This is the concrete path a phone number takes from the signup dialog to a

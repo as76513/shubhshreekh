@@ -54,6 +54,22 @@ Goal: a user can sign up and log in with phone + OTP.
 - Thu–Fri: Backend: verify-OTP endpoint → creates/looks up user in
   DynamoDB → issues session token via the already-built `auth.IssueToken`.
 
+**Pending — decide next session (not yet built):**
+- **No rate-limiting on `/auth/send-otp` or `/auth/verify-otp` yet.**
+  `send-otp` has no cooldown per phone/IP, and `verify-otp` has no
+  attempt-limit beyond the OTP's own expiry. Why this matters more than
+  the endpoints merely existing (they're already visible via the public
+  frontend's network calls and the public source regardless): unthrottled
+  `send-otp` enables **SMS pumping / toll fraud** — an attacker hammering
+  it with (often premium-rate) numbers to run up the MSG91 bill, sometimes
+  profiting off a revenue-share route on the receiving end. Unthrottled
+  `verify-otp` enables brute-forcing a 6-digit code. Decide tomorrow:
+  per-phone cooldown + attempt-limit/lockout, and whether it's DynamoDB-backed
+  (correct across Lambda's stateless invocations) or something simpler for
+  now given pre-launch volume is tiny. This is the same gap Week 6 Thu–Fri
+  below already names generically ("Rate-limit OTP") — this note is the
+  reasoning for *why*, ahead of actually building it.
+
 **Week 5 — Frontend auth flow**
 - Mon–Tue: Popup calls send-OTP, shows OTP stage.
 - Wed–Thu: Verify-OTP, store session token securely, redirect to app.
