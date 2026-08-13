@@ -1,0 +1,15 @@
+#!/bin/sh
+# Appends a Claude Code co-author trailer to every commit in this repo, so
+# GitHub shows the same attribution avatar whether the commit was made
+# through Claude Code or by hand. Idempotent — skips if the trailer is
+# already present, since Claude Code's own commits add it themselves.
+#
+# Wired up via `core.hooksPath` (see package.json's `prepare` script) so it
+# applies to every clone after `npm install`, not just this one.
+
+MSG_FILE="$1"
+TRAILER="Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+
+if ! grep -qF "$TRAILER" "$MSG_FILE"; then
+  printf '\n%s\n' "$TRAILER" >> "$MSG_FILE"
+fi
