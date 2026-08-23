@@ -24,6 +24,7 @@
 .DS_Store
 *.pem
 .cursor-shots/
+src/assets/
 
 # debug
 npm-debug.log*
