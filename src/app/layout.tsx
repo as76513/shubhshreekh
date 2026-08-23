@@ -1,20 +1,49 @@
 import type { Metadata } from "next";
+import { Outfit, DM_Serif_Display, JetBrains_Mono } from "next/font/google";
+import { AuthProvider } from "@/lib/auth-context";
+import SiteShell from "@/components/SiteShell";
 import "./globals.css";
-import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+});
+
+const dmSerif = DM_Serif_Display({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-dm-serif",
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+});
 
 export const metadata: Metadata = {
-  title: "ShubhShreekh — Smarter Market Insights",
+  title: "ShubhShreekh — Invest today. Grow tomorrow.",
   description:
-    "Clear buy, sell & hold signals for Indian markets — research-backed trade ideas from a SEBI-registered Research Analyst.",
+    "Research notes, mutual fund explainers, and financial education for Indian investors.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body>{children}</body>
+    <html
+      lang="en"
+      className={`${outfit.variable} ${dmSerif.variable} ${jetbrains.variable}`}
+    >
+      <body
+        className="min-h-screen antialiased"
+        style={{
+          background: "var(--background)",
+          color: "var(--foreground)",
+          fontFamily: "var(--font-outfit), Outfit, sans-serif",
+        }}
+      >
+        <AuthProvider>
+          <SiteShell>{children}</SiteShell>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

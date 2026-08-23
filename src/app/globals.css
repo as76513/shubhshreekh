@@ -3,53 +3,29 @@
 @import "shadcn/tailwind.css";
 @config "../../tailwind.config.ts";
 
-:root {
-  /* Literal values, not var(--color-navy-*) — Tailwind v4 only emits a
-     theme color as a real CSS variable when a utility class references it,
-     so pointing at it from plain CSS resolves to nothing. Keep these in
-     sync with the navy/gold scale in tailwind.config.ts. */
-  --radius: 0.75rem;
-  --background: #ffffff;
-  --foreground: #0b1526; /* navy-950 */
-  --card: #ffffff;
-  --card-foreground: #0b1526; /* navy-950 */
-  --popover: #ffffff;
-  --popover-foreground: #0b1526; /* navy-950 */
-  --primary: #14243f; /* navy-900 */
-  --primary-foreground: #ffffff;
-  --secondary: #f9edc9; /* gold-100 */
-  --secondary-foreground: #14243f; /* navy-900 */
-  --muted: #f7f8fa;
-  --muted-foreground: #5b6472;
-  --accent: #f9edc9; /* gold-100 */
-  --accent-foreground: #14243f; /* navy-900 */
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #e2e6ee;
-  --input: #e2e6ee;
-  --ring: #c9a227; /* gold-500 */
-}
-
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-dm-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-heading: var(--font-dm-serif), ui-serif, Georgia, serif;
   --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -57,6 +33,533 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+  Three-layer desk — same structure as Univest / Liquide:
+  1. Canvas: near-black navy (logo field)
+  2. Boxes: one step lighter, hairline border
+  3. Text: white + muted slate
+  Gold is the 10% accent only — buttons, labels, one key word.
+*/
+:root {
+  --radius: 0.75rem;
+  /* Softened navy — less near-black, a bit more faded blue */
+  --background: #0f1729;
+  --foreground: #f4f6fb;
+  --card: #172238;
+  --card-foreground: #f4f6fb;
+  --card-highlight: #22304c;
+  --popover: #172238;
+  --popover-foreground: #f4f6fb;
+  --primary: #f5a623;
+  --primary-foreground: #0f1729;
+  --gold-from: #f5a623;
+  --gold-to: #d48a12;
+  --gold-shine: #f0c060;
+  --secondary: #1e2c44;
+  --secondary-foreground: #b7c0d4;
+  --muted: #141e32;
+  --muted-foreground: #8b97b0;
+  --accent: #22c57a;
+  --accent-foreground: #0f1729;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #2e3d5a;
+  --input: #2e3d5a;
+  --ring: #f5a623;
+  --logo-plate: transparent;
+  --logo-pad: 0px;
+
+  --primary-02: color-mix(in srgb, var(--primary) 2%, transparent);
+  --primary-03: color-mix(in srgb, var(--primary) 3%, transparent);
+  --primary-05: color-mix(in srgb, var(--primary) 5%, transparent);
+  --primary-06: color-mix(in srgb, var(--primary) 6%, transparent);
+  --primary-08: color-mix(in srgb, var(--primary) 8%, transparent);
+  --primary-10: color-mix(in srgb, var(--primary) 10%, transparent);
+  --primary-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --primary-14: color-mix(in srgb, var(--primary) 14%, transparent);
+  --primary-15: color-mix(in srgb, var(--primary) 15%, transparent);
+  --primary-20: color-mix(in srgb, var(--primary) 20%, transparent);
+  --primary-25: color-mix(in srgb, var(--primary) 25%, transparent);
+  --primary-30: color-mix(in srgb, var(--primary) 30%, transparent);
+  --primary-35: color-mix(in srgb, var(--primary) 35%, transparent);
+  --primary-40: color-mix(in srgb, var(--primary) 40%, transparent);
+  --nav-bg: color-mix(in srgb, var(--background) 88%, transparent);
+  --overlay-50: color-mix(in srgb, var(--background) 50%, transparent);
+  --overlay-55: color-mix(in srgb, var(--background) 55%, transparent);
+  --overlay-60: color-mix(in srgb, var(--background) 60%, transparent);
+  --overlay-70: color-mix(in srgb, var(--background) 70%, transparent);
+  --overlay-75: color-mix(in srgb, var(--background) 75%, transparent);
+  --overlay-80: color-mix(in srgb, var(--background) 80%, transparent);
+  --overlay-85: color-mix(in srgb, var(--background) 85%, transparent);
+  --overlay-95: color-mix(in srgb, var(--background) 95%, transparent);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #0f1729;
+}
+
+body {
+  background-color: transparent;
+  color: var(--foreground);
+  font-family: var(--font-outfit), 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.hl {
+  color: var(--primary);
+}
+
+.hl-grad {
+  background: linear-gradient(90deg, var(--gold-from), var(--gold-shine));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker 30s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.site-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: #0f1729;
+}
+
+.site-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 55% 40% at 8% 100%, rgba(90, 150, 210, 0.12) 0%, transparent 58%);
+}
+
+.site-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+.site-bg-ray {
+  position: absolute;
+  left: -6%;
+  bottom: -20%;
+  width: 16%;
+  height: 170%;
+  transform: rotate(40deg);
+  transform-origin: left bottom;
+  background: linear-gradient(
+    180deg,
+    transparent 4%,
+    rgba(120, 176, 228, 0.22) 30%,
+    rgba(140, 190, 235, 0.1) 62%,
+    transparent 90%
+  );
+  filter: blur(22px);
+}
+
+.service-orbit {
+  padding: 16px 0 8px;
+  overflow: hidden; /* contain 3D peeks — was causing page-wide horizontal scroll */
+}
+
+.orbit-stage {
+  position: relative;
+  perspective: 1100px;
+  perspective-origin: 50% 50%;
+  height: 420px;
+  width: min(640px, calc(100vw - 32px));
+  margin: 0 auto;
+  overflow: visible;
+  transform-style: preserve-3d;
+}
+
+.orbit-item {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 0.8s cubic-bezier(0.32, 0.72, 0.24, 1), opacity 0.45s ease;
+}
+
+.orbit-item.is-front {
+  transform: translateX(0) translateZ(0) rotateY(0deg);
+  z-index: 4;
+}
+
+.orbit-item.is-prev {
+  transform: translateX(-42%) translateZ(-80px) rotateY(28deg) scale(0.88);
+  z-index: 2;
+}
+
+.orbit-item.is-next {
+  transform: translateX(42%) translateZ(-80px) rotateY(-28deg) scale(0.88);
+  z-index: 2;
+}
+
+.orbit-item.is-back {
+  opacity: 0 !important;
+  pointer-events: none;
+  visibility: hidden !important;
+}
+
+@media (min-width: 768px) {
+  .orbit-stage {
+    height: 460px;
+    width: min(720px, 88vw);
+  }
+}
+
+@media (min-width: 1024px) {
+  .orbit-stage {
+    width: min(980px, 86vw);
+    height: 500px;
+    perspective: 1000px;
+  }
+
+  .orbit-item {
+    left: 8%;
+    right: 8%;
+    width: auto;
+  }
+
+  .orbit-item.is-prev {
+    transform: translateX(-46%) translateZ(-100px) rotateY(32deg) scale(0.88);
+  }
+
+  .orbit-item.is-next {
+    transform: translateX(46%) translateZ(-100px) rotateY(-32deg) scale(0.88);
+  }
+}
+
+.orbit-item:not(.is-front) .service-card-copy {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.orbit-item:not(.is-front) .service-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(15, 23, 41, 0.4);
+  border-radius: inherit;
+}
+
+.orbit-item.is-front .service-card-copy {
+  opacity: 1;
+}
+
+.orbit-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.orbit-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #8b97b0;
+  opacity: 0.5;
+  transition: width 0.25s ease, opacity 0.25s ease, background 0.25s ease;
+}
+
+.orbit-dot.is-active {
+  width: 22px;
+  background: var(--primary);
+  opacity: 1;
+}
+
+/* Full-bleed photo + bottom text overlay (original Fintech pattern) */
+.service-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  text-align: left;
+  isolation: isolate;
+  border-radius: 22px;
+  border: none;
+  background: #0f1729;
+  box-shadow: 0 16px 36px rgba(4, 12, 28, 0.4);
+  cursor: pointer;
+  padding: 0;
+}
+
+.service-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.service-card-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 41, 0.1) 0%,
+    rgba(15, 23, 41, 0.35) 45%,
+    rgba(15, 23, 41, 0.92) 100%
+  );
+}
+
+.service-card-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  height: auto;
+  max-height: 70%;
+  overflow: visible;
+  padding: 22px 22px 24px;
+  box-sizing: border-box;
+}
+
+.service-card-kicker {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.service-card-title {
+  display: block;
+  font-family: var(--font-dm-serif), 'DM Serif Display', serif;
+  font-size: clamp(1.35rem, 5vw, 1.75rem);
+  font-weight: 700;
+  color: #f4f6fb;
+  margin-bottom: 8px;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.service-card-desc {
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #b7c0d4;
+  margin-bottom: 14px;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.service-card-cta {
+  display: inline-flex;
+  width: fit-content;
+  padding: 9px 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--gold-from), var(--gold-to));
+  color: var(--primary-foreground);
+}
+
+/* Plan Free/Pro carousel — app-like swipe on mobile + desktop */
+.plan-swiper-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 4px;
+}
+
+.plan-nav-btn {
+  display: none;
+  position: absolute;
+  top: 50%;
+  z-index: 30;
+  width: 42px;
+  height: 42px;
+  margin-top: -21px;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(4, 12, 28, 0.35);
+}
+
+.plan-nav-btn--prev {
+  left: -6px;
+}
+
+.plan-nav-btn--next {
+  right: -6px;
+}
+
+@media (min-width: 768px) {
+  .plan-swiper-wrap {
+    max-width: 560px;
+    padding: 0 52px;
+  }
+
+  .plan-nav-btn {
+    display: inline-flex;
+  }
+
+  .plan-nav-btn--prev {
+    left: 0;
+  }
+
+  .plan-nav-btn--next {
+    right: 0;
+  }
+}
+
+.plan-nav-btn:hover {
+  opacity: 0.9;
+}
+
+.plan-nav-btn.swiper-button-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.plan-swiper {
+  width: 100%;
+  overflow: hidden;
+  padding-top: 18px !important;
+  padding-bottom: 48px !important;
+  /* Finger + trackpad horizontal swipe; vertical page scroll still works */
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.plan-swiper .swiper-slide,
+.plan-card {
+  /* Don’t let child transforms steal the drag gesture */
+  touch-action: pan-y;
+}
+
+.plan-swiper .swiper-wrapper {
+  align-items: stretch;
+}
+
+.plan-swiper .swiper-slide {
+  height: auto;
+  box-sizing: border-box;
+}
+
+.plan-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.plan-swiper .swiper-pagination-bullet {
+  background: #8b97b0;
+  opacity: 0.5;
+}
+
+.plan-swiper .swiper-pagination-bullet-active {
+  width: 22px;
+  border-radius: 999px;
+  background: var(--primary);
+  opacity: 1;
+}
+
+@media (min-width: 768px) {
+  .service-card {
+    border-radius: 28px;
+  }
+
+  .service-card-copy {
+    padding: 28px 28px 32px;
+    max-height: 65%;
+  }
+
+  .service-card-kicker {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    margin-bottom: 10px;
+  }
+
+  .service-card-title {
+    font-size: clamp(1.7rem, 2.6vw, 2.5rem);
+    max-width: 16ch;
+    margin-bottom: 10px;
+  }
+
+  .service-card-desc {
+    font-size: 14px;
+    max-width: 36ch;
+    margin-bottom: 18px;
+  }
+
+  .service-card-cta {
+    padding: 10px 18px;
+    font-size: 13px;
+  }
 }
 
 @layer base {
