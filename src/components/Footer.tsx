@@ -16,10 +16,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <div className="mb-4">
-              <Logo height={72} />
-              <p className="text-xs mt-2" style={{ color: 'var(--muted-foreground)' }}>
-                Knowledge Hub Private Limited
-              </p>
+              <Logo height={72} withName />
             </div>
             <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--muted-foreground)' }}>
               Helping 50,000+ retail investors in India with research notes, mutual fund explainers, and financial education.

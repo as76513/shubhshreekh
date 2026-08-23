@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body
         className="min-h-screen antialiased"
         style={{
-          background: "var(--background)",
+          background: "transparent",
           color: "var(--foreground)",
           fontFamily: "var(--font-outfit), Outfit, sans-serif",
         }}

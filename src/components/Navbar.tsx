@@ -19,7 +19,7 @@ export default function Navbar() {
   const close = () => setMenuOpen(false)
 
   return (
-    <nav
+    <header
       className="sticky top-0 z-50 border-b"
       style={{
         background: 'var(--nav-bg)',
@@ -28,14 +28,15 @@ export default function Navbar() {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-[72px]">
-          {/* Logo */}
+        <div className="flex items-center justify-between h-[76px]">
+          {/* Brand header */}
           <button
+            type="button"
             onClick={() => navigate(user ? 'dashboard' : 'landing')}
-            className="flex items-center flex-shrink-0"
-            aria-label="SHUBH SHREE home"
+            className="flex items-center flex-shrink-0 min-w-0 bg-transparent border-0 p-0 cursor-pointer"
+            aria-label="ShubhShree Knowledge Hub Pvt Ltd — home"
           >
-            <Logo height={58} />
+            <Logo height={48} withName />
           </button>
 
           {/* Desktop nav links (only when logged in) */}
@@ -168,23 +169,24 @@ export default function Navbar() {
                 )}
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <button
                   onClick={() => navigate('login')}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  className="px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
                   style={{ color: 'var(--secondary-foreground)' }}
                 >
                   Sign In
                 </button>
                 <button
                   onClick={() => navigate('login')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
+                  className="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 whitespace-nowrap"
                   style={{
                     background: 'var(--primary)',
                     color: 'var(--primary-foreground)',
                   }}
                 >
-                  Get Started Free
+                  <span className="sm:hidden">Get Started</span>
+                  <span className="hidden sm:inline">Get Started Free</span>
                 </button>
               </div>
             )}
@@ -215,6 +217,6 @@ export default function Navbar() {
           ))}
         </div>
       )}
-    </nav>
+    </header>
   )
 }

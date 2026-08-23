@@ -19,7 +19,7 @@ export default function CourseDetail({ courseId }: Props) {
   return (
     <div
       className="min-h-screen"
-      style={{ background: 'var(--background)' }}
+      style={{ background: 'transparent' }}
     >
       {/* Top bar */}
       <div

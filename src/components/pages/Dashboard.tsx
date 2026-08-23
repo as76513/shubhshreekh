@@ -14,7 +14,7 @@ export default function Dashboard() {
   return (
     <div
       className="min-h-screen"
-      style={{ background: 'var(--background)' }}
+      style={{ background: 'transparent' }}
     >
       {/* Market Ticker */}
       <div

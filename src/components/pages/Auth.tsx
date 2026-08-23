@@ -30,17 +30,34 @@ export default function Auth() {
   }
 
   const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d?$/.test(value)) return
+    // Paste / autofill may deliver multiple digits into one box
+    const digits = value.replace(/\D/g, '')
+    if (!digits) {
+      const next = [...otp]
+      next[index] = ''
+      setOtp(next)
+      return
+    }
     const next = [...otp]
-    next[index] = value
+    for (let i = 0; i < digits.length && index + i < 4; i++) {
+      next[index + i] = digits[i]
+    }
     setOtp(next)
-    if (value && index < 3) otpRefs.current[index + 1]?.focus()
+    const focusAt = Math.min(index + digits.length, 3)
+    otpRefs.current[focusAt]?.focus()
   }
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       otpRefs.current[index - 1]?.focus()
     }
+  }
+
+  const handleOtpFocus = (index: number) => {
+    otpRefs.current[index]?.scrollIntoView({
+      block: 'center',
+      behavior: 'smooth',
+    })
   }
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
@@ -66,7 +83,7 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-dvh flex">
       {/* Left branding panel */}
       <div
         className="hidden lg:flex flex-col justify-between w-[46%] p-14 relative overflow-hidden"
@@ -86,8 +103,8 @@ export default function Auth() {
         />
 
         {/* Logo */}
-        <button onClick={() => navigate('landing')} className="relative" aria-label="SHUBH SHREE home">
-          <Logo height={88} />
+        <button onClick={() => navigate('landing')} className="relative" aria-label="ShubhShree Knowledge Hub Pvt Ltd home">
+          <Logo height={96} />
         </button>
 
         {/* Main content */}
@@ -156,19 +173,19 @@ export default function Auth() {
         </p>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-14">
-        <div className="w-full max-w-sm">
+      {/* Right form panel — top-aligned on small screens so OTP stays above the keyboard */}
+      <div className="flex-1 flex flex-col items-center justify-start lg:justify-center px-5 py-8 sm:p-8 lg:p-14 overflow-y-auto">
+        <div className="w-full max-w-[22rem]">
           <button
             onClick={() => navigate('landing')}
-            className="lg:hidden mb-6"
-            aria-label="SHUBH SHREE home"
+            className="lg:hidden mb-5"
+            aria-label="ShubhShree Knowledge Hub Pvt Ltd home"
           >
             <Logo height={72} />
           </button>
           <button
             onClick={() => navigate('landing')}
-            className="flex items-center gap-1.5 text-sm mb-8 transition-colors hover:opacity-70"
+            className="flex items-center gap-1.5 text-sm mb-6 transition-colors hover:opacity-70"
             style={{ color: 'var(--muted-foreground)' }}
           >
             ← Back to home
@@ -263,12 +280,12 @@ export default function Auth() {
             </form>
           ) : (
             <form onSubmit={handleOtpSubmit} className="fade-in">
-              <div className="mb-7">
+              <div className="mb-5">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--foreground)' }}>
                   Verify your number
                 </h1>
                 <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                  OTP sent to{' '}
+                  {otpSent ? 'OTP sent to ' : 'Enter the code sent to '}
                   <span style={{ color: 'var(--foreground)', fontFamily: 'JetBrains Mono, monospace' }}>
                     +91 {phone}
                   </span>
@@ -283,51 +300,53 @@ export default function Auth() {
                 </button>
               </div>
 
-              {otpSent && (
-                <div
-                  className="flex items-center gap-2 rounded-xl px-4 py-3 mb-5 text-sm"
-                  style={{
-                    background: 'rgba(14,203,129,0.06)',
-                    border: '1px solid rgba(14,203,129,0.2)',
-                    color: 'var(--accent)',
-                  }}
-                >
-                  <span>✓</span>
-                  <span>OTP sent successfully to +91 {phone}</span>
-                </div>
-              )}
-
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-3" style={{ color: 'var(--foreground)' }}>
                   Enter 4-digit OTP
                 </label>
-                <div className="flex gap-3">
+                {/* Fixed box size — native input size=20 was overflowing the row off-screen */}
+                <div className="flex justify-between gap-2 sm:gap-3 max-w-[18rem] mx-auto">
                   {otp.map((digit, i) => (
                     <input
                       key={i}
                       ref={el => { otpRefs.current[i] = el }}
                       type="text"
                       inputMode="numeric"
+                      autoComplete={i === 0 ? 'one-time-code' : 'off'}
                       maxLength={1}
+                      size={1}
                       value={digit}
+                      aria-label={`OTP digit ${i + 1}`}
                       onChange={e => handleOtpChange(i, e.target.value)}
                       onKeyDown={e => handleOtpKeyDown(i, e)}
-                      className="flex-1 h-14 text-center text-xl font-bold rounded-xl outline-none transition-all"
+                      onFocus={e => {
+                        handleOtpFocus(i)
+                        e.currentTarget.style.border = '2px solid var(--primary)'
+                      }}
+                      onBlur={e => {
+                        if (!otp[i]) {
+                          e.currentTarget.style.border = '1.5px solid #6b7f9e'
+                        }
+                      }}
+                      className="otp-digit h-14 w-12 sm:w-14 shrink-0 text-center text-xl font-bold rounded-xl outline-none transition-all"
                       style={{
-                        background: 'var(--secondary)',
-                        border: digit ? '2px solid var(--primary)' : '1px solid var(--border)',
+                        background: '#243552',
+                        border: digit
+                          ? '2px solid var(--primary)'
+                          : '1.5px solid #6b7f9e',
                         color: 'var(--foreground)',
+                        caretColor: 'var(--primary)',
                         fontFamily: 'JetBrains Mono, monospace',
                       }}
                     />
                   ))}
                 </div>
                 {error && (
-                  <p className="text-xs mt-1.5" style={{ color: '#f87171' }}>
+                  <p className="text-xs mt-1.5 text-center" style={{ color: '#f87171' }}>
                     {error}
                   </p>
                 )}
-                <p className="text-xs mt-2" style={{ color: 'var(--muted-foreground)' }}>
+                <p className="text-xs mt-2 text-center" style={{ color: 'var(--muted-foreground)' }}>
                   Enter any 4 digits for this demo
                 </p>
               </div>
