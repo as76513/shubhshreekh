@@ -60,7 +60,9 @@
   --radius: 0.75rem;
   --background: #e2e8f0;
   --surface: #ffffff;
-  --surface-secondary: #f1f5f9;
+  /* Cool mist fills — intentionally cooler/greyer than white so cards don’t bleach */
+  --surface-secondary: #dde5f0;
+  --surface-inset: #d0dae8;
   --foreground: #0b2438;
   --card: #0b2438;
   --card-foreground: #f8fafc;
@@ -262,10 +264,11 @@ footer {
   to { transform: rotate(360deg); }
 }
 
-/* Elevated reading surface */
+/* Elevated reading surface — cool mist slate (not white) */
 .surface-card {
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, #0b2438 12%, transparent);
+  background-color: var(--surface-secondary);
+  background: var(--surface-secondary);
+  border: 1px solid color-mix(in srgb, #0b2438 14%, transparent);
   box-shadow: var(--shadow-md);
   color: var(--foreground);
   transition: box-shadow 0.3s var(--ease-settle), transform 0.3s var(--ease-settle);
@@ -383,6 +386,28 @@ footer {
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   mix-blend-mode: soft-light;
+}
+
+/* App pages: dashboard, insights, MF, courses, videos */
+.site-bg--cream {
+  background:
+    linear-gradient(
+      165deg,
+      #fafafa 0%,
+      #f5f5f4 42%,
+      #efeeec 100%
+    );
+}
+
+.site-bg--cream::before {
+  background:
+    radial-gradient(ellipse 70% 42% at 88% -8%, rgba(15, 118, 110, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 38% at 8% 92%, rgba(11, 36, 56, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 42% 32% at 48% 38%, rgba(184, 134, 11, 0.03) 0%, transparent 60%);
+}
+
+.site-bg--cream::after {
+  opacity: 0.08;
 }
 
 .site-bg-ray,
@@ -602,7 +627,7 @@ footer {
   font-size: 12px;
   font-weight: 600;
   background: linear-gradient(135deg, var(--gold-from), var(--gold-to));
-  color: var(--primary-foreground);
+  color: #0b2438;
 }
 
 /* Plan Free/Pro carousel — app-like swipe on mobile + desktop */

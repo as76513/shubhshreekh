@@ -42,8 +42,7 @@ export default function Courses() {
           {!isPro && (
             <button
               onClick={onUpgrade}
-              className="flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+              className="btn-pro flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold"
             >
               ✦ Get All Courses
             </button>
@@ -58,12 +57,12 @@ export default function Courses() {
           ].map(s => (
             <div
               key={s.label}
-              className="rounded-xl p-4 text-center"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              className="surface-card rounded-xl p-4 text-center"
+              style={{ borderTop: '3px solid var(--primary)' }}
             >
               <p
                 className="text-2xl font-bold mb-0.5"
-                style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}
+                style={{ color: 'var(--foreground)', fontFamily: 'JetBrains Mono, monospace' }}
               >
                 {s.value}
               </p>
@@ -81,7 +80,7 @@ export default function Courses() {
             onClick={() => setLevel(l)}
             className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: level === l ? 'var(--card)' : 'transparent',
+              background: level === l ? 'var(--surface-secondary)' : 'transparent',
               color: level === l ? 'var(--foreground)' : 'var(--muted-foreground)',
               border: `1px solid ${level === l ? 'var(--border)' : 'transparent'}`,
             }}
@@ -98,7 +97,7 @@ export default function Courses() {
             onClick={() => setCat(c)}
             className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
-              background: cat === c ? 'var(--primary-12)' : 'var(--card)',
+              background: cat === c ? 'var(--primary-12)' : 'var(--surface-secondary)',
               color: cat === c ? 'var(--primary)' : 'var(--muted-foreground)',
               border: `1px solid ${cat === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
@@ -127,8 +126,7 @@ export default function Courses() {
           </p>
           <button
             onClick={onUpgrade}
-            className="px-8 py-3 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+            className="btn-pro px-8 py-3 rounded-xl font-semibold text-sm"
           >
             Upgrade to Pro · ₹999/month
           </button>

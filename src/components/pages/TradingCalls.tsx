@@ -44,11 +44,7 @@ export default function TradingCalls() {
           {!isPro && (
             <button
               onClick={onUpgrade}
-              className="flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{
-                background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))',
-                color: 'var(--primary-foreground)',
-              }}
+              className="btn-pro flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold"
             >
               ✦ Unlock All
             </button>
@@ -64,12 +60,12 @@ export default function TradingCalls() {
           ].map(s => (
             <div
               key={s.label}
-              className="rounded-xl p-4 text-center"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              className="surface-card rounded-xl p-4 text-center"
+              style={{ borderTop: '3px solid var(--primary)' }}
             >
               <p
                 className="text-2xl font-bold mb-0.5"
-                style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}
+                style={{ color: 'var(--foreground)', fontFamily: 'JetBrains Mono, monospace' }}
               >
                 {s.value}
               </p>
@@ -83,15 +79,23 @@ export default function TradingCalls() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-6">
-        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-secondary)', border: '1px solid var(--border)' }}>
           {(['All', 'BUY', 'SELL'] as const).map(a => (
             <button
               key={a}
               onClick={() => setAction(a)}
               className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
               style={{
-                background: action === a ? (a === 'BUY' ? 'rgba(14,203,129,0.15)' : a === 'SELL' ? 'rgba(248,113,113,0.15)' : 'var(--secondary)') : 'transparent',
-                color: action === a ? (a === 'BUY' ? 'var(--accent)' : a === 'SELL' ? '#f87171' : 'var(--foreground)') : 'var(--muted-foreground)',
+                background: action === a
+                  ? (a === 'BUY'
+                    ? 'color-mix(in srgb, var(--accent) 14%, transparent)'
+                    : a === 'SELL'
+                      ? 'color-mix(in srgb, var(--destructive) 12%, transparent)'
+                      : 'var(--secondary)')
+                  : 'transparent',
+                color: action === a
+                  ? (a === 'BUY' ? 'var(--accent)' : a === 'SELL' ? 'var(--destructive)' : 'var(--foreground)')
+                  : 'var(--muted-foreground)',
               }}
             >
               {a}
@@ -106,7 +110,7 @@ export default function TradingCalls() {
               onClick={() => setTimeframe(t)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
               style={{
-                background: timeframe === t ? 'var(--card)' : 'transparent',
+                background: timeframe === t ? 'var(--surface-secondary)' : 'transparent',
                 color: timeframe === t ? 'var(--foreground)' : 'var(--muted-foreground)',
                 border: `1px solid ${timeframe === t ? 'var(--border)' : 'transparent'}`,
               }}
@@ -125,7 +129,7 @@ export default function TradingCalls() {
             onClick={() => setCategory(c)}
             className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
-              background: category === c ? 'var(--primary-12)' : 'var(--card)',
+              background: category === c ? 'var(--primary-12)' : 'var(--surface-secondary)',
               color: category === c ? 'var(--primary)' : 'var(--muted-foreground)',
               border: `1px solid ${category === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
@@ -139,126 +143,170 @@ export default function TradingCalls() {
       <div className="space-y-3">
         {filtered.map(call => {
           const locked = call.isPro && !isPro
+          const isBuy = call.action === 'BUY'
+          const range = Math.abs(call.target - call.stopLoss) || 1
+          const progress = Math.min(
+            100,
+            Math.max(0, ((call.cmp - Math.min(call.stopLoss, call.target)) / range) * 100),
+          )
+          const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
+
           return (
             <div
               key={call.id}
-              className="relative rounded-2xl p-5 transition-all"
+              className="surface-card relative rounded-2xl p-4 sm:p-5 transition-all"
               style={{
-                background: 'var(--card)',
-                border: locked ? '1px solid var(--border)' : `1px solid ${call.action === 'BUY' ? 'rgba(14,203,129,0.15)' : 'rgba(248,113,113,0.15)'}`,
+                background: 'var(--surface-secondary)',
+                border: locked
+                  ? '1px solid color-mix(in srgb, #0b2438 14%, transparent)'
+                  : `1px solid ${isBuy ? 'color-mix(in srgb, var(--accent) 22%, transparent)' : 'color-mix(in srgb, var(--destructive) 22%, transparent)'}`,
                 opacity: locked ? 0.75 : 1,
               }}
             >
               {locked && (
                 <div
                   className="absolute inset-0 rounded-2xl flex items-center justify-center z-10 cursor-pointer"
-                  style={{ background: 'var(--overlay-75)', backdropFilter: 'blur(4px)' }}
+                  style={{
+                    background: 'color-mix(in srgb, var(--surface) 55%, transparent)',
+                    backdropFilter: 'blur(6px)',
+                    WebkitBackdropFilter: 'blur(6px)',
+                  }}
                   onClick={onUpgrade}
                 >
                   <div className="text-center">
-                    <div className="text-3xl mb-2">🔒</div>
-                    <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
                       Pro Content
                     </p>
-                    <button
-                      className="mt-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-90"
-                      style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-                    >
+                    <button className="btn-pro mt-2 px-4 py-1.5 rounded-lg text-xs font-semibold">
                       Upgrade to Unlock →
                     </button>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-start gap-4">
-                {/* Action badge */}
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-                  style={{
-                    background: call.action === 'BUY' ? 'rgba(14,203,129,0.1)' : 'rgba(248,113,113,0.1)',
-                    color: call.action === 'BUY' ? 'var(--accent)' : '#f87171',
-                    border: `1px solid ${call.action === 'BUY' ? 'rgba(14,203,129,0.2)' : 'rgba(248,113,113,0.2)'}`,
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}
-                >
-                  {call.action}
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span
+                      className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md"
+                      style={{
+                        background: isBuy
+                          ? 'color-mix(in srgb, var(--accent) 14%, transparent)'
+                          : 'color-mix(in srgb, var(--destructive) 12%, transparent)',
+                        color: isBuy ? 'var(--accent)' : 'var(--destructive)',
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}
+                    >
+                      {call.action}
+                    </span>
+                    <span
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                      style={{
+                        background: call.status === 'Active'
+                          ? 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                          : 'var(--primary-08)',
+                        color: call.status === 'Active' ? 'var(--accent)' : 'var(--primary)',
+                      }}
+                    >
+                      {call.status}
+                    </span>
+                    <span className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>
+                      {call.category} · {call.timeframe}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-base leading-tight truncate" style={{ color: 'var(--foreground)' }}>
+                    {call.stock}
+                  </h3>
+                  <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-foreground)' }}>
+                    {call.symbol} · {call.date}
+                  </p>
                 </div>
 
-                {/* Main info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <h3 className="font-bold text-base" style={{ color: 'var(--foreground)' }}>
-                        {call.stock}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span
-                          className="text-xs font-mono"
-                          style={{ color: 'var(--muted-foreground)' }}
-                        >
-                          {call.symbol}
-                        </span>
-                        <span
-                          className="text-xs px-1.5 py-0.5 rounded"
-                          style={{
-                            background: 'var(--secondary)',
-                            color: 'var(--muted-foreground)',
-                          }}
-                        >
-                          {call.category}
-                        </span>
-                        <span
-                          className="text-xs px-1.5 py-0.5 rounded"
-                          style={{
-                            background: call.status === 'Active' ? 'rgba(14,203,129,0.08)' : 'var(--primary-08)',
-                            color: call.status === 'Active' ? 'var(--accent)' : 'var(--primary)',
-                          }}
-                        >
-                          {call.status}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p
-                        className="text-xl font-bold"
-                        style={{ color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}
-                      >
-                        +{call.returnsPct}%
-                      </p>
-                      <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                        target return
-                      </p>
-                    </div>
-                  </div>
+                <div
+                  className="flex-shrink-0 text-right px-3 py-2 rounded-xl"
+                  style={{
+                    background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)',
+                  }}
+                >
+                  <p
+                    className="delta-up text-lg font-bold leading-none"
+                    style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                  >
+                    {call.returnsPct > 0 ? '+' : ''}{call.returnsPct}%
+                  </p>
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                    expected
+                  </p>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { label: 'CMP', value: `₹${call.cmp.toLocaleString('en-IN')}` },
-                      { label: 'Target', value: `₹${call.target.toLocaleString('en-IN')}`, positive: true },
-                      { label: 'Stop Loss', value: `₹${call.stopLoss.toLocaleString('en-IN')}`, negative: true },
-                    ].map(p => (
-                      <div key={p.label}>
-                        <p className="text-xs mb-0.5" style={{ color: 'var(--muted-foreground)' }}>
-                          {p.label}
-                        </p>
-                        <p
-                          className="text-sm font-semibold"
-                          style={{
-                            color: p.positive ? 'var(--accent)' : p.negative ? '#f87171' : 'var(--foreground)',
-                            fontFamily: 'JetBrains Mono, monospace',
-                          }}
-                        >
-                          {p.value}
-                        </p>
-                      </div>
-                    ))}
+              {/* Price ladder */}
+              <div
+                className="rounded-xl px-3.5 py-3 mb-3"
+                style={{ background: 'var(--surface-inset)', border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-end justify-between gap-2 mb-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-foreground)' }}>
+                      Stop loss
+                    </p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: 'var(--destructive)', fontFamily: 'JetBrains Mono, monospace' }}
+                    >
+                      {fmt(call.stopLoss)}
+                    </p>
                   </div>
+                  <div className="text-center">
+                    <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-foreground)' }}>
+                      CMP
+                    </p>
+                    <p
+                      className="text-sm font-bold"
+                      style={{ color: 'var(--foreground)', fontFamily: 'JetBrains Mono, monospace' }}
+                    >
+                      {fmt(call.cmp)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-foreground)' }}>
+                      Target
+                    </p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}
+                    >
+                      {fmt(call.target)}
+                    </p>
+                  </div>
+                </div>
 
-                  <div className="flex items-center gap-3 mt-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                    <span>{call.timeframe}</span>
-                    <span>·</span>
-                    <span>{call.date}</span>
-                  </div>
+                <div
+                  className="relative h-2 rounded-full overflow-hidden"
+                  style={{ background: 'color-mix(in srgb, #0b2438 10%, transparent)' }}
+                  aria-hidden
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: '100%',
+                      background: isBuy
+                        ? 'linear-gradient(90deg, color-mix(in srgb, var(--destructive) 35%, transparent), color-mix(in srgb, var(--accent) 45%, transparent))'
+                        : 'linear-gradient(90deg, color-mix(in srgb, var(--accent) 35%, transparent), color-mix(in srgb, var(--destructive) 45%, transparent))',
+                    }}
+                  />
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full"
+                    style={{
+                      left: `calc(${progress}% - 7px)`,
+                      background: 'var(--foreground)',
+                      border: '2.5px solid #fff',
+                      boxShadow: '0 0 0 2px color-mix(in srgb, #0b2438 28%, transparent), 0 1px 3px rgba(11,36,56,0.25)',
+                    }}
+                    title="CMP"
+                  />
                 </div>
               </div>
             </div>
@@ -283,8 +331,7 @@ export default function TradingCalls() {
           </p>
           <button
             onClick={onUpgrade}
-            className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+            className="btn-pro px-6 py-2.5 rounded-xl font-semibold text-sm"
           >
             Upgrade to Pro · ₹999/month
           </button>

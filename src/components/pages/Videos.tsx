@@ -49,8 +49,7 @@ export default function Videos() {
           {!isPro && (
             <button
               onClick={onUpgrade}
-              className="flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+              className="btn-pro flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold"
             >
               ✦ Unlock All
             </button>
@@ -61,8 +60,7 @@ export default function Videos() {
       {/* Featured / Active Video Player */}
       {activeVideo && (
         <div
-          className="rounded-2xl overflow-hidden mb-8"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+          className="surface-card rounded-2xl overflow-hidden mb-8"
         >
           {(() => {
             const v = videos.find(v => v.id === activeVideo)
@@ -77,7 +75,7 @@ export default function Videos() {
                   <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
                   <div
                     className="absolute inset-0 flex flex-col items-center justify-center gap-3"
-                    style={{ background: 'var(--overlay-70)' }}
+                    style={{ background: 'color-mix(in srgb, var(--surface) 72%, transparent)' }}
                   >
                     <div
                       className="w-16 h-16 rounded-full flex items-center justify-center text-2xl"
@@ -92,7 +90,7 @@ export default function Videos() {
                   <button
                     onClick={() => setActiveVideo(null)}
                     className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all hover:scale-110"
-                    style={{ background: 'var(--overlay-70)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
+                    style={{ background: 'color-mix(in srgb, var(--surface) 72%, transparent)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                   >
                     ✕
                   </button>
@@ -119,7 +117,7 @@ export default function Videos() {
             onClick={() => setCategory(c)}
             className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
-              background: category === c ? 'var(--primary-12)' : 'var(--card)',
+              background: category === c ? 'var(--primary-12)' : 'var(--surface-secondary)',
               color: category === c ? 'var(--primary)' : 'var(--muted-foreground)',
               border: `1px solid ${category === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
@@ -137,10 +135,10 @@ export default function Videos() {
           return (
             <div
               key={v.id}
-              className="rounded-xl overflow-hidden cursor-pointer group transition-all hover:-translate-y-1"
+              className="surface-card rounded-xl overflow-hidden cursor-pointer group transition-all hover:-translate-y-1"
               style={{
-                background: 'var(--card)',
-                border: isActive ? '1px solid var(--primary-40)' : '1px solid var(--border)',
+                background: 'var(--surface-secondary)',
+                border: isActive ? '1px solid var(--primary-40)' : undefined,
               }}
               onClick={() => handlePlay(v.id, v.isPro)}
             >
@@ -156,11 +154,11 @@ export default function Videos() {
                 />
                 <div
                   className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                  style={{ background: 'var(--overlay-55)' }}
+                  style={{ background: 'color-mix(in srgb, var(--surface) 55%, transparent)' }}
                 >
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center"
-                    style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
+                    style={{ background: 'var(--primary)', color: '#fff' }}
                   >
                     {locked ? '🔒' : '▶'}
                   </div>
@@ -180,14 +178,14 @@ export default function Videos() {
                 )}
                 <div
                   className="absolute bottom-2 right-2 text-xs px-1.5 py-0.5 rounded font-mono"
-                  style={{ background: 'var(--overlay-85)', color: 'var(--foreground)' }}
+                  style={{ background: 'color-mix(in srgb, var(--surface) 88%, transparent)', color: 'var(--foreground)' }}
                 >
                   {v.duration}
                 </div>
                 {v.isPro && (
                   <div
                     className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full font-bold"
-                    style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: '#0b2438' }}
                   >
                     PRO
                   </div>
@@ -242,8 +240,7 @@ export default function Videos() {
           </p>
           <button
             onClick={onUpgrade}
-            className="px-8 py-3 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+            className="btn-pro px-8 py-3 rounded-xl font-semibold text-sm"
           >
             Upgrade to Pro · ₹999/month
           </button>

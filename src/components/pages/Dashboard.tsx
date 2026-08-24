@@ -135,7 +135,7 @@ export default function Dashboard() {
                 <div
                   key={call.id}
                   className="rounded-xl p-3.5"
-                  style={{ background: 'var(--surface-secondary)', border: '1px solid var(--border)' }}
+                  style={{ background: 'var(--surface-inset)', border: '1px solid var(--border)' }}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span
@@ -221,7 +221,7 @@ export default function Dashboard() {
                 <div
                   key={call.id}
                   className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ background: 'var(--surface-secondary)' }}
+                  style={{ background: 'var(--surface-inset)' }}
                 >
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
@@ -294,7 +294,7 @@ export default function Dashboard() {
                 <div
                   key={alert.id}
                   className="p-3 rounded-xl"
-                  style={{ background: 'var(--surface-secondary)' }}
+                  style={{ background: 'var(--surface-inset)' }}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span

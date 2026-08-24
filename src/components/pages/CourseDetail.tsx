@@ -25,7 +25,7 @@ export default function CourseDetail({ courseId }: Props) {
       <div
         className="sticky top-0 z-40 flex items-center gap-3 px-4 sm:px-6 py-3"
         style={{
-          background: 'var(--overlay-95)',
+          background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
           borderBottom: '1px solid var(--border)',
           backdropFilter: 'blur(12px)',
         }}
@@ -44,7 +44,7 @@ export default function CourseDetail({ courseId }: Props) {
         {course.isPro && (
           <span
             className="ml-auto flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-bold"
-            style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+            style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: '#0b2438' }}
           >
             PRO
           </span>
@@ -57,12 +57,8 @@ export default function CourseDetail({ courseId }: Props) {
           <div className="lg:col-span-2">
             {/* Video Player */}
             <div
-              className="relative rounded-2xl overflow-hidden mb-6"
-              style={{
-                aspectRatio: '16/9',
-                background: 'var(--card)',
-                border: '1px solid var(--border)',
-              }}
+              className="surface-card relative rounded-2xl overflow-hidden mb-6"
+              style={{ aspectRatio: '16/9' }}
             >
               {canAccess ? (
                 <>
@@ -73,7 +69,7 @@ export default function CourseDetail({ courseId }: Props) {
                   />
                   <div
                     className="absolute inset-0 flex items-center justify-center"
-                    style={{ background: playing ? 'transparent' : 'var(--overlay-55)' }}
+                    style={{ background: playing ? 'transparent' : 'color-mix(in srgb, var(--surface) 55%, transparent)' }}
                   >
                     {!playing && (
                       <button
@@ -81,7 +77,7 @@ export default function CourseDetail({ courseId }: Props) {
                         className="w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all hover:scale-110"
                         style={{
                           background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))',
-                          color: 'var(--primary-foreground)',
+                          color: '#0b2438',
                         }}
                       >
                         ▶
@@ -91,7 +87,7 @@ export default function CourseDetail({ courseId }: Props) {
                       <div className="w-full h-full flex flex-col items-center justify-center gap-3">
                         <div
                           className="w-14 h-14 rounded-full flex items-center justify-center"
-                          style={{ background: 'var(--overlay-80)', border: '1px solid var(--border)' }}
+                          style={{ background: 'color-mix(in srgb, var(--surface) 82%, transparent)', border: '1px solid var(--border)' }}
                         >
                           <span style={{ color: 'var(--primary)', fontSize: '20px' }}>♪</span>
                         </div>
@@ -130,10 +126,7 @@ export default function CourseDetail({ courseId }: Props) {
                     <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
                       Upgrade to Pro to access this course
                     </p>
-                    <button
-                      className="px-6 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-                      style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
-                    >
+                    <button className="btn-pro px-6 py-2.5 rounded-xl font-semibold text-sm">
                       Upgrade to Pro
                     </button>
                   </div>
@@ -168,8 +161,7 @@ export default function CourseDetail({ courseId }: Props) {
 
             {/* What you'll learn */}
             <div
-              className="rounded-2xl p-6 mb-6"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              className="surface-card rounded-2xl p-6 mb-6"
             >
               <h2 className="font-bold mb-4" style={{ color: 'var(--foreground)' }}>
                 What you'll learn
@@ -192,16 +184,10 @@ export default function CourseDetail({ courseId }: Props) {
             </div>
 
             {/* Chapters */}
-            <div
-              className="rounded-2xl overflow-hidden"
-              style={{ border: '1px solid var(--border)' }}
-            >
+            <div className="surface-card rounded-2xl overflow-hidden">
               <div
                 className="px-5 py-4"
-                style={{
-                  background: 'var(--card)',
-                  borderBottom: '1px solid var(--border)',
-                }}
+                style={{ borderBottom: '1px solid var(--border)' }}
               >
                 <h2 className="font-bold" style={{ color: 'var(--foreground)' }}>
                   Course Content — {course.lessons} lessons · {course.duration}
@@ -214,7 +200,7 @@ export default function CourseDetail({ courseId }: Props) {
                     key={i}
                     className="flex items-center gap-4 px-5 py-4 cursor-pointer transition-all"
                     style={{
-                      background: activeChapter === i ? 'var(--primary-05)' : 'var(--card)',
+                      background: activeChapter === i ? 'var(--primary-05)' : 'var(--surface-secondary)',
                       borderBottom: i < course.chapters.length - 1 ? '1px solid var(--border)' : 'none',
                     }}
                     onClick={() => {
@@ -259,10 +245,7 @@ export default function CourseDetail({ courseId }: Props) {
 
           {/* Sidebar */}
           <div>
-            <div
-              className="sticky top-20 rounded-2xl overflow-hidden"
-              style={{ border: '1px solid var(--border)' }}
-            >
+            <div className="surface-card sticky top-20 rounded-2xl overflow-hidden">
               <div className="relative h-40 overflow-hidden">
                 <img
                   src={course.thumbnail}
@@ -271,11 +254,11 @@ export default function CourseDetail({ courseId }: Props) {
                 />
                 <div
                   className="absolute inset-0"
-                  style={{ background: 'linear-gradient(to top, var(--overlay-80) 0%, transparent 50%)' }}
+                  style={{ background: 'linear-gradient(to top, color-mix(in srgb, var(--surface) 82%, transparent) 0%, transparent 50%)' }}
                 />
               </div>
 
-              <div className="p-5" style={{ background: 'var(--card)' }}>
+              <div className="p-5">
                 <div className="mb-5">
                   {course.isPro ? (
                     <p className="text-2xl font-bold" style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -294,16 +277,14 @@ export default function CourseDetail({ courseId }: Props) {
                 {canAccess ? (
                   <button
                     onClick={() => setPlaying(true)}
-                    className="w-full py-3 rounded-xl font-semibold text-sm transition-all hover:opacity-90 mb-3"
-                    style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+                    className="btn-pro w-full py-3 rounded-xl font-semibold text-sm mb-3"
                   >
                     ▶ Start Learning
                   </button>
                 ) : (
                   <button
                     onClick={onUpgrade}
-                    className="w-full py-3 rounded-xl font-semibold text-sm transition-all hover:opacity-90 mb-3"
-                    style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+                    className="btn-pro w-full py-3 rounded-xl font-semibold text-sm mb-3"
                   >
                     ✦ Upgrade to Access
                   </button>

@@ -8,8 +8,8 @@ const categories = ['All', 'Small Cap', 'Large Cap', 'Mid Cap', 'Flexi Cap', 'In
 const actions = ['All', 'INVEST', 'SIP', 'SWITCH']
 
 const actionColors: Record<string, { bg: string; text: string }> = {
-  INVEST: { bg: 'rgba(14,203,129,0.12)', text: '#0ECB81' },
-  SIP: { bg: 'rgba(99,102,241,0.12)', text: '#818cf8' },
+  INVEST: { bg: 'color-mix(in srgb, var(--accent) 14%, transparent)', text: 'var(--accent)' },
+  SIP: { bg: 'color-mix(in srgb, var(--primary) 14%, transparent)', text: 'var(--primary)' },
   SWITCH: { bg: 'var(--primary-12)', text: 'var(--primary)' },
 }
 
@@ -47,8 +47,7 @@ export default function MFAlerts() {
           {!isPro && (
             <button
               onClick={onUpgrade}
-              className="flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+              className="btn-pro flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold"
             >
               ✦ Unlock All
             </button>
@@ -63,12 +62,12 @@ export default function MFAlerts() {
           ].map(s => (
             <div
               key={s.label}
-              className="rounded-xl p-4 text-center"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              className="surface-card rounded-xl p-4 text-center"
+              style={{ borderTop: '3px solid var(--primary)' }}
             >
               <p
                 className="text-2xl font-bold mb-0.5"
-                style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}
+                style={{ color: 'var(--foreground)', fontFamily: 'JetBrains Mono, monospace' }}
               >
                 {s.value}
               </p>
@@ -88,7 +87,7 @@ export default function MFAlerts() {
             onClick={() => setAction(a)}
             className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
             style={{
-              background: action === a ? (a !== 'All' ? (actionColors[a]?.bg || 'var(--card)') : 'var(--card)') : 'transparent',
+              background: action === a ? (a !== 'All' ? (actionColors[a]?.bg || 'var(--surface-secondary)') : 'var(--surface-secondary)') : 'transparent',
               color: action === a ? (a !== 'All' ? (actionColors[a]?.text || 'var(--foreground)') : 'var(--foreground)') : 'var(--muted-foreground)',
               border: `1px solid ${action === a ? 'var(--border)' : 'transparent'}`,
             }}
@@ -105,7 +104,7 @@ export default function MFAlerts() {
             onClick={() => setCategory(c)}
             className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
-              background: category === c ? 'var(--primary-12)' : 'var(--card)',
+              background: category === c ? 'var(--primary-12)' : 'var(--surface-secondary)',
               color: category === c ? 'var(--primary)' : 'var(--muted-foreground)',
               border: `1px solid ${category === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
@@ -123,28 +122,27 @@ export default function MFAlerts() {
           return (
             <div
               key={alert.id}
-              className="relative rounded-2xl p-6 transition-all"
+              className="surface-card relative rounded-2xl p-6 transition-all"
               style={{
-                background: 'var(--card)',
-                border: '1px solid var(--border)',
+                background: 'var(--surface-secondary)',
                 opacity: locked ? 0.7 : 1,
               }}
             >
               {locked && (
                 <div
                   className="absolute inset-0 rounded-2xl flex items-center justify-center z-10 cursor-pointer"
-                  style={{ background: 'var(--overlay-80)', backdropFilter: 'blur(4px)' }}
+                  style={{
+                    background: 'color-mix(in srgb, var(--surface) 55%, transparent)',
+                    backdropFilter: 'blur(6px)',
+                    WebkitBackdropFilter: 'blur(6px)',
+                  }}
                   onClick={onUpgrade}
                 >
                   <div className="text-center">
-                    <div className="text-3xl mb-2">🔒</div>
                     <p className="text-sm font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                       Pro Exclusive
                     </p>
-                    <button
-                      className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-90"
-                      style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-                    >
+                    <button className="btn-pro px-4 py-1.5 rounded-lg text-xs font-semibold">
                       Upgrade to Unlock
                     </button>
                   </div>
@@ -265,8 +263,7 @@ export default function MFAlerts() {
           </p>
           <button
             onClick={onUpgrade}
-            className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: 'var(--primary-foreground)' }}
+            className="btn-pro px-6 py-2.5 rounded-xl font-semibold text-sm"
           >
             Upgrade to Pro · ₹999/month
           </button>
