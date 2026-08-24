@@ -37,37 +37,48 @@ export default function UpgradeModal() {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'var(--overlay-85)', backdropFilter: 'blur(8px)' }}
+      style={{
+        background: 'color-mix(in srgb, #0b2438 55%, transparent)',
+        backdropFilter: 'blur(10px)',
+      }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-6 relative"
+        className="w-full max-w-md rounded-2xl p-6 relative fade-in"
         style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 25px 80px rgba(0,0,0,0.5)',
+          background: 'var(--surface)',
+          border: '1px solid color-mix(in srgb, var(--gold) 35%, var(--border))',
+          boxShadow: 'var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--gold) 12%, transparent)',
         }}
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-labelledby="upgrade-title"
       >
-        {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-secondary"
-          style={{ color: 'var(--muted-foreground)' }}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+          style={{ color: 'var(--muted-foreground)', background: 'var(--surface-secondary)' }}
+          aria-label="Close"
         >
           ✕
         </button>
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
-            style={{ background: 'var(--primary-12)', border: '1px solid var(--primary-25)' }}
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold"
+            style={{
+              background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))',
+              color: '#0b2438',
+            }}
           >
             ✦
           </div>
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>
+            <h2
+              id="upgrade-title"
+              className="text-lg font-bold"
+              style={{ color: 'var(--foreground)' }}
+            >
               Upgrade to Pro
             </h2>
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
@@ -76,27 +87,34 @@ export default function UpgradeModal() {
           </div>
         </div>
 
-        {/* Billing toggle */}
+        {/* iOS-style segment on light surface */}
         <div
           className="flex items-center gap-1 p-1 rounded-xl mb-5"
           style={{ background: 'var(--secondary)' }}
+          role="tablist"
         >
           {(['monthly', 'yearly'] as const).map(b => (
             <button
               key={b}
+              role="tab"
+              aria-selected={billing === b}
               onClick={() => setBilling(b)}
               className="flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-all flex items-center justify-center gap-2"
               style={{
-                background: billing === b ? 'var(--card)' : 'transparent',
+                background: billing === b ? 'var(--surface)' : 'transparent',
                 color: billing === b ? 'var(--foreground)' : 'var(--muted-foreground)',
-                border: billing === b ? '1px solid var(--border)' : '1px solid transparent',
+                boxShadow: billing === b ? 'var(--shadow-sm)' : 'none',
+                fontWeight: billing === b ? 600 : 500,
               }}
             >
               {b}
               {b === 'yearly' && (
                 <span
-                  className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
-                  style={{ background: 'rgba(14,203,129,0.12)', color: 'var(--accent)' }}
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                  style={{
+                    background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+                    color: 'var(--accent)',
+                  }}
                 >
                   Save {saving}%
                 </span>
@@ -105,13 +123,12 @@ export default function UpgradeModal() {
           ))}
         </div>
 
-        {/* Price */}
         <div className="mb-5 text-center">
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-xl font-bold" style={{ color: 'var(--muted-foreground)' }}>₹</span>
             <span
               className="text-5xl font-bold"
-              style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}
+              style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace' }}
             >
               {price.toLocaleString('en-IN')}
             </span>
@@ -124,32 +141,32 @@ export default function UpgradeModal() {
           )}
         </div>
 
-        {/* Features */}
-        <div className="mb-6 space-y-2">
+        <div
+          className="mb-6 space-y-2.5 max-h-[40vh] overflow-y-auto pr-1"
+          style={{ scrollbarWidth: 'thin' }}
+        >
           {proFeatures.map(f => (
             <div key={f} className="flex items-center gap-2.5">
               <span
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-                style={{ background: 'rgba(14,203,129,0.12)', color: 'var(--accent)' }}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 font-bold"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+                  color: 'var(--accent)',
+                }}
               >
                 ✓
               </span>
-              <span className="text-sm" style={{ color: 'var(--secondary-foreground)' }}>
+              <span className="text-sm" style={{ color: 'var(--foreground)' }}>
                 {f}
               </span>
             </div>
           ))}
         </div>
 
-        {/* CTA */}
         <button
           onClick={handleUpgrade}
           disabled={loading}
-          className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-60"
-          style={{
-            background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))',
-            color: 'var(--primary-foreground)',
-          }}
+          className="btn-pro w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {loading ? (
             <>

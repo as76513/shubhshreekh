@@ -86,7 +86,7 @@ export default function Auth() {
     <div className="min-h-dvh flex">
       {/* Left branding panel */}
       <div
-        className="hidden lg:flex flex-col justify-between w-[46%] p-14 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between w-[46%] p-14 relative overflow-hidden card-surface"
         style={{ background: 'var(--card)' }}
       >
         <div
@@ -107,68 +107,36 @@ export default function Auth() {
           <Logo height={96} />
         </button>
 
-        {/* Main content */}
+        {/* Main content — calm, one idea */}
         <div className="relative">
           <h2
-            className="text-4xl font-bold leading-snug mb-8"
-            style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
+            className="text-3xl lg:text-4xl font-bold leading-snug mb-6"
+            style={{ fontFamily: 'DM Serif Display, serif', color: '#ffffff' }}
           >
-            INVEST today. <span className="hl">GROW</span> tomorrow. Let's build your financial future together.
+            Invest with clarity.<br />
+            <span style={{ color: 'var(--primary)' }}>Learn with confidence.</span>
           </h2>
-
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Active Investors', value: '50,000+' },
-              { label: 'Research Ideas', value: '2,400+' },
-              { label: 'Courses', value: '45+' },
-              { label: 'Avg. Returns', value: '+32%' },
-            ].map(s => (
-              <div
-                key={s.label}
-                className="rounded-xl p-4"
-                style={{
-                  background: 'var(--overlay-50)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <p
-                  className="text-2xl font-bold mb-0.5"
-                  style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}
-                >
-                  {s.value}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                  {s.label}
-                </p>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm leading-relaxed mb-10 max-w-sm" style={{ color: '#a8b8cc' }}>
+            Research notes and courses designed for Indian investors — start free in under a minute.
+          </p>
 
           <div
-            className="mt-6 rounded-xl p-4 flex items-start gap-3"
+            className="rounded-2xl p-5"
             style={{
-              background: 'rgba(14,203,129,0.06)',
-              border: '1px solid rgba(14,203,129,0.15)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
             }}
           >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 font-bold"
-              style={{ background: 'rgba(14,203,129,0.12)', color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}
-            >
-              AP
-            </div>
-            <div>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--secondary-foreground)' }}>
-                "The research notes and courses made market concepts much easier to follow."
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-                Arjun Patel, Mumbai · Pro Member
-              </p>
-            </div>
+            <p className="text-sm leading-relaxed mb-3" style={{ color: '#ffffff' }}>
+              “The research notes and courses made market concepts much easier to follow.”
+            </p>
+            <p className="text-xs" style={{ color: '#a8b8cc' }}>
+              Arjun Patel · Mumbai
+            </p>
           </div>
         </div>
 
-        <p className="relative text-xs" style={{ color: 'var(--muted-foreground)' }}>
+        <p className="relative text-xs" style={{ color: '#a0aec0' }}>
           © 2026 Shubhshree Knowledge Hub Private Limited
         </p>
       </div>
@@ -194,8 +162,18 @@ export default function Auth() {
           {step === 'phone' ? (
             <form onSubmit={handlePhoneSubmit} className="fade-in">
               <div className="mb-7">
-                <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--foreground)' }}>
-                  Welcome to Shubhshree
+                <h1
+                  className="text-3xl sm:text-4xl font-bold mb-2 leading-tight"
+                  style={{
+                    fontFamily: 'DM Serif Display, serif',
+                    background: 'linear-gradient(90deg, var(--gold-from), var(--gold-shine))',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    color: 'var(--gold)',
+                  }}
+                >
+                  Welcome to ShubhShree
                 </h1>
                 <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
                   Sign in or create an account with your mobile number
@@ -210,11 +188,17 @@ export default function Auth() {
                   className="flex items-center gap-0 rounded-xl overflow-hidden transition-all"
                   style={{
                     background: 'var(--secondary)',
-                    border: '1px solid var(--border)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    borderColor: 'var(--border)',
                     outline: 'none',
                   }}
-                  onFocus={e => (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary)'}
-                  onBlur={e => (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'}
+                  onFocus={e => {
+                    (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary)'
+                  }}
+                  onBlur={e => {
+                    (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'
+                  }}
                 >
                   <div
                     className="px-4 py-3.5 text-sm font-mono flex-shrink-0"
@@ -248,11 +232,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={loading || phone.length < 10}
-                className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))',
-                  color: 'var(--primary-foreground)',
-                }}
+                className="btn-action w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -321,22 +301,25 @@ export default function Auth() {
                       onKeyDown={e => handleOtpKeyDown(i, e)}
                       onFocus={e => {
                         handleOtpFocus(i)
-                        e.currentTarget.style.border = '2px solid var(--primary)'
+                        e.currentTarget.style.borderWidth = '2px'
+                        e.currentTarget.style.borderColor = 'var(--primary)'
                       }}
                       onBlur={e => {
                         if (!otp[i]) {
-                          e.currentTarget.style.border = '1.5px solid #6b7f9e'
+                          e.currentTarget.style.borderWidth = '1.5px'
+                          e.currentTarget.style.borderColor = 'var(--border)'
                         }
                       }}
                       className="otp-digit h-14 w-12 sm:w-14 shrink-0 text-center text-xl font-bold rounded-xl outline-none transition-all"
                       style={{
-                        background: '#243552',
-                        border: digit
-                          ? '2px solid var(--primary)'
-                          : '1.5px solid #6b7f9e',
-                        color: 'var(--foreground)',
+                        background: '#ffffff',
+                        borderWidth: digit ? '2px' : '1.5px',
+                        borderStyle: 'solid',
+                        borderColor: digit ? 'var(--primary)' : 'var(--border)',
+                        color: '#1e3a5f',
                         caretColor: 'var(--primary)',
                         fontFamily: 'JetBrains Mono, monospace',
+                        boxShadow: '0 1px 2px rgba(30, 58, 95, 0.08)',
                       }}
                     />
                   ))}
@@ -354,11 +337,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={loading || otp.join('').length < 4}
-                className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))',
-                  color: 'var(--primary-foreground)',
-                }}
+                className="btn-action w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
                   <>

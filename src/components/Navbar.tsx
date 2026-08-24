@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import Logo from "@/components/Logo";
 
 const navLinks: { label: string; view: AppView }[] = [
-  { label: 'Market Insights', view: 'trading' },
+  { label: 'Insights', view: 'trading' },
   { label: 'MF Alerts', view: 'mf-alerts' },
   { label: 'Courses', view: 'courses' },
   { label: 'Videos', view: 'videos' },
@@ -20,106 +20,86 @@ export default function Navbar() {
 
   return (
     <header
-      className="sticky top-0 z-50 border-b"
+      className="glass-nav sticky top-0 z-50"
       style={{
-        background: 'var(--nav-bg)',
-        backdropFilter: 'blur(14px)',
-        borderColor: 'var(--border)',
+        borderBottom: '1px solid var(--border)',
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-[76px]">
-          {/* Brand header */}
+        <div className="flex items-center justify-between h-14">
           <button
             type="button"
             onClick={() => navigate(user ? 'dashboard' : 'landing')}
             className="flex items-center flex-shrink-0 min-w-0 bg-transparent border-0 p-0 cursor-pointer"
-            aria-label="ShubhShree Knowledge Hub Pvt Ltd — home"
+            aria-label="ShubhShree Knowledge Hub — home"
           >
-            <Logo height={48} withName />
+            <Logo height={36} withName />
           </button>
 
-          {/* Desktop nav links (only when logged in) */}
           {user && (
-            <div className="hidden md:flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-0.5" aria-label="Primary">
               {navLinks.map(link => (
                 <button
                   key={link.view}
                   onClick={() => navigate(link.view)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  className="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors"
                   style={{
-                    background: view === link.view ? 'var(--primary-12)' : 'transparent',
-                    color: view === link.view ? 'var(--primary)' : 'var(--secondary-foreground)',
-                    borderColor: view === link.view ? 'var(--primary-20)' : 'transparent',
-                    border: '1px solid',
+                    background: view === link.view ? 'var(--secondary)' : 'transparent',
+                    color: view === link.view ? 'var(--foreground)' : 'var(--muted-foreground)',
+                    fontWeight: view === link.view ? 600 : 500,
                   }}
                 >
                   {link.label}
                 </button>
               ))}
-            </div>
+            </nav>
           )}
 
-          {/* Right */}
-          <div className="flex items-center gap-3 relative">
+          <div className="flex items-center gap-2 relative">
             {user ? (
               <>
                 {user.subscription === 'free' && (
                   <button
                     onClick={onUpgrade}
-                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:scale-105"
-                    style={{
-                      background: 'var(--primary-10)',
-                      border: '1px solid var(--primary-35)',
-                      color: 'var(--primary)',
-                    }}
+                    className="hidden sm:flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold btn-pro"
                   >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: 'var(--primary)', animation: 'pulse 2s infinite' }}
-                    />
-                    Upgrade to Pro
+                    Upgrade
                   </button>
-                )}
-                {user.subscription === 'pro' && (
-                  <span
-                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-                    style={{
-                      background: 'var(--primary-08)',
-                      border: '1px solid var(--primary-20)',
-                      color: 'var(--primary)',
-                    }}
-                  >
-                    ✦ Pro Member
-                  </span>
                 )}
                 <button
                   onClick={() => setMenuOpen(v => !v)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-105"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-transform active:scale-95"
                   style={{
-                    background: 'var(--secondary)',
-                    border: menuOpen ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
-                    color: 'var(--primary)',
+                    background: 'var(--card)',
+                    color: '#ffffff',
+                    border: menuOpen || user.subscription === 'pro'
+                      ? '2px solid var(--gold)'
+                      : '2px solid color-mix(in srgb, var(--card) 80%, #ffffff)',
+                    boxShadow: 'var(--shadow-sm)',
                     fontFamily: 'JetBrains Mono, monospace',
                   }}
+                  aria-expanded={menuOpen}
+                  aria-label="Account menu"
                 >
                   {user.name.charAt(0).toUpperCase()}
                 </button>
 
                 {menuOpen && (
                   <>
+                    <div className="fixed inset-0 z-40" onClick={close} aria-hidden />
                     <div
-                      className="fixed inset-0 z-40"
-                      onClick={close}
-                    />
-                    <div
-                      className="absolute top-12 right-0 w-52 rounded-2xl shadow-2xl p-2 z-50"
+                      className="absolute top-11 right-0 w-56 rounded-2xl p-2 z-50 fade-in"
                       style={{
-                        background: 'var(--card)',
-                        border: '1px solid var(--border)',
+                        background: 'linear-gradient(165deg, #e8eef5 0%, #dbe4ee 55%, #d1dce8 100%)',
+                        border: '1px solid color-mix(in srgb, #0b2438 12%, transparent)',
+                        boxShadow: 'var(--shadow-lg)',
                       }}
+                      role="menu"
                     >
-                      <div className="px-3 py-2.5 mb-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <div
+                        className="px-3 py-2.5 mb-1"
+                        style={{ borderBottom: '1px solid color-mix(in srgb, #0b2438 10%, transparent)' }}
+                      >
                         <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
                           {user.name}
                         </p>
@@ -127,39 +107,52 @@ export default function Navbar() {
                           {user.phone}
                         </p>
                         <span
-                          className="inline-flex items-center mt-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                          className="inline-flex mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
                           style={{
-                            background: user.subscription === 'pro' ? 'var(--primary-12)' : 'rgba(96,112,153,0.15)',
-                            color: user.subscription === 'pro' ? 'var(--primary)' : 'var(--muted-foreground)',
+                            background: user.subscription === 'pro'
+                              ? 'color-mix(in srgb, var(--gold) 18%, #ffffff)'
+                              : 'rgba(255,255,255,0.55)',
+                            color: user.subscription === 'pro' ? 'var(--gold)' : 'var(--muted-foreground)',
+                            border: user.subscription === 'pro'
+                              ? '1px solid color-mix(in srgb, var(--gold) 40%, transparent)'
+                              : '1px solid color-mix(in srgb, #0b2438 8%, transparent)',
                           }}
                         >
-                          {user.subscription === 'pro' ? '✦ Pro' : 'Free Plan'}
+                          {user.subscription === 'pro' ? 'Pro' : 'Free'}
                         </span>
                       </div>
                       {navLinks.map(link => (
                         <button
                           key={link.view}
+                          role="menuitem"
                           onClick={() => { navigate(link.view); close() }}
-                          className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-secondary"
+                          className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors"
                           style={{ color: 'var(--foreground)' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.55)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
                           {link.label}
                         </button>
                       ))}
-                      <div className="mt-1 pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                      <div
+                        className="mt-1 pt-1"
+                        style={{ borderTop: '1px solid color-mix(in srgb, #0b2438 10%, transparent)' }}
+                      >
                         {user.subscription === 'free' && (
                           <button
+                            role="menuitem"
                             onClick={() => { onUpgrade(); close() }}
-                            className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-secondary"
-                            style={{ color: 'var(--primary)' }}
+                            className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold"
+                            style={{ color: 'var(--gold)' }}
                           >
-                            ✦ Upgrade to Pro
+                            Upgrade to Pro
                           </button>
                         )}
                         <button
+                          role="menuitem"
                           onClick={() => { logout(); close() }}
-                          className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-secondary"
-                          style={{ color: '#f87171' }}
+                          className="w-full text-left px-3 py-2.5 rounded-xl text-sm"
+                          style={{ color: 'var(--destructive)' }}
                         >
                           Sign Out
                         </button>
@@ -169,24 +162,19 @@ export default function Navbar() {
                 )}
               </>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => navigate('login')}
-                  className="px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
-                  style={{ color: 'var(--secondary-foreground)' }}
+                  className="px-3 py-2 rounded-full text-sm font-medium"
+                  style={{ color: 'var(--muted-foreground)' }}
                 >
                   Sign In
                 </button>
                 <button
                   onClick={() => navigate('login')}
-                  className="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 whitespace-nowrap"
-                  style={{
-                    background: 'var(--primary)',
-                    color: 'var(--primary-foreground)',
-                  }}
+                  className="btn-action px-4 py-2 rounded-lg text-sm font-semibold"
                 >
-                  <span className="sm:hidden">Get Started</span>
-                  <span className="hidden sm:inline">Get Started Free</span>
+                  Get started
                 </button>
               </div>
             )}
@@ -194,22 +182,19 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile nav links */}
       {user && (
         <div
-          className="md:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto"
+          className="md:hidden flex items-center gap-1 px-4 pb-2.5 overflow-x-auto"
           style={{ scrollbarWidth: 'none' }}
         >
           {navLinks.map(link => (
             <button
               key={link.view}
               onClick={() => navigate(link.view)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium"
               style={{
-                background: view === link.view ? 'var(--primary-12)' : 'transparent',
-                color: view === link.view ? 'var(--primary)' : 'var(--muted-foreground)',
-                border: '1px solid',
-                borderColor: view === link.view ? 'var(--primary-20)' : 'transparent',
+                background: view === link.view ? 'var(--foreground)' : 'var(--secondary)',
+                color: view === link.view ? '#ffffff' : 'var(--muted-foreground)',
               }}
             >
               {link.label}

@@ -108,8 +108,7 @@ export default function TradingCalls() {
               style={{
                 background: timeframe === t ? 'var(--card)' : 'transparent',
                 color: timeframe === t ? 'var(--foreground)' : 'var(--muted-foreground)',
-                border: '1px solid',
-                borderColor: timeframe === t ? 'var(--border)' : 'transparent',
+                border: `1px solid ${timeframe === t ? 'var(--border)' : 'transparent'}`,
               }}
             >
               {t}
@@ -128,8 +127,7 @@ export default function TradingCalls() {
             style={{
               background: category === c ? 'var(--primary-12)' : 'var(--card)',
               color: category === c ? 'var(--primary)' : 'var(--muted-foreground)',
-              border: '1px solid',
-              borderColor: category === c ? 'var(--primary-30)' : 'var(--border)',
+              border: `1px solid ${category === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
           >
             {c}

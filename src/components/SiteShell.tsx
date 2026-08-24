@@ -23,9 +23,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       className="relative min-h-screen text-foreground"
       style={{ fontFamily: "var(--font-outfit), Outfit, sans-serif" }}
     >
-      <div className="site-bg" aria-hidden="true">
-        <span className="site-bg-ray" />
-      </div>
+      <div className="site-bg" aria-hidden="true" />
       <div className="relative z-10">
         {!hideNav && <Navbar />}
         <div className="fade-in">{children}</div>

@@ -26,28 +26,26 @@ function PlanCard({
 
   return (
     <div
-      className="plan-card rounded-2xl p-6 sm:p-7 relative h-full select-none"
+      className="rounded-2xl p-6 sm:p-7 relative h-full select-none surface-card"
       style={{
-        background: isPro
-          ? "linear-gradient(160deg, var(--card-highlight) 0%, var(--card) 60%)"
-          : "var(--secondary)",
+        background: "var(--surface)",
         border: isPro
-          ? "1px solid var(--primary-35)"
+          ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)"
           : "1px solid var(--border)",
-        boxShadow: emphasized
-          ? "0 16px 36px rgba(4, 12, 28, 0.35)"
-          : "0 8px 20px rgba(4, 12, 28, 0.18)",
+        boxShadow: emphasized ? "var(--shadow-lg)" : "var(--shadow-md)",
+        color: "var(--foreground)",
       }}
     >
       {isPro && (
         <div
-          className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold whitespace-nowrap"
+          className="absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide"
           style={{
-            background: "linear-gradient(135deg, var(--gold-from), var(--gold-to))",
-            color: "var(--primary-foreground)",
+            background: "color-mix(in srgb, var(--gold) 16%, transparent)",
+            color: "var(--gold)",
+            border: "1px solid color-mix(in srgb, var(--gold) 35%, transparent)",
           }}
         >
-          Most Popular
+          Popular
         </div>
       )}
 
@@ -80,7 +78,7 @@ function PlanCard({
               <span
                 className="text-4xl font-bold"
                 style={{
-                  color: "var(--primary)",
+                  color: "var(--gold)",
                   fontFamily: "JetBrains Mono, monospace",
                 }}
               >
@@ -105,16 +103,14 @@ function PlanCard({
         )}
       </div>
 
-      <div className="mb-6 space-y-2">
+      <div className="mb-6 space-y-2.5">
         {plan.features.map((f) => (
           <div key={f} className="flex items-start gap-2.5">
             <span
-              className="w-4 h-4 rounded-full flex items-center justify-center text-xs mt-0.5 flex-shrink-0"
+              className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] mt-0.5 flex-shrink-0"
               style={{
-                background: isPro
-                  ? "rgba(14,203,129,0.12)"
-                  : "rgba(96,112,153,0.15)",
-                color: isPro ? "var(--accent)" : "var(--muted-foreground)",
+                background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+                color: "var(--accent)",
               }}
             >
               ✓
@@ -122,25 +118,6 @@ function PlanCard({
             <span
               className="text-sm"
               style={{ color: "var(--secondary-foreground)" }}
-            >
-              {f}
-            </span>
-          </div>
-        ))}
-        {plan.missing.map((f) => (
-          <div key={f} className="flex items-start gap-2.5 opacity-40">
-            <span
-              className="w-4 h-4 rounded-full flex items-center justify-center text-xs mt-0.5 flex-shrink-0"
-              style={{
-                background: "rgba(96,112,153,0.1)",
-                color: "var(--muted-foreground)",
-              }}
-            >
-              –
-            </span>
-            <span
-              className="text-sm"
-              style={{ color: "var(--muted-foreground)" }}
             >
               {f}
             </span>
@@ -155,9 +132,9 @@ function PlanCard({
         style={{
           background: isPro
             ? "linear-gradient(135deg, var(--gold-from), var(--gold-to))"
-            : "var(--card)",
-          color: isPro ? "var(--primary-foreground)" : "var(--foreground)",
-          border: !isPro ? "1px solid var(--border)" : "none",
+            : "var(--primary)",
+          color: isPro ? "#0b2438" : "#ffffff",
+          border: "none",
         }}
       >
         {plan.price === 0
@@ -178,28 +155,30 @@ export default function PlanSlider() {
     <div>
       <div className="text-center mb-8">
         <div
-          className="inline-flex items-center gap-1 p-1 rounded-xl"
-          style={{ background: "var(--secondary)" }}
+          className="inline-flex items-center p-1 rounded-full"
+          style={{
+            background: "var(--secondary)",
+            boxShadow: "inset 0 1px 2px rgba(30, 58, 95, 0.06)",
+          }}
+          role="tablist"
+          aria-label="Billing period"
         >
           {(["monthly", "yearly"] as const).map((b) => (
             <button
               key={b}
               type="button"
+              role="tab"
+              aria-selected={billing === b}
               onClick={() => setBilling(b)}
-              className="px-5 py-2 rounded-lg text-sm font-medium capitalize transition-all"
+              className="px-5 py-2 rounded-full text-sm font-medium capitalize transition-all"
               style={{
-                background: billing === b ? "var(--card)" : "transparent",
-                color:
-                  billing === b
-                    ? "var(--foreground)"
-                    : "var(--muted-foreground)",
-                border:
-                  billing === b
-                    ? "1px solid var(--border)"
-                    : "1px solid transparent",
+                background: billing === b ? "var(--surface)" : "transparent",
+                color: billing === b ? "var(--foreground)" : "var(--muted-foreground)",
+                boxShadow: billing === b ? "var(--shadow-sm)" : "none",
+                fontWeight: billing === b ? 600 : 500,
               }}
             >
-              {b === "yearly" ? "Yearly (Save 33%)" : "Monthly"}
+              {b === "yearly" ? "Yearly · Save 33%" : "Monthly"}
             </button>
           ))}
         </div>

@@ -83,8 +83,7 @@ export default function Courses() {
             style={{
               background: level === l ? 'var(--card)' : 'transparent',
               color: level === l ? 'var(--foreground)' : 'var(--muted-foreground)',
-              border: '1px solid',
-              borderColor: level === l ? 'var(--border)' : 'transparent',
+              border: `1px solid ${level === l ? 'var(--border)' : 'transparent'}`,
             }}
           >
             {l}
@@ -101,8 +100,7 @@ export default function Courses() {
             style={{
               background: cat === c ? 'var(--primary-12)' : 'var(--card)',
               color: cat === c ? 'var(--primary)' : 'var(--muted-foreground)',
-              border: '1px solid',
-              borderColor: cat === c ? 'var(--primary-30)' : 'var(--border)',
+              border: `1px solid ${cat === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
           >
             {c}

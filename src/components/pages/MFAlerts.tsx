@@ -90,8 +90,7 @@ export default function MFAlerts() {
             style={{
               background: action === a ? (a !== 'All' ? (actionColors[a]?.bg || 'var(--card)') : 'var(--card)') : 'transparent',
               color: action === a ? (a !== 'All' ? (actionColors[a]?.text || 'var(--foreground)') : 'var(--foreground)') : 'var(--muted-foreground)',
-              border: '1px solid',
-              borderColor: action === a ? 'var(--border)' : 'transparent',
+              border: `1px solid ${action === a ? 'var(--border)' : 'transparent'}`,
             }}
           >
             {a}
@@ -108,8 +107,7 @@ export default function MFAlerts() {
             style={{
               background: category === c ? 'var(--primary-12)' : 'var(--card)',
               color: category === c ? 'var(--primary)' : 'var(--muted-foreground)',
-              border: '1px solid',
-              borderColor: category === c ? 'var(--primary-30)' : 'var(--border)',
+              border: `1px solid ${category === c ? 'var(--primary-30)' : 'var(--border)'}`,
             }}
           >
             {c}

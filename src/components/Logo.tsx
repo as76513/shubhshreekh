@@ -34,13 +34,13 @@ export default function Logo({
       {withName && (
         <span className="flex flex-col items-start text-left leading-tight min-w-0">
           <span
-            className="text-xl sm:text-2xl font-bold tracking-wide truncate"
+            className="text-lg sm:text-xl font-bold tracking-wide truncate"
             style={{
-              background: "linear-gradient(90deg, var(--gold-from), var(--gold-shine))",
+              background: "var(--gold-from)",
               WebkitBackgroundClip: "text",
               backgroundClip: "text",
               WebkitTextFillColor: "transparent",
-              color: "var(--primary)",
+              color: "var(--gold)",
             }}
           >
             ShubhShree
