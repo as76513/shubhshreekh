@@ -42,3 +42,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Android TWA (Bubblewrap)
+/android/.gradle/
+/android/app/build/
+/android/build/
+/android/local.properties
+/android/*.keystore
+/android/android.keystore
+/android/signingKey.properties

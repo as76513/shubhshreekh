@@ -79,7 +79,7 @@ export default function SignupModal({
       const { token } = await confirmOtp(phone, otp);
       localStorage.setItem("session_token", token);
       if (isPaid) {
-        alert(`Verified. In production this opens Razorpay checkout for the ${plan} plan.`);
+        alert(`Verified. In production this opens PayU checkout for the ${plan} plan.`);
       }
       handleOpenChange(false);
     } catch (err) {

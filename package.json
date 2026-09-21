@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "pwa:icons": "bash scripts/generate-pwa-icons.sh",
+    "android:init": "bash scripts/android-init.sh",
+    "android:build": "bash scripts/build-android-apk.sh"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

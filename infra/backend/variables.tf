@@ -22,6 +22,32 @@ variable "session_token_signing_secret" {
   sensitive   = true
 }
 
+variable "msg91_auth_key" {
+  description = "MSG91 SendOTP auth key. Empty allowed if otp_test_phones is set (DLT pending)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "msg91_template_id" {
+  description = "MSG91 approved OTP template ID."
+  type        = string
+  default     = ""
+}
+
+variable "otp_test_phones" {
+  description = "Comma-separated QA/Play reviewer phones (10-digit or 91…). See TECH_DEBT.md TD-001."
+  type        = string
+  default     = ""
+}
+
+variable "otp_test_code" {
+  description = "Fixed OTP for otp_test_phones whitelist."
+  type        = string
+  default     = "123456"
+  sensitive   = true
+}
+
 variable "cors_allowed_origins" {
   description = "Origins allowed to call the API — the local dev frontend and the live app subdomain (see plan.md's Domain & subdomains section)."
   type        = list(string)

@@ -182,7 +182,7 @@ export default function UpgradeModal() {
         </button>
 
         <p className="text-xs text-center mt-3" style={{ color: 'var(--muted-foreground)' }}>
-          Cancel anytime · Secure payment via Razorpay
+          Cancel anytime · Secure payment via PayU
         </p>
       </div>
     </div>

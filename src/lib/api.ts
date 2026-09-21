@@ -25,6 +25,15 @@ async function parseError(res: Response): Promise<string> {
   return body?.error ?? "Something went wrong, please try again.";
 }
 
+/** Optional Bearer token for authenticated API calls. */
+export function authHeaders(token?: string | null): HeadersInit {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 // phone is a bare 10-digit Indian mobile number, no country code (the "+91"
 // is a fixed UI prefix — see SignupModal). Backend re-validates regardless.
 export async function requestOtp(phone: string): Promise<void> {

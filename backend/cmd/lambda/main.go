@@ -32,13 +32,16 @@ func init() {
 		log.Fatal("SESSION_TOKEN_SIGNING_SECRET not set")
 	}
 
-	// Unlike cmd/server, this is the deployed path — fail loudly rather than
-	// silently falling back to the mock OTP provider in production.
-	authKey := os.Getenv("MSG91_AUTH_KEY")
-	templateID := os.Getenv("MSG91_TEMPLATE_ID")
-	if authKey == "" || templateID == "" {
-		log.Fatal("MSG91_AUTH_KEY / MSG91_TEMPLATE_ID not set")
+	// Production may run MSG91, test-phone whitelist only (DLT pending), or both.
+	// Never start with the local Mock provider.
+	if !otp.HasProductionOTPConfig() {
+		log.Fatal("set MSG91_AUTH_KEY+MSG91_TEMPLATE_ID and/or OTP_TEST_PHONES")
 	}
+	provider, mode := otp.ProviderFromEnv()
+	if mode == "mock" {
+		log.Fatal("refusing mock OTP provider in Lambda")
+	}
+	log.Printf("OTP provider mode: %s", mode)
 
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if origins == "" {
@@ -48,7 +51,7 @@ func init() {
 	deps := api.Deps{
 		SigningSecret:  []byte(secret),
 		Users:          db.NewUsersTable(client, os.Getenv("DYNAMODB_USERS_TABLE")),
-		OTP:            otp.NewMSG91(authKey, templateID),
+		OTP:            provider,
 		AllowedOrigins: strings.Split(origins, ","),
 	}
 

@@ -16,7 +16,7 @@ see [architecture.md](architecture.md); for *when things get built* see
 | Backend | Go API | **Go API** (unchanged) | — |
 | Primary DB | DynamoDB | **DynamoDB** (unchanged) | Key-based access patterns fit |
 | Auth | Cognito | **MSG91 phone-OTP (SendOTP), SMS channel** — decided, see below | Phone-OTP + Indian SMS/DLT fit; own the backend |
-| Payments | Stripe | **Razorpay** | UPI/INR native, India-first |
+| Payments | Stripe / Razorpay | **PayU** (web) + **Google Play Billing** (Play TWA) | PayU for browser; Play policy requires Play Billing (or billing choice) inside Play-distributed app — see Oct 8 sprint |
 | Hosting | Serverless | **Lambda + API Gateway** (unchanged) | Scales to zero |
 
 ## Decided: identity provider — MSG91 (SendOTP, SMS channel)
@@ -35,7 +35,7 @@ Cognito and Firebase phone-auth:
 **Why MSG91 over Cognito specifically:** near-identical per-message cost, but
 MSG91's guided DLT registration removes the single biggest early-stage risk —
 a new user's OTP silently failing to deliver because DLT wasn't linked
-correctly. Also keeps the vendor stack India-first, consistent with Razorpay.
+correctly. Also keeps the vendor stack India-first, consistent with PayU.
 
 **Channel: SMS only for now, not WhatsApp.** WhatsApp OTP is cheaper per
 message (~₹0.115–0.134 domestic) but MSG91's WhatsApp product carries its own
@@ -46,6 +46,89 @@ it; the SendOTP integration doesn't need to change to add it later.
 
 The tier claim is still server-signed and client-unforgeable either way —
 this doesn't change the entitlement model in architecture.md.
+
+---
+
+## Decided: two data pipes — market vs RA content
+
+**Decided 2026-09-07** (pipes). **Updated 2026-09-11:** Pipe A deferred.
+
+Customer-facing data conceptually has two independent sources (see
+architecture.md § Two data pipes):
+
+| Pipe | Source | MVP status |
+|---|---|---|
+| **A — Market indices** | Authorised vendor API (was TrueData) | **Deferred** — no vendor API; ticker stays static mock in `data.ts` |
+| **B — RA research & education** | Analyst team via internal admin CMS → DynamoDB | **Thin insights CMS in Oct 8 sprint**; MF/courses/videos still static until after launch |
+
+Pipe B is the **core product** (insights, MF alerts, courses, videos) and is
+what MVP builds. Pipe A is optional context for the headline ticker — **not
+in MVP scope** until a vendor grants API + redistribution terms.
+
+---
+
+## RA content publishing (Pipe B)
+
+### Who publishes what
+
+| Content | Published by | Stored in | Customer sees via |
+|---|---|---|---|
+| Trading insights / calls | Research Analyst | DynamoDB `content` | `GET /insights` |
+| MF alerts | Research Analyst | DynamoDB `content` | `GET /mf-alerts` |
+| Courses + chapters | Research Analyst / ops | DynamoDB + S3 video | `GET /courses` |
+| Video tutorials | Research Analyst / ops | DynamoDB + S3 | `GET /videos` |
+| NIFTY / SENSEX ticker | **Static mock** (MVP) | `src/lib/data.ts` | Frontend only — no `/market/*` until a vendor is available |
+
+### Admin CMS (internal — not built yet)
+
+- **Who uses it:** RA team (`analyst` role) and optionally compliance (`compliance` role).
+- **Where:** `/admin` routes on the app subdomain, or `admin.shubhshreeknowledgehub.com` (open — prefer `/admin` for MVP to avoid another cert).
+- **Workflow:** draft → optional compliance review → published → archived.
+- **No deploy for new calls:** analyst publishes in CMS; customers see it on next API fetch.
+
+**Oct 8 sprint slice (decided 2026-09-11):** ship a **thin insights CMS**
+only — `/admin` form + DynamoDB insight rows + `GET /insights`. MF, courses,
+and videos stay on static `data.ts` until after launch. No queues/webhooks.
+
+### Roles (JWT claims)
+
+| Role | Purpose |
+|---|---|
+| `customer` | Default after OTP signup |
+| `analyst` | Create/edit/publish RA content |
+| `compliance` | Approve before publish (add before charging users) |
+| `admin` | Full access + user management |
+
+### SEBI implications (coordinate with compliance advisor)
+
+- Each published call should retain: author, publish time, text of recommendation, tier, and who viewed it (`content_audit`).
+- Disclaimers and RA registration number on every insights page (already in UI placeholders).
+- When live market data returns later, ticker must show **data delay** if
+  not real-time per license.
+
+---
+
+## Market data — indices API (Pipe A) — **deferred**
+
+### Decided 2026-09-11: no live vendor feed in MVP
+
+**TrueData did not provide API access**, so we are **dropping live market
+data from MVP**. The dashboard / landing ticker continues to use **static
+values in `src/lib/data.ts`**. No `GET /market/indices`, no vendor poller,
+no `market_snapshots` table for launch.
+
+| In MVP | Out of MVP (revisit later) |
+|---|---|
+| Static NIFTY / SENSEX-style ticker (mock) | Authorised vendor REST/WebSocket |
+| RA content platform (Pipe B) | `GET /market/indices` + DynamoDB cache |
+| Auth, payments, PWA / Android | Live / delayed redistribution licence |
+
+If a vendor (TrueData, Global Datafeeds, DhanHQ, or other) later grants
+**indices-only API + commercial redistribution**, revive the design in
+architecture.md § Market indices API (deferred) and build-plan Phase 5
+(deferred). Prefer **REST** for a Lambda poller if both options exist.
+
+**F&O market data** remains later-stage only (unchanged).
 
 ---
 
@@ -126,7 +209,7 @@ A separate public face, not yet built:
 |:---|:---|
 | `shubhshreeknowledgehub.com` (root) | Marketing site + privacy policy (required by Play Store) — not yet built |
 | `app.shubhshreeknowledgehub.com` | The Next.js PWA/product — **live now** via Amplify |
-| `api.shubhshreeknowledgehub.com` | Backend API the frontend calls, incl. `/auth/send-otp` + `/auth/verify-otp` |
+| `api.shubhshreeknowledgehub.com` | Backend API the frontend calls, incl. `/auth/*`, `/insights`, `/admin/*` (no `/market/*` in MVP) |
 | `app.shubhshreeknowledgehub.com/.well-known/assetlinks.json` | Android App Links (TWA deep linking) |
 
 All of this fits comfortably in Route 53 + ACM, and the certs are free.
@@ -170,12 +253,11 @@ Fully serverless. Everything scales to zero.
 | Route 53 | 1 hosted zone | ~₹45 |
 | ACM (SSL) | certs | ₹0 |
 | CloudWatch | minimal logs | ₹0–₹100 |
-| Market data API | free / delayed tier | ₹0 |
 | **Total** | | **≈ ₹100–₹400 / month** |
 
 ### 🟡 Stage 2 — Traction (~1,000 users)
-Still fully serverless. Costs rise only with actual usage; the market-data
-API becomes the biggest line item, not AWS.
+Still fully serverless. Costs rise only with actual usage (MSG91 + DynamoDB
++ Lambda). No market-data vendor line item while Pipe A is deferred.
 
 | Service | Monthly (INR) |
 |---|---|
@@ -184,10 +266,7 @@ API becomes the biggest line item, not AWS.
 | Lambda | ₹300–₹1,000 |
 | API Gateway | ₹300–₹900 |
 | CloudWatch + Route 53 + SSM | ~₹300 |
-| Market data API (paid, real-time) | ~₹2,600 (~$30) |
-| **Total** | **≈ ₹3,900–₹6,600 / month** |
-
-> On delayed/free market data, this stays under ~₹2,000/month.
+| **Total** | **≈ ₹1,500–₹3,600 / month** |
 
 ### 🔴 Stage 3 — Scaling up (~10,000+ users, when it's real)
 Introduce heavier pieces **only when metrics justify them**:
@@ -203,13 +282,12 @@ Introduce heavier pieces **only when metrics justify them**:
 | Lambda + API Gateway | ₹2,000–₹5,000 |
 | CloudFront + data transfer | ₹2,000–₹4,000 |
 | WAF + CloudWatch + SSM | ₹2,000 |
-| Market data API (higher tier) | ₹5,000–₹8,000 |
-| **Total** | **≈ ₹17,000–₹30,000 / month** |
+| **Total** | **≈ ₹12,000–₹22,000 / month** |
 
-Driven mostly by **market-data tier and DynamoDB throughput**, not fixed
-infrastructure.
+Driven mostly by **MSG91 volume and DynamoDB throughput**, not fixed
+infrastructure. Add a market-data vendor line only if Pipe A is revived.
 
-### ⚡ Optional: AI layer (Phase 5, adds on top of any stage)
+### ⚡ Optional: AI layer (later phase, adds on top of any stage)
 The AI insights layer can **exceed the entire infra cost** — almost all of
 it is LLM API calls.
 
@@ -229,15 +307,15 @@ free vector-DB tier.
 3. **Avoid NAT Gateway** (~₹2,000/mo silent charge) — keep Lambda out of a VPC or use VPC endpoints.
 4. **HTTP API** over REST API Gateway (71% cheaper).
 5. **Reserved Instances / Savings Plans** — only once you have a *fixed* always-on component (Stage 3+); up to ~69% off with commitment.
-6. **Delayed/free market data** for the demo — the real-time feed is the biggest early variable cost.
+6. **No live market-data vendor in MVP** — ticker stays static; revisit only after a vendor grants API + redistribution.
 
 ### Bottom line
 
 | Stage | Users | Monthly (INR) |
 |---|---|---|
 | 🟢 Launch | ~50 | **₹100–₹400** |
-| 🟡 Traction | ~1,000 | **₹3,900–₹6,600** |
-| 🔴 Scaling | ~10,000+ | **₹17,000–₹30,000** |
+| 🟡 Traction | ~1,000 | **₹1,500–₹3,600** |
+| 🔴 Scaling | ~10,000+ | **₹12,000–₹22,000** |
 | ⚡ + AI layer | any | **+₹500 (demo) → ₹35,000+ (heavy)** |
 
 *Prices tentative, converted at ~₹88/USD from AWS list rates; add 18% GST if

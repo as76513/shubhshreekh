@@ -27,13 +27,8 @@ func main() {
 		log.Fatal("SESSION_TOKEN_SIGNING_SECRET not set — source backend/.env first")
 	}
 
-	var provider otp.Provider
-	if authKey := os.Getenv("MSG91_AUTH_KEY"); authKey != "" {
-		provider = otp.NewMSG91(authKey, os.Getenv("MSG91_TEMPLATE_ID"))
-	} else {
-		log.Println("MSG91_AUTH_KEY not set — using mock OTP provider (local dev only, see internal/otp/mock.go)")
-		provider = otp.NewMock()
-	}
+	provider, mode := otp.ProviderFromEnv()
+	log.Printf("OTP provider mode: %s", mode)
 
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if origins == "" {

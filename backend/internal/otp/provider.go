@@ -1,7 +1,7 @@
 // Package otp abstracts the OTP vendor behind one interface so the HTTP
-// handlers in internal/api never know whether they're talking to MSG91 or a
-// local mock — that choice is made once, at wiring time (see cmd/server,
-// cmd/lambda), based on whether MSG91 credentials are configured.
+// handlers in internal/api never know whether they're talking to MSG91, a
+// local mock, or the Play/QA test-phone gate — wiring is via ProviderFromEnv
+// in cmd/server and cmd/lambda.
 package otp
 
 import "context"

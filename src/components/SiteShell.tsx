@@ -19,7 +19,10 @@ export default function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { showUpgradeModal } = useAuth();
 
-  const hideNav = pathname === "/login" || pathname.startsWith("/login/");
+  const hideNav =
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname.startsWith("/legal");
   const hideFooter =
     hideNav ||
     pathname === "/dashboard" ||

@@ -216,20 +216,21 @@ Authorization: Bearer <token>  ────────▶   auth.Middleware
                                             sent directly in the request body
 ```
 
-## Provider swap: Mock ↔ MSG91
+## Provider swap: Mock ↔ MSG91 ↔ test phones
 
-Which `otp.Provider` gets used is decided once, at process startup, not
-per-request:
+Which `otp.Provider` gets used is decided once, at process startup
+(`otp.ProviderFromEnv`), not per-request:
 
-| Entrypoint | If `MSG91_AUTH_KEY` unset | If set |
+| Entrypoint | Config | Provider |
 |---|---|---|
-| `cmd/server` (local) | Falls back to `otp.Mock`, logs a warning | Uses real `otp.MSG91` |
-| `cmd/lambda` (deployed) | **`log.Fatal`** — refuses to start | Uses real `otp.MSG91` |
+| `cmd/server` (local) | no MSG91, no `OTP_TEST_PHONES` | `otp.Mock` (codes in logs) |
+| either | `OTP_TEST_PHONES` set | `otp.Gate` — fixed `OTP_TEST_CODE`, no SMS for those numbers |
+| either | `MSG91_AUTH_KEY` set | MSG91 (± Gate if test phones also set) |
+| `cmd/lambda` | neither MSG91 nor test phones | **`log.Fatal`** |
 
-The asymmetry is deliberate: silently shipping a non-functional mock to a
-real deployment is a worse failure mode than the app not starting at all.
-Going live with real MSG91 is a config change (`MSG91_AUTH_KEY` +
-`MSG91_TEMPLATE_ID`), never a code change — see `backend/internal/otp/msg91.go`.
+Play reviewers: whitelist their phone in `OTP_TEST_PHONES`, put the same
+number + `OTP_TEST_CODE` in Play Console App access. See
+[TECH_DEBT.md](../TECH_DEBT.md) TD-001 — clear whitelist after DLT is live.
 
 ## CORS
 

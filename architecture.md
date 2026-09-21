@@ -35,9 +35,241 @@ user row in DynamoDB and issues its own signed session token
 format, MSG91 never sees anything past OTP delivery/verification.
 
 ### DynamoDB
-- `users`, `subscriptions`, `orders` tables (always-free tier, unlike RDS)
+- `users`, `subscriptions`, `orders` — auth & billing (partially built)
+- `content` — RA-authored product data (insights, MF alerts, courses, videos)
+- `content_audit` — append-only delivery/view log (SEBI retention)
+- ~~`market_snapshots`~~ — **deferred** (no live vendor feed in MVP)
 
-## Where each piece of data lives
+## Two data pipes (do not mix them)
+
+Customers see two **independent** data sources on the dashboard. They must
+never be confused in code or ops:
+
+| Pipe | Source | Who creates it | MVP status |
+|---|---|---|---|
+| **A — Market indices** | Authorised vendor API | Automated (exchange prices) | **Deferred** — TrueData no API; ticker stays static in `data.ts` |
+| **B — RA research & education** | Your analyst team via admin CMS | Human (SEBI RA) | Not built — static mock in `data.ts` |
+
+Pipe B is **your product** — trading calls, MF alerts, courses, videos —
+published through an internal admin tool, stored in DynamoDB, gated by
+subscription tier server-side. Pipe A is optional ticker context only.
+
+```
+  PIPE A (market) — DEFERRED               PIPE B (RA content) — MVP
+  ─────────────────                       ────────────────────
+  NSE/BSE indices                         Research Analyst
+       │                                       │
+       ▼                                       ▼
+  (vendor API when available)          Admin CMS (internal)
+       │                               app…/admin or admin.*
+       ▼                                       │
+  GET /market/indices (later)                  ▼
+                                       Go API writes/reads
+                                       POST /admin/insights …
+                                               │
+       ┌──────────────┬────────────────────────┘
+       ▼              ▼
+  Static ticker   Next.js customer app
+  (data.ts)       (never decides tier)
+```
+
+**Current state:** Pipe B does not exist yet — all product content is static
+mock data in `src/lib/data.ts`. Pipe A is **out of MVP** — ticker values stay
+hardcoded in the same file until a vendor grants API access.
+
+**Oct 8 sprint:** ship a **thin insights CMS** (admin form + DynamoDB insight
+rows + `GET /insights`) so the RA can publish daily stock calls without a
+deploy. MF / courses / videos remain on `data.ts` until Phase 4 completes.
+
+## RA content platform (Pipe B)
+
+### Roles (carried in session JWT after OTP login)
+
+| Role | Who | Can do |
+|---|---|---|
+| `customer` | Subscriber | Read published content their tier allows |
+| `analyst` | RA team | Create/edit drafts, submit for review |
+| `compliance` | Compliance officer | Approve/reject before publish (optional v1) |
+| `admin` | Owner / tech | Publish, archive, manage all content |
+
+v1 can collapse `analyst` + `admin` if the RA principal publishes directly;
+add `compliance` approval step before charging real users (coordinate with
+SEBI advisor — see plan.md).
+
+### Publish workflow
+
+```
+  draft → [review] → published → archived
+           ↑ optional
+      compliance role
+```
+
+1. Analyst fills form in **admin CMS** (internal web UI, not customer-facing).
+2. Content saved as `status: draft` in DynamoDB.
+3. Optional: compliance approves → `status: approved`.
+4. Admin/analyst hits **Publish** → `status: published`, `publishedAt` set.
+5. Customer app calls `GET /insights` (etc.) → API returns only
+   `published` items the user's tier may see.
+6. Every customer view of a call can append to `content_audit` (userId,
+   contentId, viewedAt) for SEBI record-keeping.
+
+### DynamoDB — `content` table (single-table design)
+
+One table keeps access patterns simple at MVP scale. Partition key + sort key
+plus GSIs for listing by type and publish date.
+
+**Primary keys**
+
+| PK | SK | Entity |
+|---|---|---|
+| `INSIGHT#<id>` | `META` | Trading call / market insight |
+| `MF#<id>` | `META` | MF alert |
+| `COURSE#<id>` | `META` | Course metadata |
+| `COURSE#<id>` | `CHAPTER#<n>` | Course chapter |
+| `VIDEO#<id>` | `META` | Video tutorial |
+
+**GSI1 — list published content by type** (customer feeds)
+
+| GSI1PK | GSI1SK | Purpose |
+|---|---|---|
+| `TYPE#insight` | `PUBLISHED#<iso8601>` | Insights page, newest first |
+| `TYPE#mf` | `PUBLISHED#<iso8601>` | MF alerts page |
+| `TYPE#course` | `PUBLISHED#<iso8601>` | Courses page |
+| `TYPE#video` | `PUBLISHED#<iso8601>` | Videos page |
+
+Only rows with `status: published` get GSI1 keys written.
+
+**Example — insight (`INSIGHT#` / `META`)**
+
+```json
+{
+  "pk": "INSIGHT#7f3a…",
+  "sk": "META",
+  "gsi1pk": "TYPE#insight",
+  "gsi1sk": "PUBLISHED#2026-08-24T10:30:00Z",
+  "status": "published",
+  "tier": "pro",
+  "action": "BUY",
+  "stock": "Reliance Industries",
+  "symbol": "RELIANCE",
+  "category": "Large Cap",
+  "timeframe": "Short Term",
+  "cmp": 2920,
+  "target": 3200,
+  "stopLoss": 2780,
+  "returnsPct": 9.6,
+  "rationale": "Breakout above 200-DMA with volume…",
+  "publishedAt": "2026-08-24T10:30:00Z",
+  "publishedBy": "user#analyst-uuid",
+  "createdAt": "…",
+  "updatedAt": "…"
+}
+```
+
+**Example — course chapter**
+
+```json
+{
+  "pk": "COURSE#abc…",
+  "sk": "CHAPTER#3",
+  "title": "Support and Resistance",
+  "duration": "12 min",
+  "free": false,
+  "videoKey": "s3://content-bucket/courses/abc/ch3.mp4"
+}
+```
+
+Media files (video MP4, thumbnails, PDFs) live in **S3**; DynamoDB stores
+metadata + S3 keys only. CloudFront signed URLs for Pro content.
+
+### DynamoDB — `content_audit` table (append-only)
+
+| PK | SK | Fields |
+|---|---|---|
+| `USER#<userId>` | `VIEW#<iso8601>#<contentId>` | contentType, contentId, tierAtView |
+
+Optional publish-side audit in same table or S3 parquet export for long retention.
+
+### API routes
+
+**Customer routes** (Bearer JWT, tier checked server-side)
+
+| Method | Path | Returns |
+|---|---|---|
+| `GET` | `/insights` | Published trading calls (filter: category, action) |
+| `GET` | `/insights/:id` | Single call + writes audit log |
+| `GET` | `/mf-alerts` | Published MF alerts |
+| `GET` | `/mf-alerts/:id` | Single alert + audit |
+| `GET` | `/courses` | Published courses (metadata) |
+| `GET` | `/courses/:id` | Course + chapters; Pro chapters gated |
+| `GET` | `/videos` | Published videos |
+
+Free-tier responses omit Pro-only fields or return `locked: true` stubs —
+**never** send full Pro content and rely on the UI to hide it.
+
+**Admin routes** (Bearer JWT + `role ∈ {analyst, admin, compliance}`)
+
+| Method | Path | Action |
+|---|---|---|
+| `POST` | `/admin/insights` | Create draft |
+| `PATCH` | `/admin/insights/:id` | Edit draft |
+| `POST` | `/admin/insights/:id/publish` | Set published + GSI1 keys |
+| `POST` | `/admin/insights/:id/archive` | Remove from customer feeds |
+| `POST` | `/admin/mf-alerts` | Same pattern |
+| `PATCH` | `/admin/mf-alerts/:id` | … |
+| `POST` | `/admin/courses` | Create course + chapters |
+| `POST` | `/admin/videos` | Create video metadata |
+| `POST` | `/admin/media/upload-url` | Presigned S3 URL for video/thumbnail |
+
+Admin UI: internal route on the Next.js app (`/admin/*`) or separate
+`admin.shubhshreeknowledgehub.com` subdomain — see plan.md.
+
+### Replacing `src/lib/data.ts`
+
+Migration path:
+
+1. Build content APIs + seed DynamoDB from current mock data.
+2. Switch `TradingCalls.tsx`, `MFAlerts.tsx`, etc. to `fetch` from API.
+3. Delete static arrays from `data.ts` (keep types only).
+4. Admin CMS becomes the only way to add/update calls — no deploy needed
+   for each new insight.
+
+## Market indices API (Pipe A) — **deferred (out of MVP)**
+
+**Decided 2026-09-11:** TrueData did not provide API access. Live / delayed
+vendor indices are **not in MVP**. Dashboard and landing tickers keep using
+**static mock values** in `src/lib/data.ts`. Do not build `GET /market/indices`,
+a vendor poller, or `market_snapshots` until a vendor is confirmed.
+
+When revived later, preferred shape:
+
+- **5 symbols:** NIFTY 50, NIFTY BANK, SENSEX, NIFTY IT, optional INDIA VIX
+- **Fields:** LTP, prev close, open/high/low, change %, timestamp
+- **Backend:** vendor REST (preferred) or WebSocket → cache → `GET /market/indices`
+- **Frontend never** holds vendor keys; show delay disclaimer if not real-time
+- **F&O feeds** remain a later stage (unchanged)
+
+Reference design (kept for when a vendor unlocks):
+
+```json
+{
+  "asOf": "2026-08-24T09:15:32+05:30",
+  "delayMinutes": 0,
+  "source": "<vendor>",
+  "indices": [
+    {
+      "symbol": "NIFTY 50",
+      "name": "NIFTY 50",
+      "ltp": 24312.45,
+      "prevClose": 24150.15,
+      "change": 162.30,
+      "changePct": 0.67,
+      "up": true
+    }
+  ]
+}
+```
+
 Nothing sensitive is stored in the browser/app — only a session token in
 memory/secure storage. All real data is server-side.
 
@@ -45,27 +277,31 @@ memory/secure storage. All real data is server-side.
 |---|---|---|
 | Identity (phone, verified flag, user ID) | Identity provider + **DynamoDB** | Provider runs OTP; your DB stores the resulting user record |
 | Profile, subscription tier, watchlist, prefs | **DynamoDB** | `users`, `subscriptions`, `watchlists` tables |
-| Payment / order records | **DynamoDB** (`orders`) | Store Razorpay IDs + verified status only — **never card/UPI details** |
-| Card / UPI sensitive data | **Razorpay** (not us) | Keeps you out of PCI scope entirely |
-| Advisory content (ideas, ratings) | **DynamoDB** or small relational | Your actual RA product data |
-| Advice audit log (who saw what, when) | **DynamoDB / S3 (append-only)** | SEBI RAs must retain records — see plan.md compliance section |
-| Static assets | **S3 + CloudFront** | App shell, images |
+| Payment / order records | **DynamoDB** (`orders`) | Store PayU txn / mihpayid + verified status only — **never card/UPI details** |
+| Card / UPI sensitive data | **PayU** (not us) | Keeps you out of PCI scope entirely |
+| Advisory content (insights, MF, courses, videos) | **DynamoDB** (`content`) + **S3** (media) | RA team publishes via admin CMS — see § RA content platform |
+| Market index quotes (NIFTY, SENSEX, …) | **Static `data.ts` (MVP)** | Live vendor path deferred — see § Market indices API |
+| Advice audit log (who saw what, when) | **DynamoDB** (`content_audit`) / S3 export | SEBI RAs must retain records — see plan.md compliance section |
+| Static assets | **S3 + CloudFront** | App shell, images, course videos (signed URLs for Pro) |
 
 ## Request flow
 
 ```
 1. User logs in (phone + MSG91 OTP) → app gets a session token
-2. App calls GET /market/premium-signals      → sends Bearer token
+2. App calls GET /insights                      → sends Bearer token
 3. auth.Middleware verifies token             → claims in context
-4. auth.RequireSubscription("premium") checks → 403 if not entitled
-5. Handler returns data                        → only if all checks pass
+4. auth.RequireSubscription("pro") checks     → 403 if not entitled
+5. Handler reads DynamoDB `content` table       → only published + allowed tier
+6. Optional: append row to `content_audit`      → SEBI delivery record
 ```
+
+Market ticker (MVP) is **frontend-only static data** — no market API call.
 
 ## Why subscription lives in the token
 If entitlement came from a request field or a client flag, any user could
 forge it. Because it's derived from a **server-signed** claim the client
 can't alter, the tier check is trustworthy. This is the same principle behind
-the Phase 5 AI layer: the AI agent's tools do the same server-side
+the Phase 7 AI layer: the AI agent's tools do the same server-side
 entitlement check before returning any data.
 
 ## Payment flow (the security-critical part)
@@ -74,17 +310,18 @@ entitlement check before returning any data.
 1. User taps "Choose Premium"        (browser)
 2. Browser asks backend to create an order   → POST /orders {planId:"premium"}
 3. Backend looks up price SERVER-SIDE (never trusts client amount),
-   calls Razorpay, returns razorpay_order_id
-4. Browser opens Razorpay checkout with that order_id
-5. User pays; Razorpay returns order_id + payment_id + SIGNATURE to browser
-6. Browser sends all three to backend   → POST /payments/verify
-7. Backend RE-COMPUTES the HMAC signature with the Razorpay key secret
-   and compares. Only if it matches:
+   builds PayU payment hash with merchant salt, returns checkout params
+4. Browser opens PayU checkout (Bolt / hosted) with those params
+5. User pays; PayU returns success/failure + response hash to browser (or redirects)
+6. Browser sends result to backend   → POST /payments/verify
+7. Backend RE-COMPUTES the response hash with the PayU merchant salt
+   and compares. Only if it matches and status is success:
 8. Backend writes the subscription to DynamoDB and grants access
+   (also accept PayU server-to-server / webhook as backup)
 ```
 
 The golden rule: **the browser never decides that a payment succeeded.**
-Razorpay signs the result; the Go backend verifies that signature
+PayU signs the result; the Go backend verifies that hash
 (`payments.VerifyPaymentSignature`) before granting anything. A tampered
 client can't fake a payment or pay the wrong amount, because both the price
 and the verification live server-side.
@@ -161,10 +398,13 @@ The components and the single standard request/response path.
    │ auth+authz│
    └────┬────┘
         ▼
-   ┌─────────┐
-   │DynamoDB │
-   │users/subs│
+   ┌─────────┐     ┌──────────────┐
+   │DynamoDB │     │ S3 (media)   │
+   │users    │     │ content/media│
+   │content  │     └──────────────┘
+   │audit    │
    └─────────┘
+   (market vendor cache deferred)
 
  Frontend hosting: S3 (private) + CloudFront — see infra/README.md
  Cross-cutting: SSM Parameter Store · CloudWatch · Route 53
@@ -179,8 +419,9 @@ imperceptible for these — no need for always-on compute.
 
 ### 3. Post-MVP: live price feed (WebSocket fast path)
 
-**Not built in the 12-week MVP** (see build-plan.md Phase 6) — added later
-once the core product is live. Kept here so the eventual design is on record.
+**Deferred** — requires a market-data vendor first (Pipe A). Not in MVP
+(see build-plan.md Phase 8 / deferred Phase 5). Kept here so the eventual
+design is on record.
 
 ```
    ┌──────────────┐
@@ -213,7 +454,7 @@ WebSocket filter, so a Basic user's feed can't carry Premium symbols.
 connection manager is only needed if you outgrow that — see
 [plan.md](plan.md) costs, Stage 3.
 
-## Post-MVP: Phase 5 — AI layer
+## Post-MVP: Phase 7 — AI layer
 ```
 User question → Agent → MCP tools (entitlement-checked) → RAG → grounded answer
 ```

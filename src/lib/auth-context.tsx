@@ -4,19 +4,22 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AppView, NavigateFn, User } from "@/lib/types";
+import { clearSession, loadSession, saveSession } from "@/lib/session";
 
 interface AuthContextValue {
   user: User | null;
+  authReady: boolean;
   showUpgradeModal: boolean;
   setShowUpgradeModal: (open: boolean) => void;
   navigate: NavigateFn;
-  login: (phone: string) => void;
+  login: (phone: string, opts?: { token?: string; subscription?: "free" | "pro" }) => void;
   logout: () => void;
   upgradeToPro: () => void;
   onUpgrade: () => void;
@@ -62,7 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    setUser(loadSession());
+    setAuthReady(true);
+  }, []);
 
   const currentView = pathToView(pathname);
 
@@ -82,8 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    (phone: string) => {
-      setUser({ phone, name: "Investor", subscription: "free" });
+    (phone: string, opts?: { token?: string; subscription?: "free" | "pro" }) => {
+      const subscription = opts?.subscription === "pro" ? "pro" : "free";
+      const next: User = {
+        phone,
+        name: "Investor",
+        subscription,
+        token: opts?.token,
+      };
+      setUser(next);
+      saveSession(next);
       router.push("/dashboard");
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
@@ -91,13 +108,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    clearSession();
     setUser(null);
     router.push("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [router]);
 
   const upgradeToPro = useCallback(() => {
-    setUser((prev) => (prev ? { ...prev, subscription: "pro" } : prev));
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, subscription: "pro" as const };
+      saveSession(next);
+      return next;
+    });
     setShowUpgradeModal(false);
   }, []);
 
@@ -106,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      authReady,
       showUpgradeModal,
       setShowUpgradeModal,
       navigate,
@@ -117,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
+      authReady,
       showUpgradeModal,
       navigate,
       login,
