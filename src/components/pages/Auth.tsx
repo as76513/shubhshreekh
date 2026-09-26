@@ -3,19 +3,32 @@
 import { useState, useRef } from "react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
-import { confirmOtp, requestOtp } from "@/lib/api";
+import { checkPhoneExists, confirmOtp, requestOtp } from "@/lib/api";
 
 const OTP_LEN = 6;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Auth() {
   const { login: onLogin, navigate } = useAuth();
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [step, setStep] = useState<"phone" | "signup" | "otp">("phone");
   const [phone, setPhone] = useState("");
+  const [phoneNotFound, setPhoneNotFound] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isSignup, setIsSignup] = useState(false);
   const [otp, setOtp] = useState<string[]>(() => Array(OTP_LEN).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const goToOtpStep = () => {
+    setOtpSent(true);
+    setStep("otp");
+    setOtp(Array(OTP_LEN).fill(""));
+    setTimeout(() => otpRefs.current[0]?.focus(), 100);
+  };
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,13 +37,44 @@ export default function Auth() {
       return;
     }
     setError("");
+    setPhoneNotFound(false);
+    setLoading(true);
+    try {
+      const exists = await checkPhoneExists(phone);
+      if (exists) {
+        await requestOtp(phone);
+        setIsSignup(false);
+        goToOtpStep();
+      } else {
+        setPhoneNotFound(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify number");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("Please enter your first and last name");
+      return;
+    }
+    if (phone.length !== 10) {
+      setError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    if (!EMAIL_RE.test(email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    setError("");
     setLoading(true);
     try {
       await requestOtp(phone);
-      setOtpSent(true);
-      setStep("otp");
-      setOtp(Array(OTP_LEN).fill(""));
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      setIsSignup(true);
+      goToOtpStep();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send OTP");
     } finally {
@@ -78,10 +122,15 @@ export default function Auth() {
     setError("");
     setLoading(true);
     try {
-      const { token, subscription } = await confirmOtp(phone, code);
+      const { token, subscription, name } = await confirmOtp(
+        phone,
+        code,
+        isSignup ? { firstName, lastName, email } : undefined,
+      );
       onLogin("+91 " + phone, {
         token,
         subscription: subscription === "pro" ? "pro" : "free",
+        name,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Incorrect or expired OTP");
@@ -276,12 +325,33 @@ export default function Auth() {
                       className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current"
                       style={{ animation: "spin 0.7s linear infinite" }}
                     />
-                    Sending OTP...
+                    Checking...
                   </>
                 ) : (
-                  "Send OTP →"
+                  "Continue →"
                 )}
               </button>
+
+              {phoneNotFound && (
+                <p
+                  className="text-sm text-center mt-4 fade-in"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  We couldn&apos;t find an account for this number.{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhoneNotFound(false);
+                      setError("");
+                      setStep("signup");
+                    }}
+                    className="font-medium hover:underline"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    Sign up
+                  </button>
+                </p>
+              )}
 
               <p
                 className="text-xs text-center mt-4"
@@ -304,6 +374,168 @@ export default function Auth() {
                   Privacy Policy
                 </a>
               </p>
+            </form>
+          ) : step === "signup" ? (
+            <form onSubmit={handleSignupSubmit} className="fade-in">
+              <div className="mb-7">
+                <h1
+                  className="text-3xl sm:text-4xl font-bold mb-2 leading-tight"
+                  style={{
+                    fontFamily: "DM Serif Display, serif",
+                    background:
+                      "linear-gradient(90deg, var(--gold-from), var(--gold-shine))",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    color: "var(--gold)",
+                  }}
+                >
+                  Create your account
+                </h1>
+                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                  Tell us a bit about yourself to get started
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("phone");
+                    setError("");
+                  }}
+                  className="text-xs mt-1 hover:underline"
+                  style={{ color: "var(--primary)" }}
+                >
+                  ← Use a different number
+                </button>
+              </div>
+
+              <div className="mb-5 grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Arjun"
+                    className="w-full rounded-xl py-3.5 px-4 outline-none text-sm"
+                    style={{
+                      background: "var(--secondary)",
+                      border: "1px solid var(--border)",
+                      color: "var(--foreground)",
+                    }}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Patel"
+                    className="w-full rounded-xl py-3.5 px-4 outline-none text-sm"
+                    style={{
+                      background: "var(--secondary)",
+                      border: "1px solid var(--border)",
+                      color: "var(--foreground)",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Mobile Number
+                </label>
+                <div
+                  className="flex items-center gap-0 rounded-xl overflow-hidden transition-all"
+                  style={{
+                    background: "var(--secondary)",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  <div
+                    className="px-4 py-3.5 text-sm font-mono flex-shrink-0"
+                    style={{
+                      color: "var(--muted-foreground)",
+                      borderRight: "1px solid var(--border)",
+                    }}
+                  >
+                    +91
+                  </div>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) =>
+                      setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+                    }
+                    placeholder="98765 43210"
+                    className="flex-1 bg-transparent py-3.5 px-4 outline-none text-sm"
+                    style={{
+                      color: "var(--foreground)",
+                      fontFamily: "JetBrains Mono, monospace",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="arjun@example.com"
+                  className="w-full rounded-xl py-3.5 px-4 outline-none text-sm"
+                  style={{
+                    background: "var(--secondary)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
+                />
+                {error && (
+                  <p className="text-xs mt-1.5" style={{ color: "#f87171" }}>
+                    {error}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-action w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <span
+                      className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current"
+                      style={{ animation: "spin 0.7s linear infinite" }}
+                    />
+                    Sending OTP...
+                  </>
+                ) : (
+                  "Sign Up →"
+                )}
+              </button>
             </form>
           ) : (
             <form onSubmit={handleOtpSubmit} className="fade-in">
@@ -328,9 +560,10 @@ export default function Auth() {
                 <button
                   type="button"
                   onClick={() => {
-                    setStep("phone");
+                    setStep(isSignup ? "signup" : "phone");
                     setOtp(Array(OTP_LEN).fill(""));
                     setError("");
+                    setPhoneNotFound(false);
                   }}
                   className="text-xs mt-1 hover:underline"
                   style={{ color: "var(--primary)" }}

@@ -15,6 +15,7 @@ type User struct {
 	UserID      string `dynamodbav:"user_id"`
 	PhoneNumber string `dynamodbav:"phone_number"`
 	Name        string `dynamodbav:"name"`
+	Email       string `dynamodbav:"email"`
 	CreatedAt   string `dynamodbav:"created_at"`
 }
 
@@ -57,10 +58,16 @@ func (t *UsersTable) Get(ctx context.Context, userID string) (*User, error) {
 // user_id — there's no separate signup step in this app, so a phone->user_id
 // GSI would be a layer of indirection with nothing yet to justify it.
 //
+// name/email are only used when creating a new row (the frontend's signup
+// step collects them); an existing user's profile is never overwritten by
+// them, which is also what makes the conditional-put race fallback below
+// safe — the loser of that race re-reads what the winner wrote instead of
+// re-applying its own (possibly different) name/email.
+//
 // The conditional put closes the race where two verify-OTP requests for the
 // same new phone land concurrently: only one PutItem succeeds, the loser
 // re-reads what the winner wrote instead of overwriting it.
-func (t *UsersTable) GetOrCreateByPhone(ctx context.Context, phone string) (*User, error) {
+func (t *UsersTable) GetOrCreateByPhone(ctx context.Context, phone, name, email string) (*User, error) {
 	existing, err := t.Get(ctx, phone)
 	if err != nil {
 		return nil, err
@@ -72,6 +79,8 @@ func (t *UsersTable) GetOrCreateByPhone(ctx context.Context, phone string) (*Use
 	user := User{
 		UserID:      phone,
 		PhoneNumber: "+" + phone,
+		Name:        name,
+		Email:       email,
 		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
 	}
 	item, err := attributevalue.MarshalMap(user)

@@ -45,14 +45,37 @@ export async function requestOtp(phone: string): Promise<void> {
   if (!res.ok) throw new Error(await parseError(res));
 }
 
+/** Read-only lookup so the login screen can route to login vs. signup before sending an OTP. */
+export async function checkPhoneExists(phone: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/auth/check-phone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json();
+  return Boolean(data.exists);
+}
+
 export async function confirmOtp(
   phone: string,
-  otp: string
-): Promise<{ token: string; subscription: string }> {
+  otp: string,
+  profile?: { firstName: string; lastName: string; email: string }
+): Promise<{ token: string; subscription: string; name?: string }> {
   const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, otp }),
+    body: JSON.stringify({
+      phone,
+      otp,
+      ...(profile
+        ? {
+            first_name: profile.firstName,
+            last_name: profile.lastName,
+            email: profile.email,
+          }
+        : {}),
+    }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();

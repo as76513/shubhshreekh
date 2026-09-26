@@ -25,6 +25,7 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("GET /me", auth.Middleware(deps.SigningSecret)(me))
 
 	mux.HandleFunc("POST /auth/send-otp", deps.handleSendOTP)
+	mux.HandleFunc("POST /auth/check-phone", deps.handleCheckPhone)
 	mux.HandleFunc("POST /auth/verify-otp", deps.handleVerifyOTP)
 
 	origins := make(map[string]bool, len(deps.AllowedOrigins))

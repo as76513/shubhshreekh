@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
@@ -41,9 +42,38 @@ func (d Deps) handleSendOTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "sent"})
 }
 
-type verifyOTPRequest struct {
+type checkPhoneRequest struct {
 	Phone string `json:"phone"`
-	OTP   string `json:"otp"`
+}
+
+// handleCheckPhone lets the frontend decide, before sending an OTP, whether
+// to route the user to login (existing phone) or signup (new phone) — a
+// read-only lookup, never creates a row (see handleVerifyOTP for that).
+func (d Deps) handleCheckPhone(w http.ResponseWriter, r *http.Request) {
+	var req checkPhoneRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if !phoneRe.MatchString(req.Phone) {
+		writeError(w, http.StatusBadRequest, "enter a valid 10-digit mobile number")
+		return
+	}
+
+	user, err := d.Users.Get(r.Context(), "91"+req.Phone)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not check phone")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"exists": user != nil})
+}
+
+type verifyOTPRequest struct {
+	Phone     string `json:"phone"`
+	OTP       string `json:"otp"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
 }
 
 // handleVerifyOTP is the one place a user record gets created — never trust
@@ -71,7 +101,8 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := d.Users.GetOrCreateByPhone(r.Context(), fullPhone)
+	name := strings.TrimSpace(strings.TrimSpace(req.FirstName) + " " + strings.TrimSpace(req.LastName))
+	user, err := d.Users.GetOrCreateByPhone(r.Context(), fullPhone, name, strings.TrimSpace(req.Email))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create user")
 		return
@@ -82,5 +113,9 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not issue session")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"token": token, "subscription": "free"})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"token":        token,
+		"subscription": "free",
+		"name":         user.Name,
+	})
 }

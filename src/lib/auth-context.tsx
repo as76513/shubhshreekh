@@ -19,7 +19,10 @@ interface AuthContextValue {
   showUpgradeModal: boolean;
   setShowUpgradeModal: (open: boolean) => void;
   navigate: NavigateFn;
-  login: (phone: string, opts?: { token?: string; subscription?: "free" | "pro" }) => void;
+  login: (
+    phone: string,
+    opts?: { token?: string; subscription?: "free" | "pro"; name?: string },
+  ) => void;
   logout: () => void;
   upgradeToPro: () => void;
   onUpgrade: () => void;
@@ -91,11 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    (phone: string, opts?: { token?: string; subscription?: "free" | "pro" }) => {
+    (
+      phone: string,
+      opts?: { token?: string; subscription?: "free" | "pro"; name?: string },
+    ) => {
       const subscription = opts?.subscription === "pro" ? "pro" : "free";
       const next: User = {
         phone,
-        name: "Investor",
+        name: opts?.name?.trim() || "Investor",
         subscription,
         token: opts?.token,
       };
