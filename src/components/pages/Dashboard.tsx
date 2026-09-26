@@ -109,34 +109,40 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Metric tiles — one blue accent, deltas as gain/loss pills */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        {/* Metric tiles — compact, navy + gold border combination */}
+        <div
+          className="grid grid-cols-2 md:grid-cols-4 mb-8 rounded-xl overflow-hidden"
+          style={{
+            background: 'var(--card-bg)',
+            border: '1px solid rgba(11,42,85,0.16)',
+            borderTop: '3px solid var(--navy-gold)',
+          }}
+        >
           {[
             { label: 'NIFTY 50', value: '24,312', change: '+0.67%', up: true },
             { label: 'SENSEX', value: '79,845', change: '+0.71%', up: true },
             { label: 'BANK NIFTY', value: '52,189', change: '-0.23%', up: false },
             { label: 'Active Calls', value: isPro ? '8' : '3', change: 'this week', up: true },
-          ].map(s => (
+          ].map((s, i) => (
             <div
               key={s.label}
-              className="motion-lift rounded-2xl p-4"
+              className="p-2.5"
               style={{
-                background: 'var(--card-bg)',
-                borderTop: '3px solid var(--blue-accent)',
+                borderLeft: i === 0 ? 'none' : '1px solid rgba(11,42,85,0.1)',
               }}
             >
-              <p className="text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--muted-text)' }}>
+              <p className="text-[9px] font-medium mb-1 uppercase tracking-wide truncate" style={{ color: 'var(--muted-text)' }}>
                 {s.label}
               </p>
               <p
-                className="text-xl font-bold mb-1.5"
+                className="text-sm font-bold mb-1"
                 style={{ color: 'var(--navy)', fontFamily: 'JetBrains Mono, monospace' }}
               >
                 {s.value}
               </p>
               {s.change.includes('%') ? (
                 <span
-                  className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full"
+                  className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                   style={{
                     background: s.up ? 'var(--gain-bg)' : 'var(--loss-bg)',
                     color: s.up ? 'var(--gain)' : 'var(--loss)',
@@ -145,7 +151,7 @@ export default function Dashboard() {
                   {s.up ? '▲ ' : '▼ '}{s.change}
                 </span>
               ) : (
-                <span className="text-xs" style={{ color: 'var(--muted-text)', fontWeight: 500 }}>
+                <span className="text-[10px]" style={{ color: 'var(--muted-text)', fontWeight: 500 }}>
                   {s.change}
                 </span>
               )}
@@ -262,40 +268,78 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-2.5">
-              {recentCalls.map(call => (
+              {recentCalls.map(call => {
+                const isBuy = call.action === 'BUY'
+                const range = Math.abs(call.target - call.stopLoss) || 1
+                const progress = Math.min(
+                  100,
+                  Math.max(0, ((call.cmp - Math.min(call.stopLoss, call.target)) / range) * 100),
+                )
+                return (
                 <div
                   key={call.id}
-                  className="flex items-center gap-3 p-3 rounded-xl"
+                  className="p-3 rounded-xl"
                   style={{ background: 'rgba(11,42,85,0.06)' }}
                 >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                      style={{
+                        background: isBuy ? 'var(--buy-badge)' : 'var(--sell-badge)',
+                        color: '#ffffff',
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}
+                    >
+                      {call.action}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--navy)' }}>
+                        {call.stock}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
+                        {call.timeframe}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold" style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}>
+                        +{call.returnsPct}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 mb-1.5 text-[10px]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ color: 'var(--loss)' }}>SL ₹{call.stopLoss.toLocaleString('en-IN')}</span>
+                    <span style={{ color: 'var(--navy)', fontWeight: 700 }}>₹{call.cmp.toLocaleString('en-IN')}</span>
+                    <span style={{ color: 'var(--gain)' }}>Tgt ₹{call.target.toLocaleString('en-IN')}</span>
+                  </div>
                   <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                    style={{
-                      background: call.action === 'BUY' ? 'var(--buy-badge)' : 'var(--sell-badge)',
-                      color: '#ffffff',
-                      fontFamily: 'JetBrains Mono, monospace',
-                    }}
+                    className="relative h-1.5 rounded-full overflow-hidden"
+                    style={{ background: 'rgba(11,42,85,0.1)' }}
+                    aria-hidden
                   >
-                    {call.action}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate" style={{ color: 'var(--navy)' }}>
-                      {call.stock}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
-                      CMP ₹{call.cmp.toLocaleString('en-IN')} · Tgt ₹{call.target.toLocaleString('en-IN')}
-                    </p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold" style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      +{call.returnsPct}%
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
-                      {call.timeframe}
-                    </p>
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        width: '100%',
+                        background: isBuy
+                          ? 'linear-gradient(90deg, #f87171, #4ade80)'
+                          : 'linear-gradient(90deg, #4ade80, #f87171)',
+                      }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full"
+                      style={{
+                        left: `calc(${progress}% - 5px)`,
+                        background: 'var(--navy)',
+                        border: '2px solid #fff',
+                        boxShadow: '0 0 0 1.5px rgba(11,42,85,0.28)',
+                      }}
+                      title="CMP"
+                    />
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
 
             {!isPro && (
