@@ -12,11 +12,12 @@ import (
 )
 
 type User struct {
-	UserID      string `dynamodbav:"user_id"`
-	PhoneNumber string `dynamodbav:"phone_number"`
-	Name        string `dynamodbav:"name"`
-	Email       string `dynamodbav:"email"`
-	CreatedAt   string `dynamodbav:"created_at"`
+	UserID       string `dynamodbav:"user_id"`
+	PhoneNumber  string `dynamodbav:"phone_number"`
+	Name         string `dynamodbav:"name"`
+	Email        string `dynamodbav:"email"`
+	Subscription string `dynamodbav:"subscription"`
+	CreatedAt    string `dynamodbav:"created_at"`
 }
 
 type UsersTable struct {
@@ -77,11 +78,12 @@ func (t *UsersTable) GetOrCreateByPhone(ctx context.Context, phone, name, email 
 	}
 
 	user := User{
-		UserID:      phone,
-		PhoneNumber: "+" + phone,
-		Name:        name,
-		Email:       email,
-		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
+		UserID:       phone,
+		PhoneNumber:  "+" + phone,
+		Name:         name,
+		Email:        email,
+		Subscription: "free",
+		CreatedAt:    time.Now().UTC().Format(time.RFC3339),
 	}
 	item, err := attributevalue.MarshalMap(user)
 	if err != nil {

@@ -4,7 +4,7 @@ Living list of known gaps, shortcuts, and items deferred past the
 **8 October 2026** Play Store sprint. Update this file when you add or clear
 debt — do not let “temporary” stay silent in code only.
 
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-26
 
 ---
 
@@ -38,7 +38,7 @@ debt — do not let “temporary” stay silent in code only.
 
 | ID | Item | Deferred reason |
 |---|---|---|
-| TD-020 | **Full RA CMS** (MF, courses, videos admin) | Insights-only thin CMS for launch |
+| TD-020 | **Full RA CMS** (courses, videos admin) | Insights-only thin CMS for launch |
 | TD-021 | **`content_audit` view logging** | SEBI nice-to-have; stub OK at launch |
 | TD-022 | **Compliance multi-step approve UI** | Optional; RA may publish direct in v1 |
 | TD-023 | **Live market indices (Pipe A)** | TrueData no API; ticker stays `data.ts` |

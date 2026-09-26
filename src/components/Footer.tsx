@@ -46,7 +46,6 @@ export default function Footer() {
             <ul className="space-y-2.5">
               {[
                 { label: 'Market Insights', view: 'trading' as AppView },
-                { label: 'MF Alerts', view: 'mf-alerts' as AppView },
                 { label: 'Courses', view: 'courses' as AppView },
                 { label: 'Video Tutorials', view: 'videos' as AppView },
                 { label: 'Pro Membership', view: 'landing' as AppView },
@@ -122,7 +121,7 @@ export default function Footer() {
           }}
         >
           <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Disclaimer: </span>
-          Investments in securities market are subject to market risks. Read all related documents carefully before investing. Past performance is not indicative of future returns. Shubhshree Knowledge Hub Pvt. Ltd. is not a SEBI registered investment advisor. Market insights and MF alerts are for educational and informational purposes only and should not be construed as investment advice.
+          Investments in securities market are subject to market risks. Read all related documents carefully before investing. Past performance is not indicative of future returns. Shubhshree Knowledge Hub Pvt. Ltd. is not a SEBI registered investment advisor. Market insights are for educational and informational purposes only and should not be construed as investment advice.
         </div>
 
         {/* Bottom */}

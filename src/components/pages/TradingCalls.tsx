@@ -327,7 +327,7 @@ export default function TradingCalls() {
             {tradingCalls.filter(c => c.isPro).length} more research ideas available on Pro
           </p>
           <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
-            Get unlimited access to all market insights, MF alerts, and premium courses.
+            Get unlimited access to all market insights and premium courses.
           </p>
           <button
             onClick={onUpgrade}

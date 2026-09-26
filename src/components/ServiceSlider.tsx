@@ -21,13 +21,6 @@ const slides: Slide[] = [
     image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&h=900&fit=crop&auto=format',
   },
   {
-    view: 'mf-alerts' as AppView,
-    kicker: 'MF Alerts',
-    title: 'Mutual fund watchlist, explained',
-    desc: 'SIP, switch, and hold notes on popular fund categories — large cap to index funds.',
-    image: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1600&h=900&fit=crop&auto=format',
-  },
-  {
     view: 'courses' as AppView,
     kicker: 'Courses',
     title: 'Market lessons, built for India',

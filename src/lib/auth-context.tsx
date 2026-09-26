@@ -29,6 +29,8 @@ interface AuthContextValue {
   authReady: boolean;
   showUpgradeModal: boolean;
   setShowUpgradeModal: (open: boolean) => void;
+  showProCelebration: boolean;
+  dismissProCelebration: () => void;
   navigate: NavigateFn;
   login: (
     phone: string,
@@ -47,7 +49,6 @@ function pathToView(pathname: string): AppView {
   if (pathname.startsWith("/login")) return "login";
   if (pathname.startsWith("/dashboard")) return "dashboard";
   if (pathname.startsWith("/trading")) return "trading";
-  if (pathname.startsWith("/mf-alerts")) return "mf-alerts";
   if (pathname.startsWith("/courses/")) return "course-detail";
   if (pathname.startsWith("/courses")) return "courses";
   if (pathname.startsWith("/videos")) return "videos";
@@ -64,8 +65,6 @@ function viewToPath(view: AppView, courseId?: number): string {
       return "/dashboard";
     case "trading":
       return "/trading";
-    case "mf-alerts":
-      return "/mf-alerts";
     case "courses":
       return "/courses";
     case "course-detail":
@@ -81,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProCelebration, setShowProCelebration] = useState(false);
 
   useEffect(() => {
     setUser(loadSession());
@@ -93,7 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (view, courseId) => {
       const needsLogin =
         view === "trading" ||
-        view === "mf-alerts" ||
         view === "dashboard" ||
         view === "courses" ||
         view === "course-detail";
@@ -139,7 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return next;
     });
     setShowUpgradeModal(false);
+    setShowProCelebration(true);
   }, []);
+
+  const dismissProCelebration = useCallback(() => setShowProCelebration(false), []);
 
   const onUpgrade = useCallback(() => setShowUpgradeModal(true), []);
 
@@ -149,6 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authReady,
       showUpgradeModal,
       setShowUpgradeModal,
+      showProCelebration,
+      dismissProCelebration,
       navigate,
       login,
       logout,
@@ -160,6 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       authReady,
       showUpgradeModal,
+      showProCelebration,
+      dismissProCelebration,
       navigate,
       login,
       logout,

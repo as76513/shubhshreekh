@@ -36,7 +36,7 @@ format, MSG91 never sees anything past OTP delivery/verification.
 
 ### DynamoDB
 - `users`, `subscriptions`, `orders` — auth & billing (partially built)
-- `content` — RA-authored product data (insights, MF alerts, courses, videos)
+- `content` — RA-authored product data (insights, courses, videos)
 - `content_audit` — append-only delivery/view log (SEBI retention)
 - ~~`market_snapshots`~~ — **deferred** (no live vendor feed in MVP)
 
@@ -50,7 +50,7 @@ never be confused in code or ops:
 | **A — Market indices** | Authorised vendor API | Automated (exchange prices) | **Deferred** — TrueData no API; ticker stays static in `data.ts` |
 | **B — RA research & education** | Your analyst team via admin CMS | Human (SEBI RA) | Not built — static mock in `data.ts` |
 
-Pipe B is **your product** — trading calls, MF alerts, courses, videos —
+Pipe B is **your product** — trading calls, courses, videos —
 published through an internal admin tool, stored in DynamoDB, gated by
 subscription tier server-side. Pipe A is optional ticker context only.
 
@@ -79,7 +79,7 @@ hardcoded in the same file until a vendor grants API access.
 
 **Oct 8 sprint:** ship a **thin insights CMS** (admin form + DynamoDB insight
 rows + `GET /insights`) so the RA can publish daily stock calls without a
-deploy. MF / courses / videos remain on `data.ts` until Phase 4 completes.
+deploy. Courses / videos remain on `data.ts` until Phase 4 completes.
 
 ## RA content platform (Pipe B)
 
@@ -133,7 +133,6 @@ plus GSIs for listing by type and publish date.
 | GSI1PK | GSI1SK | Purpose |
 |---|---|---|
 | `TYPE#insight` | `PUBLISHED#<iso8601>` | Insights page, newest first |
-| `TYPE#mf` | `PUBLISHED#<iso8601>` | MF alerts page |
 | `TYPE#course` | `PUBLISHED#<iso8601>` | Courses page |
 | `TYPE#video` | `PUBLISHED#<iso8601>` | Videos page |
 
@@ -198,8 +197,6 @@ Optional publish-side audit in same table or S3 parquet export for long retentio
 |---|---|---|
 | `GET` | `/insights` | Published trading calls (filter: category, action) |
 | `GET` | `/insights/:id` | Single call + writes audit log |
-| `GET` | `/mf-alerts` | Published MF alerts |
-| `GET` | `/mf-alerts/:id` | Single alert + audit |
 | `GET` | `/courses` | Published courses (metadata) |
 | `GET` | `/courses/:id` | Course + chapters; Pro chapters gated |
 | `GET` | `/videos` | Published videos |
@@ -215,8 +212,6 @@ Free-tier responses omit Pro-only fields or return `locked: true` stubs —
 | `PATCH` | `/admin/insights/:id` | Edit draft |
 | `POST` | `/admin/insights/:id/publish` | Set published + GSI1 keys |
 | `POST` | `/admin/insights/:id/archive` | Remove from customer feeds |
-| `POST` | `/admin/mf-alerts` | Same pattern |
-| `PATCH` | `/admin/mf-alerts/:id` | … |
 | `POST` | `/admin/courses` | Create course + chapters |
 | `POST` | `/admin/videos` | Create video metadata |
 | `POST` | `/admin/media/upload-url` | Presigned S3 URL for video/thumbnail |
@@ -229,7 +224,7 @@ Admin UI: internal route on the Next.js app (`/admin/*`) or separate
 Migration path:
 
 1. Build content APIs + seed DynamoDB from current mock data.
-2. Switch `TradingCalls.tsx`, `MFAlerts.tsx`, etc. to `fetch` from API.
+2. Switch `TradingCalls.tsx`, etc. to `fetch` from API.
 3. Delete static arrays from `data.ts` (keep types only).
 4. Admin CMS becomes the only way to add/update calls — no deploy needed
    for each new insight.
@@ -279,7 +274,7 @@ memory/secure storage. All real data is server-side.
 | Profile, subscription tier, watchlist, prefs | **DynamoDB** | `users`, `subscriptions`, `watchlists` tables |
 | Payment / order records | **DynamoDB** (`orders`) | Store PayU txn / mihpayid + verified status only — **never card/UPI details** |
 | Card / UPI sensitive data | **PayU** (not us) | Keeps you out of PCI scope entirely |
-| Advisory content (insights, MF, courses, videos) | **DynamoDB** (`content`) + **S3** (media) | RA team publishes via admin CMS — see § RA content platform |
+| Advisory content (insights, courses, videos) | **DynamoDB** (`content`) + **S3** (media) | RA team publishes via admin CMS — see § RA content platform |
 | Market index quotes (NIFTY, SENSEX, …) | **Static `data.ts` (MVP)** | Live vendor path deferred — see § Market indices API |
 | Advice audit log (who saw what, when) | **DynamoDB** (`content_audit`) / S3 export | SEBI RAs must retain records — see plan.md compliance section |
 | Static assets | **S3 + CloudFront** | App shell, images, course videos (signed URLs for Pro) |

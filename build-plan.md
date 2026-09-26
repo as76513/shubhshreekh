@@ -34,7 +34,7 @@ Minimal Pipe B — **insights / trading calls only**:
 
 | Include | Exclude until after 8 Oct |
 |---|---|
-| DynamoDB `content` (insight rows) | MF / courses / videos admin |
+| DynamoDB `content` (insight rows) | Courses / videos admin |
 | `POST/PATCH /admin/insights` + publish | Full compliance approval workflow |
 | `GET /insights` (tier-gated) | Bulk import, WhatsApp bot, queues |
 | `/admin` form: stock, BUY/SELL, CMP, target, SL, rationale, tier | Rich text / HTML editor |
@@ -46,7 +46,7 @@ No SQS/webhooks — RA submits a form; customers see formatted cards on next fet
 
 | Ship by 8 Oct | Defer past 8 Oct |
 |---|---|
-| MSG91 OTP live (`Auth.tsx` wired) | Full RA CMS (MF, courses, videos) |
+| MSG91 OTP live (`Auth.tsx` wired) | Full RA CMS (courses, videos) |
 | **Thin insights CMS** (`/admin` + `GET /insights`) | Live market indices |
 | Org Play account + AAB + assetlinks | F&O feeds, AI, WebSocket |
 | Privacy / Terms / grievance URLs | Full GST invoice automation |
@@ -185,23 +185,23 @@ Goal: a user can pick a plan and pay; access is granted only after server-side v
 
 ## Phase 4 — RA content platform (Weeks 10–11)
 
-Goal: analysts can publish insights, MF alerts, courses, and videos; customers
+Goal: analysts can publish insights, courses, and videos; customers
 read from the API instead of `src/lib/data.ts`.
 
 **Oct 8 sprint pulls forward a thin slice:** insights-only admin +
 `GET /insights` (see § October 8 sprint). Weeks 10–11 below cover the **rest**
-(MF, courses, videos, audit) after public launch.
+(courses, videos, audit) after public launch.
 
 **Week 10 — Backend content layer**
 - Mon: DynamoDB `content` + `content_audit` tables + GSIs (see architecture.md).
   *(Insight rows + admin/customer insight routes may already exist from sprint.)*
-- Tue–Wed: Admin CRUD for MF / courses — extend beyond insights.
-- Thu: Customer read handlers — `GET /mf-alerts`, courses, videos with tier gating.
+- Tue–Wed: Admin CRUD for courses — extend beyond insights.
+- Thu: Customer read handlers — courses, videos with tier gating.
 - Fri: Seed remaining types from `data.ts`; smoke-test with curl.
 
 **Week 11 — Admin CMS + frontend wiring**
-- Mon–Tue: Extend `/admin` beyond insights — MF / course forms.
-- Wed: Wire `MFAlerts.tsx`, `Courses.tsx`, `Videos.tsx` to APIs.
+- Mon–Tue: Extend `/admin` beyond insights — course forms.
+- Wed: Wire `Courses.tsx`, `Videos.tsx` to APIs.
 - Thu: Course/video admin forms + S3 (if not done).
 - Fri: Harden tier gating + optional `content_audit` view logging.
 

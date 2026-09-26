@@ -5,7 +5,6 @@ import { useAuth } from "@/lib/auth-context";
 
 const proFeatures = [
   'Unlimited daily Market Insights',
-  'Unlimited MF Alerts every day',
   'All 45+ premium courses',
   'F&O Desk — Futures & Options notes',
   'Options education alerts',

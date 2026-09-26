@@ -3,7 +3,6 @@ export type AppView =
   | "login"
   | "dashboard"
   | "trading"
-  | "mf-alerts"
   | "courses"
   | "course-detail"
   | "videos";

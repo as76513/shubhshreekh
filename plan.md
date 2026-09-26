@@ -59,9 +59,9 @@ architecture.md § Two data pipes):
 | Pipe | Source | MVP status |
 |---|---|---|
 | **A — Market indices** | Authorised vendor API (was TrueData) | **Deferred** — no vendor API; ticker stays static mock in `data.ts` |
-| **B — RA research & education** | Analyst team via internal admin CMS → DynamoDB | **Thin insights CMS in Oct 8 sprint**; MF/courses/videos still static until after launch |
+| **B — RA research & education** | Analyst team via internal admin CMS → DynamoDB | **Thin insights CMS in Oct 8 sprint**; courses/videos still static until after launch |
 
-Pipe B is the **core product** (insights, MF alerts, courses, videos) and is
+Pipe B is the **core product** (insights, courses, videos) and is
 what MVP builds. Pipe A is optional context for the headline ticker — **not
 in MVP scope** until a vendor grants API + redistribution terms.
 
@@ -74,7 +74,6 @@ in MVP scope** until a vendor grants API + redistribution terms.
 | Content | Published by | Stored in | Customer sees via |
 |---|---|---|---|
 | Trading insights / calls | Research Analyst | DynamoDB `content` | `GET /insights` |
-| MF alerts | Research Analyst | DynamoDB `content` | `GET /mf-alerts` |
 | Courses + chapters | Research Analyst / ops | DynamoDB + S3 video | `GET /courses` |
 | Video tutorials | Research Analyst / ops | DynamoDB + S3 | `GET /videos` |
 | NIFTY / SENSEX ticker | **Static mock** (MVP) | `src/lib/data.ts` | Frontend only — no `/market/*` until a vendor is available |
@@ -87,7 +86,7 @@ in MVP scope** until a vendor grants API + redistribution terms.
 - **No deploy for new calls:** analyst publishes in CMS; customers see it on next API fetch.
 
 **Oct 8 sprint slice (decided 2026-09-11):** ship a **thin insights CMS**
-only — `/admin` form + DynamoDB insight rows + `GET /insights`. MF, courses,
+only — `/admin` form + DynamoDB insight rows + `GET /insights`. Courses
 and videos stay on static `data.ts` until after launch. No queues/webhooks.
 
 ### Roles (JWT claims)

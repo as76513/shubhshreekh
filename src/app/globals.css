@@ -264,6 +264,30 @@ footer {
   to { transform: rotate(360deg); }
 }
 
+@keyframes balloonRise {
+  0% { transform: translateY(0) translateX(0) rotate(-3deg); opacity: 0; }
+  8% { opacity: 1; }
+  50% { transform: translateY(-55vh) translateX(18px) rotate(3deg); }
+  100% { transform: translateY(-115vh) translateX(-12px) rotate(-3deg); opacity: 0.9; }
+}
+.balloon-rise {
+  animation-name: balloonRise;
+  animation-timing-function: ease-in;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+@keyframes confettiFall {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--drift, 0px), 105vh) rotate(var(--rotate, 180deg)); opacity: 0; }
+}
+.confetti-fall {
+  animation-name: confettiFall;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
 /* Elevated reading surface — cool mist slate (not white) */
 .surface-card {
   background-color: var(--surface-secondary);

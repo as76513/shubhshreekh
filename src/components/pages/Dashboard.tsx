@@ -1,6 +1,6 @@
 "use client";
 
-import { marketTicker, tradingCalls, mfAlerts, courses, foCalls } from "@/lib/data";
+import { todaysUpdate, tradingCalls, courses, foCalls } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
 
 export default function Dashboard() {
@@ -8,37 +8,10 @@ export default function Dashboard() {
   if (!user) return null;
   const isPro = user.subscription === 'pro'
   const recentCalls = tradingCalls.filter(c => !c.isPro || isPro).slice(0, 4)
-  const recentAlerts = mfAlerts.filter(a => !a.isPro || isPro).slice(0, 3)
   const featuredCourses = courses.slice(0, 3)
 
   return (
     <div className="min-h-screen" style={{ background: 'transparent' }}>
-      {/* Compact market strip */}
-      <div
-        className="overflow-hidden py-2"
-        style={{
-          background: 'var(--card)',
-          borderBottom: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)',
-        }}
-      >
-        <div className="ticker-track flex items-center gap-8 whitespace-nowrap" style={{ width: 'max-content' }}>
-          {[...marketTicker, ...marketTicker].map((t, i) => (
-            <div key={i} className="flex items-center gap-2 flex-shrink-0 px-1">
-              <span className="text-xs font-semibold" style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>
-                {t.name}
-              </span>
-              <span className="text-xs font-bold" style={{ color: '#ffffff', fontFamily: 'JetBrains Mono, monospace' }}>
-                {t.value}
-              </span>
-              <span className="text-xs font-medium" style={{ color: t.up ? '#34d399' : '#fca5a5' }}>
-                {t.up ? '▲ ' : '▼ '}{t.pct}
-              </span>
-              <span className="mx-2 text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>|</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1
@@ -51,6 +24,38 @@ export default function Dashboard() {
             Thursday, 21 August 2026 · NSE Open
           </p>
         </div>
+
+        <a
+          href={todaysUpdate.pdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="surface-card motion-lift rounded-2xl p-5 mb-8 flex items-center gap-4"
+          style={{ borderLeft: '4px solid var(--primary)' }}
+        >
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+            style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+          >
+            📄
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--primary)' }}>
+              Today&apos;s Update
+            </p>
+            <p className="font-semibold text-sm mb-0.5 truncate" style={{ color: 'var(--foreground)' }}>
+              {todaysUpdate.title}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              {todaysUpdate.summary}
+            </p>
+          </div>
+          <span
+            className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-xl"
+            style={{ background: 'var(--primary-15)', color: 'var(--primary)' }}
+          >
+            View PDF →
+          </span>
+        </a>
 
         {!isPro && (
           <div
@@ -74,13 +79,12 @@ export default function Dashboard() {
         )}
 
         {/* Metric tiles — one surface family; color only on ±% deltas */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           {[
             { label: 'NIFTY 50', value: '24,312', change: '+0.67%', up: true },
             { label: 'SENSEX', value: '79,845', change: '+0.71%', up: true },
             { label: 'BANK NIFTY', value: '52,189', change: '-0.23%', up: false },
             { label: 'Active Calls', value: isPro ? '8' : '3', change: 'this week', up: true },
-            { label: 'MF Alerts', value: isPro ? '7' : '2', change: 'this week', up: true },
           ].map(s => (
             <div
               key={s.label}
@@ -201,8 +205,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="surface-card lg:col-span-2 rounded-2xl p-5">
+        <div className="grid grid-cols-1 gap-5">
+          <div className="surface-card rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-base" style={{ color: 'var(--foreground)' }}>
                 Recent insights
@@ -263,74 +267,6 @@ export default function Dashboard() {
               >
                 <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
                   🔒 {tradingCalls.filter(c => c.isPro).length} more Pro insights locked
-                </p>
-                <button
-                  onClick={onUpgrade}
-                  className="text-xs font-semibold whitespace-nowrap hover:underline"
-                  style={{ color: 'var(--gold)' }}
-                >
-                  Upgrade to Pro
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="surface-card rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-base" style={{ color: 'var(--foreground)' }}>
-                MF Alerts
-              </h2>
-              <button
-                onClick={() => navigate('mf-alerts')}
-                className="text-xs font-medium hover:opacity-70"
-                style={{ color: 'var(--primary)' }}
-              >
-                View all
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {recentAlerts.map(alert => (
-                <div
-                  key={alert.id}
-                  className="p-3 rounded-xl"
-                  style={{ background: 'var(--surface-inset)' }}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-md"
-                      style={{
-                        background: 'color-mix(in srgb, var(--gold) 12%, transparent)',
-                        color: 'var(--gold)',
-                        fontFamily: 'JetBrains Mono, monospace',
-                      }}
-                    >
-                      {alert.action}
-                    </span>
-                    <span className="text-xs font-bold" style={{ color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {alert.returns1Y > 0 ? '+' : ''}{alert.returns1Y}%
-                    </span>
-                  </div>
-                  <p className="text-xs font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
-                    {alert.fund.split(' – ')[0]}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-                    {alert.category}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {!isPro && (
-              <div
-                className="mt-3 rounded-xl p-3 flex items-center justify-between gap-3"
-                style={{
-                  background: 'color-mix(in srgb, var(--gold) 10%, var(--surface-secondary))',
-                  border: '1px dashed color-mix(in srgb, var(--gold) 45%, transparent)',
-                }}
-              >
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                  🔒 {mfAlerts.filter(a => a.isPro).length} Pro alerts locked
                 </p>
                 <button
                   onClick={onUpgrade}

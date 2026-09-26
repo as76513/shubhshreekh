@@ -108,14 +108,19 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.IssueToken(d.SigningSecret, user.UserID, "free", sessionTTL)
+	subscription := "free"
+	if user.Subscription == "pro" {
+		subscription = "pro"
+	}
+
+	token, err := auth.IssueToken(d.SigningSecret, user.UserID, subscription, sessionTTL)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue session")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"token":        token,
-		"subscription": "free",
+		"subscription": subscription,
 		"name":         user.Name,
 	})
 }
