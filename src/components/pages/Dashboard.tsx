@@ -45,7 +45,7 @@ export default function Dashboard() {
             className="text-2xl sm:text-3xl font-bold mb-1 tracking-tight"
             style={{ color: 'var(--foreground)', fontFamily: 'DM Serif Display, serif' }}
           >
-            Good morning, {user.name}
+            Hello {user.name}! 👋
           </h1>
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
             Thursday, 21 August 2026 · NSE Open

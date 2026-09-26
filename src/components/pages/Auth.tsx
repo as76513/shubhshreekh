@@ -337,7 +337,7 @@ export default function Auth() {
                   className="text-sm text-center mt-4 fade-in"
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  We couldn&apos;t find an account for this number.{" "}
+                  Not registered?{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -348,7 +348,7 @@ export default function Auth() {
                     className="font-medium hover:underline"
                     style={{ color: "var(--primary)" }}
                   >
-                    Sign up
+                    Sign Up
                   </button>
                 </p>
               )}

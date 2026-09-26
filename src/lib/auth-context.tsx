@@ -13,6 +13,17 @@ import { usePathname, useRouter } from "next/navigation";
 import type { AppView, NavigateFn, User } from "@/lib/types";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
 
+// Normalizes a name once at the point it enters app state (however the user
+// typed it at signup) so every screen that renders user.name shows it the
+// same way, e.g. "amol shinde" / "AMOL SHINDE" -> "Amol Shinde".
+function toTitleCase(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 interface AuthContextValue {
   user: User | null;
   authReady: boolean;
@@ -101,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const subscription = opts?.subscription === "pro" ? "pro" : "free";
       const next: User = {
         phone,
-        name: opts?.name?.trim() || "Investor",
+        name: opts?.name?.trim() ? toTitleCase(opts.name) : "Investor",
         subscription,
         token: opts?.token,
       };
