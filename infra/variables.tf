@@ -45,6 +45,18 @@ variable "hosting_mode" {
   }
 }
 
+variable "api_base_url" {
+  description = <<-EOT
+    Backend API base URL the frontend calls (baked into the Next.js build at
+    Amplify build time as NEXT_PUBLIC_API_BASE_URL — this is a build-time,
+    not runtime, value, so changing it requires a fresh Amplify build, not
+    just a Terraform apply). See infra/backend's api_invoke_url output for
+    the current live value.
+  EOT
+  type        = string
+  default     = "https://c630c7v98g.execute-api.ap-south-1.amazonaws.com"
+}
+
 variable "github_access_token" {
   description = <<-EOT
     GitHub personal access token used once to connect the Amplify app to

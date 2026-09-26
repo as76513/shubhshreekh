@@ -232,6 +232,13 @@ resource "aws_amplify_app" "site" {
   repository   = "https://github.com/as76513/shubhshreekh.git"
   access_token = var.github_access_token
 
+  # NEXT_PUBLIC_ vars are baked in at Next.js build time — without this, the
+  # deployed bundle falls back to a relative "" base URL and every API call
+  # silently hits the frontend's own domain instead of the backend (404).
+  environment_variables = {
+    NEXT_PUBLIC_API_BASE_URL = var.api_base_url
+  }
+
   # access_token isn't returned by AWS's read API, so it always diffs
   # against whatever's in config — ignore it so plan/apply don't try to
   # touch a working GitHub connection (and don't reject on a stale/absent
