@@ -20,6 +20,18 @@ export default function Dashboard() {
           >
             Hello {user.name}! 👋
           </h1>
+          {isPro && (
+            <p
+              className="inline-flex items-center gap-1.5 text-sm font-semibold mt-1.5 mb-1.5 px-3 py-1 rounded-full"
+              style={{
+                background: 'color-mix(in srgb, var(--gold) 14%, transparent)',
+                color: 'var(--gold)',
+                border: '1px solid color-mix(in srgb, var(--gold) 35%, transparent)',
+              }}
+            >
+              🎉 Congratulations, Pro Member! 🎈
+            </p>
+          )}
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
             Thursday, 21 August 2026 · NSE Open
           </p>
