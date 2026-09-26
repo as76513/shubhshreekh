@@ -37,23 +37,28 @@
 
 /*
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SHREE CLARITY — 4 brand + 2 semantic (no rainbow)
+  SHREE VIBRANT — brand + semantic + per-surface accents
+
+  Decided 2026-09-26: retired the earlier "no rainbow" restraint (see git
+  history for "Shree Clarity") for a brighter, more energetic look closer
+  to Groww/Zerodha/Univest — the muted version was reading as "old
+  fashioned" rather than calm.
 
   BRAND (always on):
   1. Mist   #E2E8F0 — canvas / soft sheets (atmosphere)
   2. White  #FFFFFF — elevated cards (reading surfaces)
-  3. Ink    #0B2438 — text, ticker, dark brand panels
+  3. Ink    #0B2438 — text, dark brand panels
   4. Teal   #0F766E — primary actions (Start, Send OTP, Get started)
-  5. Gold   #B8860B — Pro / premium ONLY (Upgrade, Pro badge, prices)
+  5. Gold   #F59E0B — Pro / premium ONLY (Upgrade, Pro badge, prices)
 
-  SEMANTIC (data only — never decorate UI chrome):
-  • Gain #047857 · Loss #B91C1C — only next to ±% with ▲▼
+  SEMANTIC (data + status — vivid, used on badges/chips too now):
+  • Gain #16A34A · Loss #EF4444 — ±% deltas, BUY/SELL badges, return chips
 
-  CONSISTENCY RULES (keep lively, not dull):
-  • 60% mist+white · 30% ink structure · 10% teal/gold accents
-  • Interest from hierarchy, motion (settle/lift), and data deltas — not new hues
-  • Never tint each card a different color (no teal/blue/red/gold tile rainbow)
-  • Gold never as body copy on light; teal never as “premium”
+  SURFACE ACCENTS (component-local, not global tokens):
+  • Distinct hues per stat tile / hero banner (e.g. Dashboard.tsx's NIFTY/
+    SENSEX/BANK NIFTY/Active Calls tiles) are hardcoded in the component,
+    not added here — they're a decorative pattern for specific screens,
+    not a new brand-wide palette.
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 */
 :root {
@@ -72,17 +77,17 @@
   --primary: #0f766e;
   --primary-foreground: #ffffff;
   --ring: #0f766e;
-  --gold: #b8860b;
-  --gold-from: #c9a227;
-  --gold-to: #8f6b08;
-  --gold-shine: #d4af37;
+  --gold: #d97706;
+  --gold-from: #f59e0b;
+  --gold-to: #d97706;
+  --gold-shine: #fbbf24;
   --secondary: #e2e8f0;
   --secondary-foreground: #334155;
   --muted: #e2e8f0;
   --muted-foreground: #475569;
-  --accent: #047857;
+  --accent: #16a34a;
   --accent-foreground: #ffffff;
-  --destructive: #b91c1c;
+  --destructive: #ef4444;
   --border: color-mix(in srgb, #0b2438 9%, transparent);
   --input: color-mix(in srgb, #0b2438 12%, transparent);
   --logo-plate: transparent;
@@ -119,6 +124,35 @@
   --overlay-80: color-mix(in srgb, var(--card) 80%, transparent);
   --overlay-85: color-mix(in srgb, var(--card) 85%, transparent);
   --overlay-95: color-mix(in srgb, var(--card) 95%, transparent);
+
+  /* ---------------------------------------------------------------------
+     NAVY BLUE — the in-app screens (Dashboard, Market Insights). Decided
+     2026-09-27: supersedes the brief "Vibrant Overhaul" (rainbow stat
+     tiles) — back to "no rainbow" but with navy/blue as the lead hue
+     instead of teal, plus gold for Pro accents. Marketing/auth pages
+     (Landing, Login, Navbar, Footer) still use the --primary teal above;
+     this block is scoped to the mobile app screens only, per the design
+     spec that introduced it.
+     --------------------------------------------------------------------- */
+  --navy: #0b2a55;
+  --navy-2: #1e4a8a;
+  --blue-accent: #1d4ed8;
+  --muted-text: #5a6b85;
+  --screen-bg: #f1f4f9;
+  --card-bg: linear-gradient(145deg, #eef3fb, #e1eaf7);
+  /* Prefixed navy-gold-* — a scoped accent distinct from the app-wide
+     --gold/--gold-from/--gold-to/--gold-shine used by Navbar/Footer/Login,
+     so this doesn't silently override those (both are "gold" but distinct
+     hex values from different design passes). */
+  --navy-gold: #c9a227;
+  --navy-gold-soft: #d4af37;
+  --navy-gold-text: #a67c1a;
+  --gain: #15803d;
+  --gain-bg: rgba(22, 163, 74, 0.12);
+  --loss: #b91c1c;
+  --loss-bg: rgba(220, 38, 38, 0.1);
+  --buy-badge: #16a34a;
+  --sell-badge: #dc2626;
 }
 
 html {
@@ -204,17 +238,6 @@ footer {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
-}
-
-@keyframes ticker {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.ticker-track {
-  animation: ticker 30s linear infinite;
-}
-.ticker-track:hover {
-  animation-play-state: paused;
 }
 
 @keyframes fadeIn {
@@ -364,8 +387,7 @@ footer {
   .fade-in,
   .fade-up,
   .motion-settle,
-  .motion-breath,
-  .ticker-track {
+  .motion-breath {
     animation: none !important;
   }
   .pressable:hover,

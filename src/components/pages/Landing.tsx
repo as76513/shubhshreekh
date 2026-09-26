@@ -1,6 +1,6 @@
 "use client";
 
-import { marketTicker, videos, testimonials } from "@/lib/data";
+import { videos, testimonials } from "@/lib/data";
 import ServiceSlider from "@/components/ServiceSlider";
 import CourseSlider from "@/components/CourseSlider";
 import PlanSlider from "@/components/PlanSlider";
@@ -71,36 +71,6 @@ export default function Landing() {
             >
               See plans
             </button>
-          </div>
-        </div>
-
-        {/* Market ticker — ink strip so it reads on mist canvas */}
-        <div
-          className="overflow-hidden py-2.5"
-          style={{
-            background: 'var(--card)',
-            borderTop: '1px solid color-mix(in srgb, var(--gold) 30%, transparent)',
-            borderBottom: '1px solid color-mix(in srgb, var(--gold) 20%, transparent)',
-          }}
-        >
-          <div className="ticker-track flex items-center gap-8 whitespace-nowrap" style={{ width: 'max-content' }}>
-            {[...marketTicker, ...marketTicker].map((t, i) => (
-              <div key={i} className="flex items-center gap-2 flex-shrink-0 px-2">
-                <span className="text-xs font-semibold" style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {t.name}
-                </span>
-                <span className="text-xs font-bold" style={{ color: '#ffffff', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {t.value}
-                </span>
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: t.up ? '#34d399' : '#fca5a5' }}
-                >
-                  {t.up ? '▲ ' : '▼ '}{t.pct}
-                </span>
-                <span className="mx-3 text-xs" style={{ color: 'rgba(226,232,240,0.45)' }}>·</span>
-              </div>
-            ))}
           </div>
         </div>
       </section>
