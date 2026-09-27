@@ -126,10 +126,13 @@ export default function Dashboard() {
           ].map((s, i) => (
             <div
               key={s.label}
-              className="p-2.5"
-              style={{
-                borderLeft: i === 0 ? 'none' : '1px solid rgba(11,42,85,0.1)',
-              }}
+              className={[
+                'p-2.5',
+                i % 2 === 1 ? 'border-l' : '',
+                i >= 2 ? 'border-t md:border-t-0' : '',
+                i >= 1 ? 'md:border-l' : '',
+              ].join(' ')}
+              style={{ borderColor: 'rgba(11,42,85,0.18)' }}
             >
               <p className="text-[9px] font-medium mb-1 uppercase tracking-wide truncate" style={{ color: 'var(--muted-text)' }}>
                 {s.label}

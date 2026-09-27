@@ -168,6 +168,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Tailwind's preflight resets <button> to cursor: default — restore the
+   hand cursor everywhere so buttons read as clickable like links do. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 .otp-digit {
   background-color: #ffffff !important;
   color: #0b2438 !important;
