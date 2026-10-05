@@ -12,16 +12,21 @@ import (
 )
 
 // Claims mirrors architecture.md's entitlement model: the subscription tier
-// rides in the token itself so it can't be forged by the client.
+// and role ride in the token itself so neither can be forged by the client.
 type Claims struct {
 	Subscription string `json:"subscription"`
+	// Role is "customer" (default), "analyst", "compliance", or "admin" —
+	// see architecture.md's RA content platform roles table. Only
+	// analyst/admin may write to /admin/insights/*.
+	Role string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-func IssueToken(secret []byte, userID, subscription string, ttl time.Duration) (string, error) {
+func IssueToken(secret []byte, userID, subscription, role string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		Subscription: subscription,
+		Role:         role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			Issuer:    "shubhshreekh-backend",

@@ -12,6 +12,8 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import type { AppView, NavigateFn, User } from "@/lib/types";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
+import { refreshWithPasskey } from "@/lib/webauthn";
+import { ApiError } from "@/lib/api";
 
 // Normalizes a name once at the point it enters app state (however the user
 // typed it at signup) so every screen that renders user.name shows it the
@@ -32,9 +34,17 @@ interface AuthContextValue {
   showProCelebration: boolean;
   dismissProCelebration: () => void;
   navigate: NavigateFn;
+  /**
+   * Runs an authenticated API call with the current access token; on a 401
+   * (token expired mid-session — see TECH_DEBT.md TD-047), tries one
+   * biometric/PIN refresh and retries once, and only logs the user out if
+   * that refresh also fails. Use this for any Bearer-protected fetch
+   * instead of calling user.token directly.
+   */
+  withAuth: <T>(fn: (token: string) => Promise<T>) => Promise<T>;
   login: (
     phone: string,
-    opts?: { token?: string; subscription?: "free" | "pro"; name?: string },
+    opts?: { token?: string; subscription?: "free" | "pro"; name?: string; userId?: string; role?: string },
   ) => void;
   logout: () => void;
   upgradeToPro: () => void;
@@ -49,6 +59,7 @@ function pathToView(pathname: string): AppView {
   if (pathname.startsWith("/login")) return "login";
   if (pathname.startsWith("/dashboard")) return "dashboard";
   if (pathname.startsWith("/trading")) return "trading";
+  if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/courses/")) return "course-detail";
   if (pathname.startsWith("/courses")) return "courses";
   if (pathname.startsWith("/videos")) return "videos";
@@ -65,6 +76,8 @@ function viewToPath(view: AppView, courseId?: number): string {
       return "/dashboard";
     case "trading":
       return "/trading";
+    case "admin":
+      return "/admin";
     case "courses":
       return "/courses";
     case "course-detail":
@@ -83,8 +96,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [showProCelebration, setShowProCelebration] = useState(false);
 
   useEffect(() => {
-    setUser(loadSession());
+    const stored = loadSession();
+    setUser(stored);
     setAuthReady(true);
+
+    // The stored access token is short-lived (30 min) and has likely gone
+    // stale by the time the app is reopened. Best-effort trade it for a
+    // fresh one via biometric/PIN, with no OTP — see webauthn.ts. Silent
+    // failure here just leaves the stale token in place, same as before
+    // this existed; the user only notices if/when an API call 401s.
+    if (stored?.userId) {
+      refreshWithPasskey(stored.userId).then((result) => {
+        if (!result) return;
+        setUser((prev) => {
+          if (!prev) return prev;
+          const next: User = {
+            ...prev,
+            token: result.token,
+            subscription: result.subscription === "pro" ? "pro" : "free",
+            role: result.role ?? prev.role,
+          };
+          saveSession(next);
+          return next;
+        });
+      });
+    }
   }, []);
 
   const currentView = pathToView(pathname);
@@ -94,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const needsLogin =
         view === "trading" ||
         view === "dashboard" ||
+        view === "admin" ||
         view === "courses" ||
         view === "course-detail";
       const target = !user && needsLogin ? "login" : view;
@@ -106,7 +143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     (
       phone: string,
-      opts?: { token?: string; subscription?: "free" | "pro"; name?: string },
+      opts?: {
+        token?: string;
+        subscription?: "free" | "pro";
+        name?: string;
+        userId?: string;
+        role?: string;
+      },
     ) => {
       const subscription = opts?.subscription === "pro" ? "pro" : "free";
       const next: User = {
@@ -114,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: opts?.name?.trim() ? toTitleCase(opts.name) : "Investor",
         subscription,
         token: opts?.token,
+        userId: opts?.userId,
+        role: opts?.role,
       };
       setUser(next);
       saveSession(next);
@@ -129,6 +174,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [router]);
+
+  const withAuth = useCallback(
+    async <T,>(fn: (token: string) => Promise<T>): Promise<T> => {
+      if (!user?.token) throw new Error("not logged in");
+      try {
+        return await fn(user.token);
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 401 || !user.userId) throw err;
+
+        const result = await refreshWithPasskey(user.userId);
+        if (!result) {
+          // Can't silently recover — no credential, or the 7-day OTP
+          // window has lapsed (see TECH_DEBT.md TD-047). Force a clean
+          // re-login rather than leaving the user stuck on a dead token.
+          logout();
+          throw err;
+        }
+        setUser((prev) => {
+          if (!prev) return prev;
+          const next: User = {
+            ...prev,
+            token: result.token,
+            subscription: result.subscription === "pro" ? "pro" : "free",
+            role: result.role ?? prev.role,
+          };
+          saveSession(next);
+          return next;
+        });
+        return fn(result.token);
+      }
+    },
+    [user, logout],
+  );
 
   const upgradeToPro = useCallback(() => {
     setUser((prev) => {
@@ -154,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showProCelebration,
       dismissProCelebration,
       navigate,
+      withAuth,
       login,
       logout,
       upgradeToPro,
@@ -162,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
+      withAuth,
       authReady,
       showUpgradeModal,
       showProCelebration,

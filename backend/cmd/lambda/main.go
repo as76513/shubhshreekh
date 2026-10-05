@@ -48,10 +48,17 @@ func init() {
 		log.Fatal("CORS_ALLOWED_ORIGINS not set — e.g. https://app.shubhshreeknowledgehub.com")
 	}
 
+	webAuthn, err := api.NewWebAuthnFromEnv()
+	if err != nil {
+		log.Fatalf("webauthn config: %v", err)
+	}
+
 	deps := api.Deps{
 		SigningSecret:  []byte(secret),
 		Users:          db.NewUsersTable(client, os.Getenv("DYNAMODB_USERS_TABLE")),
+		Content:        db.NewContentTable(client, os.Getenv("DYNAMODB_CONTENT_TABLE")),
 		OTP:            provider,
+		WebAuthn:       webAuthn,
 		AllowedOrigins: strings.Split(origins, ","),
 	}
 

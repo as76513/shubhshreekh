@@ -31,12 +31,16 @@ resource "aws_lambda_function" "api" {
       DYNAMODB_USERS_TABLE         = aws_dynamodb_table.users.name
       DYNAMODB_SUBSCRIPTIONS_TABLE = aws_dynamodb_table.subscriptions.name
       DYNAMODB_ORDERS_TABLE        = aws_dynamodb_table.orders.name
+      DYNAMODB_CONTENT_TABLE       = aws_dynamodb_table.content.name
       SESSION_TOKEN_SIGNING_SECRET = var.session_token_signing_secret
       CORS_ALLOWED_ORIGINS         = join(",", var.cors_allowed_origins)
       MSG91_AUTH_KEY               = var.msg91_auth_key
       MSG91_TEMPLATE_ID            = var.msg91_template_id
       OTP_TEST_PHONES              = var.otp_test_phones
       OTP_TEST_CODE                = var.otp_test_code
+      ANALYST_PHONES               = var.analyst_phones
+      WEBAUTHN_RP_ID               = var.webauthn_rp_id
+      WEBAUTHN_RP_ORIGINS          = join(",", var.webauthn_rp_origins)
     }
   }
 }

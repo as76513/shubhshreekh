@@ -50,5 +50,8 @@ locals {
     aws_dynamodb_table.users.arn,
     aws_dynamodb_table.subscriptions.arn,
     aws_dynamodb_table.orders.arn,
+    aws_dynamodb_table.content.arn,
+    # Querying a GSI needs its own resource ARN, not just the base table's.
+    "${aws_dynamodb_table.content.arn}/index/*",
   ]
 }

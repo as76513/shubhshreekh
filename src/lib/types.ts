@@ -3,6 +3,7 @@ export type AppView =
   | "login"
   | "dashboard"
   | "trading"
+  | "admin"
   | "courses"
   | "course-detail"
   | "videos";
@@ -11,8 +12,12 @@ export interface User {
   phone: string;
   name: string;
   subscription: "free" | "pro";
-  /** Session JWT from /auth/verify-otp — required for authenticated API calls. */
+  /** Short-lived (30 min) session JWT — required for authenticated API calls. */
   token?: string;
+  /** Phone-based backend user id — needed to call /auth/refresh/* before any token exists. */
+  userId?: string;
+  /** "customer" (default) | "analyst" | "compliance" | "admin" — gates /admin. */
+  role?: string;
 }
 
 export type NavigateFn = (view: AppView, courseId?: number) => void;

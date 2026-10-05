@@ -3,11 +3,13 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
+	"github.com/as76513/shubhshreekh/backend/internal/otp"
 )
 
 // phoneRe matches a bare 10-digit Indian mobile number (no country code —
@@ -18,7 +20,18 @@ var phoneRe = regexp.MustCompile(`^[6-9]\d{9}$`)
 
 var otpRe = regexp.MustCompile(`^\d{4,6}$`)
 
-const sessionTTL = 30 * 24 * time.Hour
+// roleForPhone derives the role claim live from ANALYST_PHONES (same CSV
+// format/parser as OTP_TEST_PHONES — see TECH_DEBT.md TD-013) rather than
+// storing it on the user row: flipping who's an analyst is then just an env
+// var + redeploy, with no DB migration and no stale role surviving after
+// someone's removed from the list.
+func roleForPhone(fullPhone string) string {
+	analysts := otp.ParseTestPhones(os.Getenv("ANALYST_PHONES"))
+	if _, ok := analysts[fullPhone]; ok {
+		return "analyst"
+	}
+	return "customer"
+}
 
 type sendOTPRequest struct {
 	Phone string `json:"phone"`
@@ -113,7 +126,16 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		subscription = "pro"
 	}
 
-	token, err := auth.IssueToken(d.SigningSecret, user.UserID, subscription, sessionTTL)
+	// A full OTP verification is the only thing that resets the
+	// biometric/PIN refresh window — see otpVerifiedWindow in webauthn.go.
+	verifiedUntil := time.Now().Add(otpVerifiedWindow)
+	if err := d.Users.SetVerifiedUntil(r.Context(), user.UserID, verifiedUntil); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not issue session")
+		return
+	}
+
+	role := roleForPhone(user.UserID)
+	token, err := auth.IssueToken(d.SigningSecret, user.UserID, subscription, role, accessTokenTTL)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue session")
 		return
@@ -122,5 +144,7 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		"token":        token,
 		"subscription": subscription,
 		"name":         user.Name,
+		"userId":       user.UserID,
+		"role":         role,
 	})
 }

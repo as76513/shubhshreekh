@@ -16,7 +16,7 @@ see [architecture.md](architecture.md); for *when things get built* see
 | Backend | Go API | **Go API** (unchanged) | — |
 | Primary DB | DynamoDB | **DynamoDB** (unchanged) | Key-based access patterns fit |
 | Auth | Cognito | **MSG91 phone-OTP (SendOTP), SMS channel** — decided, see below | Phone-OTP + Indian SMS/DLT fit; own the backend |
-| Payments | Stripe / Razorpay | **PayU** (web) + **Google Play Billing** (Play TWA) | PayU for browser; Play policy requires Play Billing (or billing choice) inside Play-distributed app — see Oct 8 sprint |
+| Payments | Stripe / Razorpay | **PayU** (web) + **Google Play Billing** (Play TWA) | PayU for browser; Play policy requires Play Billing (or billing choice) inside Play-distributed app — see Oct 18 sprint |
 | Hosting | Serverless | **Lambda + API Gateway** (unchanged) | Scales to zero |
 
 ## Decided: identity provider — MSG91 (SendOTP, SMS channel)
@@ -59,7 +59,7 @@ architecture.md § Two data pipes):
 | Pipe | Source | MVP status |
 |---|---|---|
 | **A — Market indices** | Authorised vendor API (was TrueData) | **Deferred** — no vendor API; ticker stays static mock in `data.ts` |
-| **B — RA research & education** | Analyst team via internal admin CMS → DynamoDB | **Thin insights CMS in Oct 8 sprint**; courses/videos still static until after launch |
+| **B — RA research & education** | Analyst team via internal admin CMS → DynamoDB | **Thin insights CMS in Oct 18 sprint**; courses/videos still static until after launch |
 
 Pipe B is the **core product** (insights, courses, videos) and is
 what MVP builds. Pipe A is optional context for the headline ticker — **not
@@ -85,7 +85,8 @@ in MVP scope** until a vendor grants API + redistribution terms.
 - **Workflow:** draft → optional compliance review → published → archived.
 - **No deploy for new calls:** analyst publishes in CMS; customers see it on next API fetch.
 
-**Oct 8 sprint slice (decided 2026-09-11):** ship a **thin insights CMS**
+**Oct 18 sprint slice (decided 2026-09-11, deadline moved 2026-10-05):** ship
+a **thin insights CMS**
 only — `/admin` form + DynamoDB insight rows + `GET /insights`. Courses
 and videos stay on static `data.ts` until after launch. No queues/webhooks.
 

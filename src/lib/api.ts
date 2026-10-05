@@ -25,6 +25,15 @@ async function parseError(res: Response): Promise<string> {
   return body?.error ?? "Something went wrong, please try again.";
 }
 
+/** Carries the HTTP status so callers can distinguish 401 (needs re-auth) from other failures. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 /** Optional Bearer token for authenticated API calls. */
 export function authHeaders(token?: string | null): HeadersInit {
   const headers: Record<string, string> = {
@@ -61,7 +70,7 @@ export async function confirmOtp(
   phone: string,
   otp: string,
   profile?: { firstName: string; lastName: string; email: string }
-): Promise<{ token: string; subscription: string; name?: string }> {
+): Promise<{ token: string; subscription: string; name?: string; userId?: string; role?: string }> {
   const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -79,4 +88,158 @@ export async function confirmOtp(
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
+}
+
+// --- Biometric/PIN unlock (WebAuthn) -------------------------------------
+// See src/lib/webauthn.ts for the browser-API orchestration that calls
+// these. Registration requires a just-issued access token (Bearer); the
+// refresh pair deliberately does not, since a possibly-expired access
+// token is exactly the case refresh exists to handle — the backend
+// re-derives trust itself from user_id + the stored credential.
+
+export async function webauthnRegisterBegin(token: string): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/auth/webauthn/register/begin`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function webauthnRegisterFinish(token: string, credential: unknown): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/auth/webauthn/register/finish`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(credential),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function refreshBegin(userId: string): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/auth/refresh/begin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function refreshFinish(
+  userId: string,
+  assertion: unknown
+): Promise<{ token: string; subscription: string; name?: string; role?: string }> {
+  const res = await fetch(
+    `${API_BASE_URL}/auth/refresh/finish?user_id=${encodeURIComponent(userId)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(assertion),
+    }
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+// --- RA content platform (Pipe B) — thin insights CMS --------------------
+
+export type Insight = {
+  id: string;
+  stock: string;
+  symbol: string;
+  action: string;
+  category: string;
+  timeframe: string;
+  tier: string;
+  locked: boolean;
+  cmp: number;
+  target: number;
+  stopLoss: number;
+  returnsPct: number;
+  rationale: string;
+  date: string;
+};
+
+/** Every row ever created (draft/published/archived) — analyst's own admin list. */
+export type AdminInsight = {
+  id: string;
+  status: "draft" | "published" | "archived";
+  tier: string;
+  action: string;
+  stock: string;
+  symbol: string;
+  category: string;
+  timeframe: string;
+  cmp: number;
+  target: number;
+  stopLoss: number;
+  returnsPct: number;
+  rationale: string;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InsightInput = {
+  tier: string;
+  action: string;
+  stock: string;
+  symbol: string;
+  category: string;
+  timeframe: string;
+  cmp: number;
+  target: number;
+  stopLoss: number;
+  rationale: string;
+};
+
+export async function listInsights(token: string): Promise<Insight[]> {
+  const res = await fetch(`${API_BASE_URL}/insights`, { headers: authHeaders(token) });
+  if (!res.ok) throw new ApiError(res.status, await parseError(res));
+  return res.json();
+}
+
+export async function listAllInsights(token: string): Promise<AdminInsight[]> {
+  const res = await fetch(`${API_BASE_URL}/admin/insights`, { headers: authHeaders(token) });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function createInsight(token: string, input: InsightInput): Promise<AdminInsight> {
+  const res = await fetch(`${API_BASE_URL}/admin/insights`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateInsight(
+  token: string,
+  id: string,
+  input: InsightInput
+): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function publishInsight(token: string, id: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}/publish`,
+    { method: "POST", headers: authHeaders(token) }
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function archiveInsight(token: string, id: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}/archive`,
+    { method: "POST", headers: authHeaders(token) }
+  );
+  if (!res.ok) throw new Error(await parseError(res));
 }

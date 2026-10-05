@@ -1,10 +1,11 @@
 # Tech debt & deferred work
 
 Living list of known gaps, shortcuts, and items deferred past the
-**8 October 2026** Play Store sprint. Update this file when you add or clear
-debt — do not let “temporary” stay silent in code only.
+**18 October 2026** Play Store sprint (moved from 8 October 2026 on
+2026-10-05). Update this file when you add or clear debt — do not let
+“temporary” stay silent in code only.
 
-**Last updated:** 2026-09-26
+**Last updated:** 2026-10-05
 
 ---
 
@@ -19,22 +20,24 @@ debt — do not let “temporary” stay silent in code only.
 | TD-005 | **Privacy / Terms / grievance URLs** | Stub pages live at `/legal/privacy`, `/legal/terms`, `/legal/grievance` | Replace with counsel-approved copy; set Play listing privacy URL to `https://app.shubhshreeknowledgehub.com/legal/privacy` after Amplify deploy |
 | TD-046 | **Session token persistence + Bearer helper** | `localStorage` session + `authHeaders()` added 2026-09-11 | Wire Bearer into future authenticated `fetch` calls (`/me`, insights, etc.) |
 | TD-006 | **OTP rate limiting missing** | SMS pumping / brute-force risk on public `/auth/*` | Before opening OTP to arbitrary phones (with or without MSG91) |
+| TD-047 | **401 → refresh-or-logout handling is opt-in, not automatic** | Built 2026-10-05 as `useAuth().withAuth()` (`src/lib/auth-context.tsx`) — on a 401 it retries once via biometric/PIN refresh, then force-logs-out if that also fails. Wired into both current protected call sites (`TradingCalls.tsx`'s `GET /insights`, `Admin.tsx`'s `/admin/insights/*`). Not a global fetch interceptor — any *future* protected call site has to remember to route through `withAuth` itself | Low priority now that both existing call sites use it; revisit only if a protected fetch ever gets added without going through `withAuth` |
+| TD-048 | **Biometric/PIN unlock (WebAuthn) + 7-day OTP window** | Built 2026-10-05, ahead of the launch critical path per explicit instruction. Access tokens now 30 min (`accessTokenTTL`); a registered WebAuthn credential can mint fresh ones without OTP until `verified_until` (OTP login + 7 days) lapses — see `backend/internal/api/webauthn.go`. Cuts MSG91 cost back toward the original ~2–3 OTP/user/month budget instead of 1/day | Needs `terraform apply` in `infra/backend` (new env vars have safe defaults, nothing live yet) + a Lambda deploy before it does anything in production |
 
 ---
 
-## P1 — In Oct 8 sprint but not built yet
+## P1 — In Oct 18 sprint but not built yet
 
 | ID | Item | Notes |
 |---|---|---|
-| TD-010 | **Thin insights CMS** | DynamoDB `content` + `/admin` + `GET /insights`; RA daily calls |
+| TD-010 | **Thin insights CMS** | Built 2026-10-05: DynamoDB `content` table + GSI1 (`infra/backend/dynamodb.tf`), `POST/PATCH/publish/archive /admin/insights` + `GET /insights` (`backend/internal/{db,api}/`), `/admin` page (`src/components/pages/Admin.tsx`), `TradingCalls.tsx`'s Active Trades tab wired to the real API. Not done: Dashboard's "Recent insights" widget is still on the old `data.ts` mock (out of this pass's scope — only the Market Insights page was in build-plan.md's table); no seed data migrated yet; nothing deployed (needs `terraform apply` + Lambda rebuild, same as TD-048) |
 | TD-011 | **PayU web checkout** | `POST /orders`, verify hash, webhooks; `internal/payments` |
 | TD-012 | **Bubblewrap AAB + assetlinks** | Play App Signing SHA-256 in `TWA_SHA256_FINGERPRINT` |
-| TD-013 | **`analyst` role on JWT** | RA phone must get `analyst` (not only `free` customer) for `/admin` |
+| TD-013 | **`analyst` role on JWT** | Built 2026-10-05: `Role` claim on the session JWT, derived live from `ANALYST_PHONES` env var (same CSV pattern as `OTP_TEST_PHONES`) at login/refresh time — not stored on the user row, so changing who's an analyst is just an env var + redeploy. Gates `/admin/insights/*` server-side via `requireRole` |
 | TD-014 | **Org Play account + listing assets** | D-U-N-S, screenshots, Data safety, Finance declaration |
 
 ---
 
-## P2 — Explicitly deferred past 8 Oct
+## P2 — Explicitly deferred past 18 Oct
 
 | ID | Item | Deferred reason |
 |---|---|---|
@@ -64,6 +67,8 @@ debt — do not let “temporary” stay silent in code only.
 | TD-043 | **PWA service worker is minimal** | Shell only; offline polish later |
 | TD-044 | **Maskable icon is copy of 512** | Safe padding / maskable asset later |
 | TD-045 | **CORS / secrets via SSM** | Prefer SSM over plain Lambda env long-term |
+| TD-049 | **WebAuthn: one credential per user** | Registering a passkey on a second device silently replaces the first device's — no multi-device support yet (see `db.User.WebAuthnCredential`, a single field not a list) |
+| TD-050 | **No UI for "biometric unlock enabled"** | Registration is a silent best-effort call right after OTP login (`Auth.tsx`); no settings toggle, no retry if the browser prompt is dismissed — user just keeps doing OTP every 7 days until it succeeds once |
 
 ---
 
@@ -92,7 +97,7 @@ Local without MSG91 and without test phones → existing **Mock** (codes in serv
 
 ## Related docs
 
-- [build-plan.md](build-plan.md) — § October 8 sprint  
+- [build-plan.md](build-plan.md) — § October 18 sprint  
 - [plan.md](plan.md) — stack decisions, PayU, deferred market data  
 - [architecture.md](architecture.md) — Pipe B thin CMS, auth, payments  
 - [android/README.md](android/README.md) — TWA / AAB  

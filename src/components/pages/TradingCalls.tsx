@@ -1,17 +1,34 @@
 "use client";
 
-import { useState } from 'react'
-import { tradingCalls, pastPerformances } from "@/lib/data";
+import { useEffect, useState } from 'react'
+import { pastPerformances } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
+import { listInsights, type Insight } from "@/lib/api";
 
 export default function TradingCalls() {
-  const { user, onUpgrade } = useAuth();
+  const { user, onUpgrade, withAuth } = useAuth();
   const isPro = user?.subscription === 'pro'
   const [view, setView] = useState<'active' | 'past'>('active')
+  const [activeCalls, setActiveCalls] = useState<Insight[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const activeCalls = tradingCalls.filter(c => c.status === 'Active')
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    withAuth((token) => listInsights(token))
+      .then((data) => { if (!cancelled) { setActiveCalls(data); setError('') } })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load insights') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+    // Refetch on tier change so an upgrade mid-session re-reveals locked
+    // cards without a manual reload — the server, not the client, decides
+    // `locked` on each fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPro])
+
   const lockedCount = view === 'active'
-    ? activeCalls.filter(c => c.isPro).length
+    ? activeCalls.filter(c => c.locked).length
     : pastPerformances.filter(p => p.isPro).length
 
   return (
@@ -47,9 +64,14 @@ export default function TradingCalls() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3 mt-6">
           {[
-            { label: 'Active Calls', value: isPro ? activeCalls.length : activeCalls.filter(c => !c.isPro).length },
+            { label: 'Active Calls', value: isPro ? activeCalls.length : activeCalls.filter(c => !c.locked).length },
             { label: 'Achieved This Month', value: pastPerformances.filter(p => p.outcome === 'Target Hit').length },
-            { label: 'Avg Target Return', value: `+${(activeCalls.reduce((a, c) => a + c.returnsPct, 0) / activeCalls.length).toFixed(1)}%` },
+            {
+              label: 'Avg Target Return',
+              value: activeCalls.length
+                ? `+${(activeCalls.reduce((a, c) => a + c.returnsPct, 0) / activeCalls.length).toFixed(1)}%`
+                : '—',
+            },
           ].map(s => (
             <div
               key={s.label}
@@ -93,10 +115,25 @@ export default function TradingCalls() {
       </div>
 
       {/* Active trades */}
-      {view === 'active' && (
+      {view === 'active' && loading && (
+        <p className="text-sm text-center py-8" style={{ color: 'var(--muted-text)' }}>
+          Loading insights…
+        </p>
+      )}
+      {view === 'active' && !loading && error && (
+        <p className="text-sm text-center py-8" style={{ color: 'var(--loss)' }}>
+          {error}
+        </p>
+      )}
+      {view === 'active' && !loading && !error && activeCalls.length === 0 && (
+        <p className="text-sm text-center py-8" style={{ color: 'var(--muted-text)' }}>
+          No published insights yet — check back soon.
+        </p>
+      )}
+      {view === 'active' && !loading && !error && activeCalls.length > 0 && (
       <div className="space-y-3">
         {activeCalls.map(call => {
-          const locked = call.isPro && !isPro
+          const locked = call.locked
           const isBuy = call.action === 'BUY'
           const range = Math.abs(call.target - call.stopLoss) || 1
           const progress = Math.min(
@@ -104,6 +141,12 @@ export default function TradingCalls() {
             Math.max(0, ((call.cmp - Math.min(call.stopLoss, call.target)) / range) * 100),
           )
           const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
+          const fmtDate = (iso: string) => {
+            const d = new Date(iso)
+            return Number.isNaN(d.getTime())
+              ? iso
+              : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          }
 
           return (
             <div
@@ -150,17 +193,6 @@ export default function TradingCalls() {
                     >
                       {call.action}
                     </span>
-                    <span
-                      className="text-[10px] font-medium px-2 py-0.5 rounded-md"
-                      style={{
-                        background: call.status === 'Active'
-                          ? 'color-mix(in srgb, var(--blue-accent) 12%, transparent)'
-                          : 'color-mix(in srgb, var(--blue-accent) 6%, transparent)',
-                        color: 'var(--blue-accent)',
-                      }}
-                    >
-                      {call.status}
-                    </span>
                     <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
                       {call.category} · {call.timeframe}
                     </span>
@@ -169,7 +201,7 @@ export default function TradingCalls() {
                     {call.stock}
                   </h3>
                   <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
-                    {call.symbol} · {call.date}
+                    {call.symbol} · {fmtDate(call.date)}
                   </p>
                 </div>
 

@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,6 +20,25 @@ type User struct {
 	Email        string `dynamodbav:"email"`
 	Subscription string `dynamodbav:"subscription"`
 	CreatedAt    string `dynamodbav:"created_at"`
+
+	// WebAuthnCredential is a JSON-serialized webauthn.Credential (public key
+	// only — the private key never leaves the user's device/secure enclave),
+	// set once the user registers biometric/PIN unlock. Empty until then.
+	WebAuthnCredential string `dynamodbav:"webauthn_credential,omitempty"`
+
+	// WebAuthnSession is a JSON-serialized webauthn.SessionData — the
+	// challenge issued by a Begin* call, read back and cleared by the
+	// matching Finish* call. It's ephemeral (carries its own Expires field)
+	// and never valid outside a single in-flight ceremony.
+	WebAuthnSession string `dynamodbav:"webauthn_session,omitempty"`
+
+	// VerifiedUntil (RFC3339) is set only by a full phone+OTP login, to
+	// now+7days — see backend/internal/api/auth.go's otpVerifiedWindow. A
+	// biometric/PIN refresh may mint new short-lived access tokens up until
+	// this deadline, but never extends it; only another OTP verification
+	// does. This bounds how long a WebAuthn credential alone (without
+	// repeating OTP) can keep a session alive.
+	VerifiedUntil string `dynamodbav:"verified_until,omitempty"`
 }
 
 type UsersTable struct {
@@ -122,4 +143,80 @@ func (t *UsersTable) PutStub(ctx context.Context, userID string) error {
 		Item:      item,
 	})
 	return err
+}
+
+// update sets and/or removes a handful of top-level attributes on a user
+// row without reading-then-writing the whole item — used by the WebAuthn
+// ceremony handlers, which only ever touch one or two fields at a time.
+func (t *UsersTable) update(ctx context.Context, userID string, set map[string]string, remove []string) error {
+	key, err := attributevalue.MarshalMap(map[string]string{"user_id": userID})
+	if err != nil {
+		return err
+	}
+
+	names := map[string]string{}
+	values := map[string]types.AttributeValue{}
+	var setClauses, removeClauses []string
+
+	i := 0
+	for attr, val := range set {
+		nameKey, valKey := fmt.Sprintf("#n%d", i), fmt.Sprintf(":v%d", i)
+		names[nameKey] = attr
+		values[valKey] = &types.AttributeValueMemberS{Value: val}
+		setClauses = append(setClauses, fmt.Sprintf("%s = %s", nameKey, valKey))
+		i++
+	}
+	for _, attr := range remove {
+		nameKey := fmt.Sprintf("#n%d", i)
+		names[nameKey] = attr
+		removeClauses = append(removeClauses, nameKey)
+		i++
+	}
+
+	expr := ""
+	if len(setClauses) > 0 {
+		expr += "SET " + strings.Join(setClauses, ", ") + " "
+	}
+	if len(removeClauses) > 0 {
+		expr += "REMOVE " + strings.Join(removeClauses, ", ")
+	}
+
+	input := &dynamodb.UpdateItemInput{
+		TableName:                &t.name,
+		Key:                      key,
+		UpdateExpression:         aws.String(strings.TrimSpace(expr)),
+		ExpressionAttributeNames: names,
+	}
+	if len(values) > 0 {
+		input.ExpressionAttributeValues = values
+	}
+	_, err = t.client.UpdateItem(ctx, input)
+	return err
+}
+
+// SetWebAuthnSession persists the challenge from a Begin* ceremony so the
+// matching Finish* call (a separate, stateless Lambda invocation) can read
+// it back.
+func (t *UsersTable) SetWebAuthnSession(ctx context.Context, userID, sessionJSON string) error {
+	return t.update(ctx, userID, map[string]string{"webauthn_session": sessionJSON}, nil)
+}
+
+// ClearWebAuthnSession removes a consumed (or abandoned) ceremony's
+// challenge so it can never be replayed.
+func (t *UsersTable) ClearWebAuthnSession(ctx context.Context, userID string) error {
+	return t.update(ctx, userID, nil, []string{"webauthn_session"})
+}
+
+// SetWebAuthnCredential stores the registered credential (register/finish)
+// or rewrites it with an updated signature counter (every successful
+// refresh/finish) — the library's storage guidance requires writing the
+// counter back each time to detect a cloned authenticator.
+func (t *UsersTable) SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error {
+	return t.update(ctx, userID, map[string]string{"webauthn_credential": credentialJSON}, nil)
+}
+
+// SetVerifiedUntil records how long a biometric/PIN refresh may mint new
+// access tokens without another OTP — see User.VerifiedUntil.
+func (t *UsersTable) SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error {
+	return t.update(ctx, userID, map[string]string{"verified_until": until.UTC().Format(time.RFC3339)}, nil)
 }

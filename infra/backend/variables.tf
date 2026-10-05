@@ -48,8 +48,26 @@ variable "otp_test_code" {
   sensitive   = true
 }
 
+variable "analyst_phones" {
+  description = "Comma-separated RA/analyst phones (10-digit or 91…) — granted the analyst role claim on login, which gates /admin/insights/*. See TECH_DEBT.md TD-013."
+  type        = string
+  default     = ""
+}
+
 variable "cors_allowed_origins" {
   description = "Origins allowed to call the API — the local dev frontend and the live app subdomain (see plan.md's Domain & subdomains section)."
   type        = list(string)
   default     = ["http://localhost:3000", "https://app.shubhshreeknowledgehub.com"]
+}
+
+variable "webauthn_rp_id" {
+  description = "WebAuthn Relying Party ID — the frontend's effective domain (where navigator.credentials runs from), NOT this API's own domain."
+  type        = string
+  default     = "app.shubhshreeknowledgehub.com"
+}
+
+variable "webauthn_rp_origins" {
+  description = "Origins permitted to complete a WebAuthn ceremony against this RP ID."
+  type        = list(string)
+  default     = ["https://app.shubhshreeknowledgehub.com"]
 }

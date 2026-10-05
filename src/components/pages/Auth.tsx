@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
 import { checkPhoneExists, confirmOtp, requestOtp } from "@/lib/api";
+import { isPlatformAuthenticatorAvailable, registerPasskey } from "@/lib/webauthn";
 
 const OTP_LEN = 6;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -122,7 +123,7 @@ export default function Auth() {
     setError("");
     setLoading(true);
     try {
-      const { token, subscription, name } = await confirmOtp(
+      const { token, subscription, name, userId, role } = await confirmOtp(
         phone,
         code,
         isSignup ? { firstName, lastName, email } : undefined,
@@ -131,7 +132,16 @@ export default function Auth() {
         token,
         subscription: subscription === "pro" ? "pro" : "free",
         name,
+        userId,
+        role,
       });
+      // Best-effort: register this device's biometric/PIN as a WebAuthn
+      // credential so future opens can skip OTP (see lib/webauthn.ts). Not
+      // awaited on the login redirect above — it shouldn't block getting
+      // into the app, and silently does nothing if unsupported/declined.
+      if (userId && (await isPlatformAuthenticatorAvailable())) {
+        void registerPasskey(token);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Incorrect or expired OTP");
     } finally {

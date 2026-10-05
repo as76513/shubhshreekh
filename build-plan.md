@@ -1,25 +1,30 @@
 # Build Plan — ShubShreekh
 
-**Active deadline:** **8 October 2026** — public Play Store (AAB) for end users.
-See **§ October 8 sprint** below. That plan overrides the old part-time pacing
-until the deadline.
+**Active deadline:** **18 October 2026** — public Play Store (AAB) for end
+users. Moved from the original 8 October 2026 target (decided 2026-10-05).
+See **§ October 18 sprint** below. That plan overrides the old part-time
+pacing until the deadline.
 
 **Baseline constraint (post-deadline):** 1.5 hrs/day weekdays ≈ 7.5 hrs/week.
 **Approach:** MVP first (auth → plans → payment → ship), AI layer later.
-**Honesty note:** the original part-time calendar cannot hit 8 Oct; the sprint
-requires ~5–6 hrs/day and hard scope cuts (no live market; **full** CMS
-deferred — **thin insights CMS is in scope** so the RA can publish daily
-calls without a code deploy).
+**Honesty note:** the original part-time calendar couldn't hit 8 Oct either;
+the sprint requires ~5–6 hrs/day and hard scope cuts (no live market; **full**
+CMS deferred — **thin insights CMS is in scope** so the RA can publish daily
+calls without a code deploy). **Replan note (2026-10-05):** the 15 Sep–4 Oct
+work (DynamoDB `content` table, admin insights API/UI, PayU, Play Billing,
+Bubblewrap AAB) did not land on the original dates — see TECH_DEBT.md P1/P0.
+The 10 extra days buy back schedule risk, they don't mean the remaining work
+shrank; the calendar below is replanned from today, not from 11 Sep.
 
 ---
 
-## October 8 sprint (11 Sep → 8 Oct 2026) — **active**
+## October 18 sprint (11 Sep → 18 Oct 2026) — **active**
 
-**Window:** 27 calendar days from 11 Sep. **Effort:** ~5–6 hrs/weekday + weekend
-buffers (~100–120 hours). **Account:** Organization Play account only (Personal
-12×14 closed test will miss the date).
+**Window:** 37 calendar days from 11 Sep (27 original + 10-day extension).
+**Effort:** ~5–6 hrs/weekday + weekend buffers. **Account:** Organization Play
+account only (Personal 12×14 closed test will miss the date).
 
-### Definition of done (8 Oct)
+### Definition of done (18 Oct)
 
 End users in India can install from Google Play, sign in with phone OTP,
 subscribe via a **Play-compliant** path (Play Billing in TWA, and/or enrolled
@@ -32,7 +37,7 @@ disclosures live. Web on Amplify stays in sync.
 
 Minimal Pipe B — **insights / trading calls only**:
 
-| Include | Exclude until after 8 Oct |
+| Include | Exclude until after 18 Oct |
 |---|---|
 | DynamoDB `content` (insight rows) | Courses / videos admin |
 | `POST/PATCH /admin/insights` + publish | Full compliance approval workflow |
@@ -44,7 +49,7 @@ No SQS/webhooks — RA submits a form; customers see formatted cards on next fet
 
 ### In scope / out of scope
 
-| Ship by 8 Oct | Defer past 8 Oct |
+| Ship by 18 Oct | Defer past 18 Oct |
 |---|---|
 | MSG91 OTP live (`Auth.tsx` wired) | Full RA CMS (courses, videos) |
 | **Thin insights CMS** (`/admin` + `GET /insights`) | Live market indices |
@@ -56,25 +61,33 @@ No SQS/webhooks — RA submits a form; customers see formatted cards on next fet
 
 ### Calendar
 
+**Done (11–14 Sep):** Auth + test OTP live (`Auth.tsx` wired); legal stubs at
+`/legal/*`; Amplify API URL fixed. **Org Play account signup (TD-014) still
+open** — carried into the replan below since nothing after it can ship
+without it.
+
+**Replanned from 5 Oct** (the 15 Sep–4 Oct rows below did not happen on the
+original dates — see Honesty/Replan notes above):
+
 | When | Focus | Exit |
 |---|---|---|
-| **11–14 Sep** | Org Play signup; billing decision; privacy URLs; wire MSG91 Auth | **Auth + test OTP live**; legal stubs at `/legal/*`; Amplify API URL + Org Play still open |
-| **15–21 Sep** | OTP harden; PayU web path; start Play Billing / SKUs; **DynamoDB `content` + admin insights API** | Web pay works; RA can create draft via API |
-| **22–28 Sep** | Bubblewrap AAB; Internal testing; assetlinks; Play Billing entitlement; **`/admin` UI + wire Insights page to `GET /insights`**; App content forms | Internal install + pay; RA publishes from phone/browser |
-| **29 Sep–5 Oct** | Closed testing; RA trains on `/admin`; fix P0s; **submit Production by 1 Oct** | In review; daily calls flowing |
-| **6–8 Oct** | Clear review; 100% India rollout; monitor OTP/pay/CMS | Public on Play |
+| **5–7 Oct** | Org Play account + D-U-N-S (if still open); DynamoDB `content` table + `POST/PATCH /admin/insights` + publish; PayU order creation | RA can create a draft via API; `/orders` returns PayU checkout params |
+| **8–11 Oct** | PayU verify + webhook; `/admin` form UI; wire Insights page to `GET /insights`; `analyst` role claim on JWT (TD-013) | RA publishes from phone/browser; web pay works end-to-end |
+| **12–14 Oct** | Bubblewrap AAB; assetlinks; Play Billing SKUs + entitlement; Internal testing track | Internal install + pay + live insights all work together |
+| **15–16 Oct** | Closed testing; RA trains on `/admin`; fix P0s; **submit Production by 16 Oct** | In review; daily calls flowing |
+| **17–18 Oct** | Clear review; 100% India rollout; monitor OTP/pay/CMS | Public on Play |
 
 ### Critical path
 
-1. Org Play + D-U-N-S (start day 1)
+1. Org Play + D-U-N-S (if not already done — blocks everything else)
 2. Billing: not PayU-only inside Play app
-3. Privacy HTTPS URL
-4. Live OTP (+ `analyst` role claim for RA phone)
-5. Thin insights CMS (admin write + customer read)
+3. Thin insights CMS (admin write + customer read) — **not started as of 5 Oct**
+4. PayU order + verify + webhook — **not started as of 5 Oct**
+5. `analyst` role claim for RA phone (TD-013)
 6. AAB + Play signing SHA-256 in `assetlinks.json`
-7. Submit for production **by 1 Oct** (leave review buffer)
+7. Submit for production **by 16 Oct** (leave a review buffer before 18 Oct)
 
-### Fallback if Production review slips past 8 Oct
+### Fallback if Production review slips past 18 Oct
 
 Ship Internal/Closed invite link + live web (PayU + `/admin` insights) on that
 date; promote to public Production as soon as approved.
@@ -188,8 +201,8 @@ Goal: a user can pick a plan and pay; access is granted only after server-side v
 Goal: analysts can publish insights, courses, and videos; customers
 read from the API instead of `src/lib/data.ts`.
 
-**Oct 8 sprint pulls forward a thin slice:** insights-only admin +
-`GET /insights` (see § October 8 sprint). Weeks 10–11 below cover the **rest**
+**Oct 18 sprint pulls forward a thin slice:** insights-only admin +
+`GET /insights` (see § October 18 sprint). Weeks 10–11 below cover the **rest**
 (courses, videos, audit) after public launch.
 
 **Week 10 — Backend content layer**

@@ -17,6 +17,9 @@ export default function Navbar() {
 
   const close = () => setMenuOpen(false)
 
+  const canWrite = user?.role === 'analyst' || user?.role === 'admin'
+  const links = canWrite ? [...navLinks, { label: 'Admin', view: 'admin' as AppView }] : navLinks
+
   return (
     <header
       className="glass-nav sticky top-0 z-50"
@@ -37,7 +40,7 @@ export default function Navbar() {
 
           {user && (
             <nav className="hidden md:flex items-center gap-0.5" aria-label="Primary">
-              {navLinks.map(link => (
+              {links.map(link => (
                 <button
                   key={link.view}
                   onClick={() => navigate(link.view)}
@@ -120,7 +123,7 @@ export default function Navbar() {
                           {user.subscription === 'pro' ? 'Pro' : 'Free'}
                         </span>
                       </div>
-                      {navLinks.map(link => (
+                      {links.map(link => (
                         <button
                           key={link.view}
                           role="menuitem"
@@ -186,7 +189,7 @@ export default function Navbar() {
           className="md:hidden flex items-center gap-1 px-4 pb-2.5 overflow-x-auto"
           style={{ scrollbarWidth: 'none' }}
         >
-          {navLinks.map(link => (
+          {links.map(link => (
             <button
               key={link.view}
               onClick={() => navigate(link.view)}

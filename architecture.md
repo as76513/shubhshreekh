@@ -77,7 +77,7 @@ subscription tier server-side. Pipe A is optional ticker context only.
 mock data in `src/lib/data.ts`. Pipe A is **out of MVP** — ticker values stay
 hardcoded in the same file until a vendor grants API access.
 
-**Oct 8 sprint:** ship a **thin insights CMS** (admin form + DynamoDB insight
+**Oct 18 sprint:** ship a **thin insights CMS** (admin form + DynamoDB insight
 rows + `GET /insights`) so the RA can publish daily stock calls without a
 deploy. Courses / videos remain on `data.ts` until Phase 4 completes.
 

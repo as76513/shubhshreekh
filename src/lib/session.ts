@@ -7,6 +7,8 @@ type StoredSession = {
   name: string;
   subscription: "free" | "pro";
   token: string;
+  userId?: string;
+  role?: string;
 };
 
 export function loadSession(): User | null {
@@ -21,6 +23,8 @@ export function loadSession(): User | null {
       name: parsed.name || "Investor",
       subscription: parsed.subscription === "pro" ? "pro" : "free",
       token: parsed.token,
+      userId: parsed.userId,
+      role: parsed.role,
     };
   } catch {
     return null;
@@ -34,6 +38,8 @@ export function saveSession(user: User): void {
     name: user.name,
     subscription: user.subscription,
     token: user.token,
+    userId: user.userId,
+    role: user.role,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }

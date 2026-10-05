@@ -18,6 +18,7 @@ import (
 func main() {
 	userID := flag.String("user-id", "dev-user-1", "subject claim to mint")
 	tier := flag.String("tier", "free", "subscription claim to mint")
+	role := flag.String("role", "customer", "role claim to mint (customer/analyst/compliance/admin)")
 	ttl := flag.Duration("ttl", 24*time.Hour, "token lifetime")
 	seed := flag.Bool("seed", false, "also write a stub row to DYNAMODB_USERS_TABLE")
 	flag.Parse()
@@ -27,7 +28,7 @@ func main() {
 		log.Fatal("SESSION_TOKEN_SIGNING_SECRET not set — source backend/.env first")
 	}
 
-	token, err := auth.IssueToken([]byte(secret), *userID, *tier, *ttl)
+	token, err := auth.IssueToken([]byte(secret), *userID, *tier, *role, *ttl)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -59,16 +59,21 @@ transports underneath.
                              │
                              ▼
         backend/internal/api/router.go
-        ┌─────────────────────────────────────────────────┐
-        │ mux := http.NewServeMux()                          │
-        │ mux.HandleFunc("GET /healthz", handleHealthz)       │
-        │ mux.Handle("GET /me",                               │
-        │    auth.Middleware(secret)(handleMe))  ◀── only this│
-        │ mux.HandleFunc("POST /auth/send-otp", ...)          │    route is
-        │ mux.HandleFunc("POST /auth/verify-otp", ...)        │    wrapped in
-        │                                                     │    auth
-        │ return CORS(allowedOrigins)(mux)                    │
-        └─────────────────────────────────────────────────────┘
+        ┌───────────────────────────────────────────────────────────┐
+        │ mux := http.NewServeMux()                                    │
+        │ mux.HandleFunc("GET /healthz", handleHealthz)                 │
+        │ mw := auth.Middleware(secret)                                 │
+        │ mux.Handle("GET /me", mw(handleMe))                 ◀── these │
+        │ mux.HandleFunc("POST /auth/send-otp", ...)                    │  routes
+        │ mux.HandleFunc("POST /auth/check-phone", ...)                 │  require
+        │ mux.HandleFunc("POST /auth/verify-otp", ...)                  │  a valid
+        │ mux.Handle("POST /auth/webauthn/register/begin", mw(...))  ◀──┤  Bearer
+        │ mux.Handle("POST /auth/webauthn/register/finish", mw(...)) ◀──┘  token
+        │ mux.HandleFunc("POST /auth/refresh/begin", ...)      ◀── NOT wrapped —
+        │ mux.HandleFunc("POST /auth/refresh/finish", ...)     ◀── see below
+        │                                                                │
+        │ return CORS(allowedOrigins)(mux)                               │
+        └─────────────────────────────────────────────────────────────────┘
                              │
                              ▼
               one http.Handler — handed back to
@@ -216,6 +221,87 @@ Authorization: Bearer <token>  ────────▶   auth.Middleware
                                             sent directly in the request body
 ```
 
+## Refresh without OTP: biometric/PIN unlock (WebAuthn)
+
+Added 2026-10-05 — see TECH_DEBT.md TD-048. OTP costs real money per send
+(plan.md's MSG91 cost table), so the access token `auth.IssueToken` issues
+is now short-lived (`accessTokenTTL`, 30 min — see `internal/api/webauthn.go`)
+instead of the original 30 days, and a separate server-tracked deadline
+(`db.User.VerifiedUntil`, set to **OTP time + 7 days**, never extended by a
+refresh) bounds how long the device can go without another real OTP. A
+registered WebAuthn credential — the actual browser/OS API behind Face ID,
+fingerprint, Windows Hello, or a device PIN — can mint fresh access tokens
+inside that window without ever touching MSG91 again.
+
+```
+Right after a successful OTP login (step 8 above), best-effort, non-blocking:
+
+  src/components/pages/Auth.tsx
+        │  isPlatformAuthenticatorAvailable()?  — no biometric/PIN set up
+        │  on this device/OS → skip silently, nothing below ever runs
+        ▼
+  registerPasskey(accessToken)          — src/lib/webauthn.ts
+        │  POST /auth/webauthn/register/begin   (Bearer required)
+        ▼
+  webauthn.BeginRegistration            — internal/api/webauthn.go
+        │  challenge stored on the user row (db.User.WebAuthnSession)
+        ▼
+  navigator.credentials.create()        — triggers the OS's native
+                                            Face ID / fingerprint / Windows
+                                            Hello / PIN dialog
+        │  POST /auth/webauthn/register/finish  (Bearer required)
+        ▼
+  webauthn.FinishRegistration           — verifies the signature, stores
+                                            the PUBLIC key only
+                                            (db.User.WebAuthnCredential)
+                                            — the private key never left
+                                            the device's secure hardware
+
+
+Every later app (re)open, before falling back to whatever's in storage:
+
+  src/lib/auth-context.tsx (mount effect)
+        │  refreshWithPasskey(userId)          — src/lib/webauthn.ts
+        ▼
+  POST /auth/refresh/begin  {user_id}   — NOT wrapped in auth.Middleware;
+        │                                  a possibly-expired access token
+        │                                  is exactly the case this exists
+        │                                  for, so it re-derives trust
+        │                                  itself:
+        │                                    • user has a credential? else 401
+        │                                    • time.Now() < VerifiedUntil? else 401
+        ▼
+  webauthn.BeginLogin                   — issues a fresh challenge
+        │
+        ▼
+  navigator.credentials.get()           — same native OS dialog as above
+        │  POST /auth/refresh/finish?user_id=…
+        ▼
+  webauthn.FinishLogin                  — verifies the signature + the
+        │                                  authenticator's signature
+        │                                  counter (clone detection),
+        │                                  re-checks VerifiedUntil once more
+        ▼
+  auth.IssueToken (30 min)              — same token shape as OTP login;
+                                            VerifiedUntil is NOT touched —
+                                            only another real OTP resets it
+```
+
+**Desktop vs. mobile — this is not the same on every device.** A platform
+authenticator means an OS-level biometric/PIN is actually configured —
+Windows Hello, Touch ID, Android's lock screen. Where one exists, desktop
+behaves exactly like mobile: OTP once, then the OS's native dialog for 7
+days. Where one doesn't (a plain password-only Windows/Mac account, most
+Linux setups, or an older browser), `isPlatformAuthenticatorAvailable()`
+returns `false`, registration is skipped with no visible error, and every
+refresh attempt fails fast at `/auth/refresh/begin` (no credential on file)
+— the frontend just keeps using whatever's already in `localStorage`. That's
+silent and harmless **today** only because nothing in the UI yet calls a
+Bearer-protected customer endpoint; once `GET /insights` (Oct 18 sprint)
+does, those users' 30-minute access tokens will go stale with nothing
+prompting re-login until TD-047 (global 401 → refresh-or-logout handling)
+is built.
+
 ## Provider swap: Mock ↔ MSG91 ↔ test phones
 
 Which `otp.Provider` gets used is decided once, at process startup
@@ -261,3 +347,5 @@ every variable this reads.
   Cognito vs Firebase)
 - [../build-plan.md](../build-plan.md) — where this fits in the build
   timeline (Phase 2, Week 4)
+- [../TECH_DEBT.md](../TECH_DEBT.md) — TD-047/048/049/050: the refresh/
+  WebAuthn work above, and what's still open on top of it
