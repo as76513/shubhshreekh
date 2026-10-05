@@ -11,7 +11,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AppView, NavigateFn, User } from "@/lib/types";
-import { clearSession, loadSession, saveSession } from "@/lib/session";
+import { clearSession, loadSession, saveSession, tokenExpiresAt } from "@/lib/session";
 import { refreshWithPasskey } from "@/lib/webauthn";
 import { ApiError } from "@/lib/api";
 
@@ -100,12 +100,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(stored);
     setAuthReady(true);
 
-    // The stored access token is short-lived (30 min) and has likely gone
-    // stale by the time the app is reopened. Best-effort trade it for a
-    // fresh one via biometric/PIN, with no OTP — see webauthn.ts. Silent
-    // failure here just leaves the stale token in place, same as before
-    // this existed; the user only notices if/when an API call 401s.
-    if (stored?.userId) {
+    // Only bother refreshing if the stored token is actually at/near
+    // expiry (60s buffer) — reading `exp` straight off the token itself,
+    // not a hardcoded guess at the backend's TTL. Without this check, a
+    // perfectly valid token still in its first 30 minutes would trigger a
+    // biometric/PIN prompt on every single reload, which is exactly the
+    // "why is it asking Touch ID every refresh" bug this fixes.
+    const expiry = stored?.token ? tokenExpiresAt(stored.token) : null;
+    const tokenStale = !expiry || Date.now() > expiry - 60_000;
+    if (stored?.userId && tokenStale) {
       refreshWithPasskey(stored.userId).then((result) => {
         if (!result) return;
         setUser((prev) => {

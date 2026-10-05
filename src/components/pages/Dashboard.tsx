@@ -1,13 +1,28 @@
 "use client";
 
-import { todaysUpdate, tradingCalls, courses, foCalls } from "@/lib/data";
+import { useEffect, useState } from "react";
+import { todaysUpdate, courses, foCalls } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
+import { listInsights, type Insight } from "@/lib/api";
 
 export default function Dashboard() {
-  const { user, navigate, onUpgrade } = useAuth();
-  if (!user) return null;
-  const isPro = user.subscription === 'pro'
-  const recentCalls = tradingCalls.filter(c => !c.isPro || isPro).slice(0, 4)
+  const { user, navigate, onUpgrade, withAuth } = useAuth();
+  const [insights, setInsights] = useState<Insight[]>([])
+  const isPro = user?.subscription === 'pro'
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    withAuth((token) => listInsights(token))
+      .then((data) => { if (!cancelled) setInsights(data) })
+      .catch(() => { /* Dashboard preview — TradingCalls.tsx surfaces the real error */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isPro])
+
+  if (!user) return null
+  const recentCalls = insights.filter(c => !c.locked).slice(0, 4)
+  const lockedCount = insights.filter(c => c.locked).length
   const featuredCourses = courses.slice(0, 3)
 
   return (
@@ -122,7 +137,7 @@ export default function Dashboard() {
             { label: 'NIFTY 50', value: '24,312', change: '+0.67%', up: true },
             { label: 'SENSEX', value: '79,845', change: '+0.71%', up: true },
             { label: 'BANK NIFTY', value: '52,189', change: '-0.23%', up: false },
-            { label: 'Active Calls', value: isPro ? '8' : '3', change: 'this week', up: true },
+            { label: 'Active Calls', value: String(isPro ? insights.length : insights.filter(c => !c.locked).length), change: 'this week', up: true },
           ].map((s, i) => (
             <div
               key={s.label}
@@ -354,7 +369,7 @@ export default function Dashboard() {
                 }}
               >
                 <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
-                  🔒 {tradingCalls.filter(c => c.isPro).length} more Pro insights locked
+                  🔒 {lockedCount} more Pro insights locked
                 </p>
                 <button
                   onClick={onUpgrade}
