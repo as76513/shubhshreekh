@@ -97,6 +97,7 @@ Local without MSG91 and without test phones → existing **Mock** (codes in serv
 
 ## Related docs
 
+- [TESTING.md](TESTING.md) — post-deploy smoke test checklist
 - [build-plan.md](build-plan.md) — § October 18 sprint  
 - [plan.md](plan.md) — stack decisions, PayU, deferred market data  
 - [architecture.md](architecture.md) — Pipe B thin CMS, auth, payments  

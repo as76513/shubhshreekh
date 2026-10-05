@@ -349,3 +349,5 @@ every variable this reads.
   timeline (Phase 2, Week 4)
 - [../TECH_DEBT.md](../TECH_DEBT.md) — TD-047/048/049/050: the refresh/
   WebAuthn work above, and what's still open on top of it
+- [../TESTING.md](../TESTING.md) — post-deploy smoke test checklist for
+  this flow and the thin insights CMS
