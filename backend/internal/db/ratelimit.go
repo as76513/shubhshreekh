@@ -23,23 +23,43 @@ func NewRateLimitTable(client *dynamodb.Client, tableName string) *RateLimitTabl
 	return &RateLimitTable{client: client, name: tableName}
 }
 
-// rateLimitItem is keyed by phone+UTC-date (see dayKey), so SendCount and
-// VerifyFailures naturally reset at UTC midnight without any cleanup job —
-// and the DynamoDB `ttl` attribute lets stale days garbage-collect
-// themselves. Good enough for pre-launch volume; not meant to survive a
-// request racing another request for the same phone in the same instant
-// (an abuse-prevention gate, not a ledger — see TECH_DEBT.md TD-006's own
-// note on this being an acceptable simplification at this scale).
-type rateLimitItem struct {
-	Key            string `dynamodbav:"phone_date"`
+// Two rows per phone, not one (fixed in code review 2026-10-06 — the
+// original single day-keyed row mixed two different kinds of state and
+// silently truncated one of them):
+//
+//   - stateItem, keyed by phone alone: LastSentAt (60s cooldown) and
+//     VerifyFailures/LockedUntil (15min lockout) are duration-based
+//     guarantees that must hold across a UTC-midnight boundary. A 15-minute
+//     lockout starting at 23:59 has to still be in effect at 00:01 the next
+//     day — it must NOT reset just because the calendar date changed.
+//   - dailyItem, keyed by phone+UTC-date: SendCount is the one value that's
+//     *supposed* to reset at midnight (the daily send cap), so it's the
+//     only thing that stays date-keyed.
+//
+// Both still carry a TTL so an idle phone's rows eventually garbage-collect
+// — this remains an abuse-prevention gate, not a ledger (TECH_DEBT.md
+// TD-006), so a plain read-then-write per row is an acceptable
+// simplification at this scale; it just needs to be the *right* two rows.
+
+type rateLimitStateItem struct {
+	Key            string `dynamodbav:"phone_date"` // just the phone — no date suffix
 	LastSentAt     string `dynamodbav:"lastSentAt,omitempty"`
-	SendCount      int    `dynamodbav:"sendCount"`
 	VerifyFailures int    `dynamodbav:"verifyFailures"`
 	LockedUntil    string `dynamodbav:"lockedUntil,omitempty"`
 	TTL            int64  `dynamodbav:"ttl"`
 }
 
-func dayKey(phone string, now time.Time) string {
+type rateLimitDailyItem struct {
+	Key       string `dynamodbav:"phone_date"` // phone + "#" + UTC date
+	SendCount int    `dynamodbav:"sendCount"`
+	TTL       int64  `dynamodbav:"ttl"`
+}
+
+func stateKey(phone string) string {
+	return phone
+}
+
+func dailyKey(phone string, now time.Time) string {
 	return phone + "#" + now.UTC().Format("20060102")
 }
 
@@ -62,43 +82,70 @@ func formatTime(t time.Time) string {
 }
 
 func (t *RateLimitTable) get(ctx context.Context, phone string, now time.Time) (ratelimit.Record, error) {
-	key, err := attributevalue.MarshalMap(map[string]string{"phone_date": dayKey(phone, now)})
+	stateKeyAV, err := attributevalue.MarshalMap(map[string]string{"phone_date": stateKey(phone)})
 	if err != nil {
 		return ratelimit.Record{}, err
 	}
-	out, err := t.client.GetItem(ctx, &dynamodb.GetItemInput{TableName: &t.name, Key: key})
+	stateOut, err := t.client.GetItem(ctx, &dynamodb.GetItemInput{TableName: &t.name, Key: stateKeyAV})
 	if err != nil {
 		return ratelimit.Record{}, err
 	}
-	if out.Item == nil {
-		return ratelimit.Record{}, nil
+	var state rateLimitStateItem
+	if stateOut.Item != nil {
+		if err := attributevalue.UnmarshalMap(stateOut.Item, &state); err != nil {
+			return ratelimit.Record{}, err
+		}
 	}
-	var item rateLimitItem
-	if err := attributevalue.UnmarshalMap(out.Item, &item); err != nil {
+
+	dailyKeyAV, err := attributevalue.MarshalMap(map[string]string{"phone_date": dailyKey(phone, now)})
+	if err != nil {
 		return ratelimit.Record{}, err
 	}
+	dailyOut, err := t.client.GetItem(ctx, &dynamodb.GetItemInput{TableName: &t.name, Key: dailyKeyAV})
+	if err != nil {
+		return ratelimit.Record{}, err
+	}
+	var daily rateLimitDailyItem
+	if dailyOut.Item != nil {
+		if err := attributevalue.UnmarshalMap(dailyOut.Item, &daily); err != nil {
+			return ratelimit.Record{}, err
+		}
+	}
+
 	return ratelimit.Record{
-		LastSentAt:     parseTime(item.LastSentAt),
-		SendCount:      item.SendCount,
-		VerifyFailures: item.VerifyFailures,
-		LockedUntil:    parseTime(item.LockedUntil),
+		LastSentAt:     parseTime(state.LastSentAt),
+		VerifyFailures: state.VerifyFailures,
+		LockedUntil:    parseTime(state.LockedUntil),
+		SendCount:      daily.SendCount,
 	}, nil
 }
 
 func (t *RateLimitTable) save(ctx context.Context, phone string, now time.Time, rec ratelimit.Record) error {
-	item := rateLimitItem{
-		Key:            dayKey(phone, now),
+	state := rateLimitStateItem{
+		Key:            stateKey(phone),
 		LastSentAt:     formatTime(rec.LastSentAt),
-		SendCount:      rec.SendCount,
 		VerifyFailures: rec.VerifyFailures,
 		LockedUntil:    formatTime(rec.LockedUntil),
-		TTL:            now.Add(26 * time.Hour).Unix(), // a couple hours past the UTC day it belongs to
+		TTL:            now.Add(26 * time.Hour).Unix(), // refreshed on every write; only matters once the phone goes idle
 	}
-	av, err := attributevalue.MarshalMap(item)
+	stateAV, err := attributevalue.MarshalMap(state)
 	if err != nil {
 		return err
 	}
-	_, err = t.client.PutItem(ctx, &dynamodb.PutItemInput{TableName: &t.name, Item: av})
+	if _, err := t.client.PutItem(ctx, &dynamodb.PutItemInput{TableName: &t.name, Item: stateAV}); err != nil {
+		return err
+	}
+
+	daily := rateLimitDailyItem{
+		Key:       dailyKey(phone, now),
+		SendCount: rec.SendCount,
+		TTL:       now.Add(26 * time.Hour).Unix(), // a couple hours past the UTC day it belongs to
+	}
+	dailyAV, err := attributevalue.MarshalMap(daily)
+	if err != nil {
+		return err
+	}
+	_, err = t.client.PutItem(ctx, &dynamodb.PutItemInput{TableName: &t.name, Item: dailyAV})
 	return err
 }
 

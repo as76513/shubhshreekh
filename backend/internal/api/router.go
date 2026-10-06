@@ -28,7 +28,16 @@ func NewRouter(deps Deps) http.Handler {
 	mux.HandleFunc("GET /healthz", handleHealthz)
 
 	mw := auth.Middleware(deps.SigningSecret)
-	mux.Handle("GET /me", mw(http.HandlerFunc(deps.handleMe)))
+
+	// customer: any route a real logged-in user should reach. Explicitly
+	// excludes deviceSwapRole — without this, the short-lived swap token
+	// (minted on a device_limit_reached rejection, scoped only to complete
+	// that one action) would work on every route below just because
+	// auth.Middleware only checks the signature, not the role, letting a
+	// rejected device get repeated 10-minute windows of real access without
+	// ever actually freeing a device slot (found in code review 2026-10-06).
+	customer := requireRole("customer", "analyst", "admin", "compliance")
+	mux.Handle("GET /me", mw(customer(http.HandlerFunc(deps.handleMe))))
 
 	mux.HandleFunc("POST /auth/send-otp", deps.handleSendOTP)
 	mux.HandleFunc("POST /auth/check-phone", deps.handleCheckPhone)
@@ -49,13 +58,13 @@ func NewRouter(deps Deps) http.Handler {
 	// completed OTP). Refresh deliberately does NOT — a possibly-expired
 	// token is exactly the case it exists to handle — so each refresh
 	// handler re-derives trust itself (see webauthn.go's doc comments).
-	mux.Handle("POST /auth/webauthn/register/begin", mw(http.HandlerFunc(deps.handleWebAuthnRegisterBegin)))
-	mux.Handle("POST /auth/webauthn/register/finish", mw(http.HandlerFunc(deps.handleWebAuthnRegisterFinish)))
+	mux.Handle("POST /auth/webauthn/register/begin", mw(customer(http.HandlerFunc(deps.handleWebAuthnRegisterBegin))))
+	mux.Handle("POST /auth/webauthn/register/finish", mw(customer(http.HandlerFunc(deps.handleWebAuthnRegisterFinish))))
 	mux.HandleFunc("POST /auth/refresh/begin", deps.handleRefreshBegin)
 	mux.HandleFunc("POST /auth/refresh/finish", deps.handleRefreshFinish)
 
 	// RA content platform (Pipe B) — thin insights CMS, see architecture.md.
-	mux.Handle("GET /insights", mw(http.HandlerFunc(deps.handleListInsights)))
+	mux.Handle("GET /insights", mw(customer(http.HandlerFunc(deps.handleListInsights))))
 
 	writer := requireRole("analyst", "admin")
 	mux.Handle("GET /admin/insights", mw(writer(http.HandlerFunc(deps.handleListAllInsights))))

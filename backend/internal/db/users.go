@@ -55,6 +55,16 @@ type User struct {
 	// LastDeviceSwapAt (TD-054) gates the self-service "log out other
 	// device" cooldown — see devices.go's CanSwapDevice.
 	LastDeviceSwapAt string `dynamodbav:"last_device_swap_at,omitempty"`
+
+	// DevicesVersion is optimistic-concurrency control for Devices — without
+	// it, two logins racing to register a new device could both read the
+	// same starting list, both pass the MaxDevices check, and both get
+	// issued a session, landing at more than MaxDevices concurrently-valid
+	// logins (found in code review 2026-10-06). Every write to Devices goes
+	// through updateDevicesAtomic, which only succeeds if this still matches
+	// what was just read; a mismatch means someone else wrote first, and the
+	// caller retries from a fresh read instead of blindly overwriting.
+	DevicesVersion int `dynamodbav:"devices_version,omitempty"`
 }
 
 // UsersStore is what backend/internal/api's handlers depend on — *UsersTable
@@ -68,6 +78,7 @@ type UsersStore interface {
 	SetWebAuthnSession(ctx context.Context, userID, sessionJSON string) error
 	ClearWebAuthnSession(ctx context.Context, userID string) error
 	SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error
+	ClearWebAuthnCredential(ctx context.Context, userID string) error
 	SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error
 	RegisterDevice(ctx context.Context, userID, deviceID, label string) (allowed bool, devices []Device, err error)
 	SwapDevice(ctx context.Context, userID, removeDeviceID, newDeviceID, newLabel string) (ok bool, retryAfter time.Duration, err error)
@@ -241,6 +252,52 @@ func (t *UsersTable) updateAV(ctx context.Context, userID string, set map[string
 	return err
 }
 
+// updateAVConditional is updateAV with a ConditionExpression attached —
+// used for optimistic concurrency (see Devices/DevicesVersion). Returns
+// ok=false (not an error) specifically when the condition fails, so the
+// caller can retry from a fresh read instead of treating it as a hard
+// failure.
+func (t *UsersTable) updateAVConditional(ctx context.Context, userID string, set map[string]types.AttributeValue, condition string, condValues map[string]types.AttributeValue) (ok bool, err error) {
+	key, err := attributevalue.MarshalMap(map[string]string{"user_id": userID})
+	if err != nil {
+		return false, err
+	}
+
+	names := map[string]string{}
+	values := map[string]types.AttributeValue{}
+	var setClauses []string
+
+	i := 0
+	for attr, val := range set {
+		nameKey, valKey := fmt.Sprintf("#n%d", i), fmt.Sprintf(":v%d", i)
+		names[nameKey] = attr
+		values[valKey] = val
+		setClauses = append(setClauses, fmt.Sprintf("%s = %s", nameKey, valKey))
+		i++
+	}
+	for k, v := range condValues {
+		values[k] = v
+	}
+
+	input := &dynamodb.UpdateItemInput{
+		TableName:                 &t.name,
+		Key:                       key,
+		UpdateExpression:          aws.String("SET " + strings.Join(setClauses, ", ")),
+		ConditionExpression:       aws.String(condition),
+		ExpressionAttributeNames:  names,
+		ExpressionAttributeValues: values,
+	}
+	_, err = t.client.UpdateItem(ctx, input)
+	if err != nil {
+		var condFailed *types.ConditionalCheckFailedException
+		if errors.As(err, &condFailed) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // SetWebAuthnSession persists the challenge from a Begin* ceremony so the
 // matching Finish* call (a separate, stateless Lambda invocation) can read
 // it back.
@@ -260,6 +317,17 @@ func (t *UsersTable) ClearWebAuthnSession(ctx context.Context, userID string) er
 // counter back each time to detect a cloned authenticator.
 func (t *UsersTable) SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error {
 	return t.update(ctx, userID, map[string]string{"webauthn_credential": credentialJSON}, nil)
+}
+
+// ClearWebAuthnCredential forces a fresh OTP + re-registration before any
+// device can use biometric/PIN refresh again — called after a device swap
+// (TD-054), since a single shared credential (TD-049: one per user, not per
+// device) can't be selectively revoked for just the evicted device. Without
+// this, an evicted device could keep refreshing for up to otpVerifiedWindow
+// (7 days) via a credential it registered before being swapped out (found
+// in code review 2026-10-06).
+func (t *UsersTable) ClearWebAuthnCredential(ctx context.Context, userID string) error {
+	return t.update(ctx, userID, nil, []string{"webauthn_credential"})
 }
 
 // SetVerifiedUntil records how long a biometric/PIN refresh may mint new

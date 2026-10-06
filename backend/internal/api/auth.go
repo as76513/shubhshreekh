@@ -313,6 +313,15 @@ func (d Deps) handleSwapDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A single WebAuthn credential is shared by the whole account (TD-049
+	// — one per user, not per device), so the evicted device's credential
+	// can't be selectively revoked. Clearing it here forces a fresh OTP +
+	// re-registration before biometric/PIN refresh works again for anyone
+	// on this account — without this, the evicted device could keep
+	// minting access tokens via /auth/refresh/* for up to 7 days despite
+	// being "logged out" (found in code review 2026-10-06).
+	_ = d.Users.ClearWebAuthnCredential(r.Context(), claims.Subject)
+
 	user, err := d.Users.Get(r.Context(), claims.Subject)
 	if err != nil || user == nil {
 		writeError(w, http.StatusInternalServerError, "could not issue session")

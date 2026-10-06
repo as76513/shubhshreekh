@@ -2,11 +2,19 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
+
+// maxDeviceWriteRetries bounds the optimistic-concurrency retry loop in
+// RegisterDevice/SwapDevice — a handful of attempts is enough to ride out a
+// genuine race between two near-simultaneous logins without looping forever
+// under pathological contention.
+const maxDeviceWriteRetries = 3
 
 // TrialDuration is how long a new signup's Pro trial lasts (TD-054) — one
 // product, "Pro (7-day free trial)", no separate Free tier to fall into.
@@ -109,57 +117,88 @@ func CanSwapDevice(lastSwapAt string, now time.Time) (ok bool, retryAfter time.D
 // RegisterDevice is the DB glue around CheckDevice/TouchOrRegisterDevice —
 // called at verify-otp time. Returns the current device list either way,
 // so a rejection can show the caller what's occupying both slots.
+//
+// Retries on a fresh read if the optimistic-concurrency write loses a race
+// (see DevicesVersion) — without this, two logins arriving at nearly the
+// same instant could both read the same starting device list, both pass
+// CheckDevice, and both get issued a session, landing at more than
+// MaxDevices concurrently-valid logins (found in code review 2026-10-06).
 func (t *UsersTable) RegisterDevice(ctx context.Context, userID, deviceID, label string) (allowed bool, devices []Device, err error) {
-	user, err := t.Get(ctx, userID)
-	if err != nil {
-		return false, nil, err
+	for attempt := 0; attempt < maxDeviceWriteRetries; attempt++ {
+		user, err := t.Get(ctx, userID)
+		if err != nil {
+			return false, nil, err
+		}
+		if user == nil {
+			return false, nil, nil
+		}
+		if !CheckDevice(user.Devices, deviceID) {
+			return false, user.Devices, nil
+		}
+		now := time.Now().UTC()
+		updated := TouchOrRegisterDevice(user.Devices, deviceID, label, now)
+		wrote, err := t.updateDevicesAtomic(ctx, userID, updated, user.DevicesVersion, nil)
+		if err != nil {
+			return false, nil, err
+		}
+		if wrote {
+			return true, updated, nil
+		}
+		// Someone else updated Devices between our read and write — retry
+		// from a fresh read rather than overwriting their change.
 	}
-	if user == nil {
-		return false, nil, nil
-	}
-	if !CheckDevice(user.Devices, deviceID) {
-		return false, user.Devices, nil
-	}
-	now := time.Now().UTC()
-	updated := TouchOrRegisterDevice(user.Devices, deviceID, label, now)
-	if err := t.setDevices(ctx, userID, updated, nil); err != nil {
-		return false, nil, err
-	}
-	return true, updated, nil
+	return false, nil, fmt.Errorf("could not register device, please try again")
 }
 
 // SwapDevice is the DB glue around CanSwapDevice/SwapDevice — the
-// self-service "log out other device" action.
+// self-service "log out other device" action. Same retry-on-race approach
+// as RegisterDevice, for the same reason.
 func (t *UsersTable) SwapDevice(ctx context.Context, userID, removeDeviceID, newDeviceID, newLabel string) (ok bool, retryAfter time.Duration, err error) {
-	user, err := t.Get(ctx, userID)
-	if err != nil {
-		return false, 0, err
+	for attempt := 0; attempt < maxDeviceWriteRetries; attempt++ {
+		user, err := t.Get(ctx, userID)
+		if err != nil {
+			return false, 0, err
+		}
+		if user == nil {
+			return false, 0, nil
+		}
+		allowed, wait := CanSwapDevice(user.LastDeviceSwapAt, time.Now().UTC())
+		if !allowed {
+			return false, wait, nil
+		}
+		now := time.Now().UTC()
+		updated := SwapDevice(user.Devices, removeDeviceID, newDeviceID, newLabel, now)
+		wrote, err := t.updateDevicesAtomic(ctx, userID, updated, user.DevicesVersion, &now)
+		if err != nil {
+			return false, 0, err
+		}
+		if wrote {
+			return true, 0, nil
+		}
+		// Lost the race — retry from a fresh read (re-checks the cooldown
+		// too, in case the other writer was itself a swap).
 	}
-	if user == nil {
-		return false, 0, nil
-	}
-	allowed, wait := CanSwapDevice(user.LastDeviceSwapAt, time.Now().UTC())
-	if !allowed {
-		return false, wait, nil
-	}
-	now := time.Now().UTC()
-	updated := SwapDevice(user.Devices, removeDeviceID, newDeviceID, newLabel, now)
-	if err := t.setDevices(ctx, userID, updated, &now); err != nil {
-		return false, 0, err
-	}
-	return true, 0, nil
+	return false, 0, fmt.Errorf("could not swap device, please try again")
 }
 
-func (t *UsersTable) setDevices(ctx context.Context, userID string, devices []Device, lastSwapAt *time.Time) error {
+// updateDevicesAtomic writes devices only if DevicesVersion still matches
+// expectedVersion (the value just read) — otherwise another request wrote
+// first, and it returns wrote=false (not an error) so the caller retries
+// from a fresh read instead of blindly overwriting that other write.
+func (t *UsersTable) updateDevicesAtomic(ctx context.Context, userID string, devices []Device, expectedVersion int, lastSwapAt *time.Time) (wrote bool, err error) {
 	deviceAVs, err := attributevalue.MarshalList(devices)
 	if err != nil {
-		return err
+		return false, err
 	}
 	set := map[string]types.AttributeValue{
-		"devices": &types.AttributeValueMemberL{Value: deviceAVs},
+		"devices":         &types.AttributeValueMemberL{Value: deviceAVs},
+		"devices_version": &types.AttributeValueMemberN{Value: strconv.Itoa(expectedVersion + 1)},
 	}
 	if lastSwapAt != nil {
 		set["last_device_swap_at"] = &types.AttributeValueMemberS{Value: lastSwapAt.UTC().Format(time.RFC3339)}
 	}
-	return t.updateAV(ctx, userID, set, nil)
+	condValues := map[string]types.AttributeValue{
+		":ev": &types.AttributeValueMemberN{Value: strconv.Itoa(expectedVersion)},
+	}
+	return t.updateAVConditional(ctx, userID, set, "attribute_not_exists(devices_version) OR devices_version = :ev", condValues)
 }

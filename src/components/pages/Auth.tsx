@@ -193,6 +193,13 @@ export default function Auth() {
         userId,
         role,
       });
+      // The server clears the shared WebAuthn credential on every swap
+      // (one credential per account, not per device — see TECH_DEBT.md
+      // TD-049), so this device needs to re-register, same as a fresh
+      // OTP login does.
+      if (userId && (await isPlatformAuthenticatorAvailable())) {
+        void registerPasskey(token);
+      }
       setDeviceChoice(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not switch devices");

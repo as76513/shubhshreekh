@@ -110,6 +110,12 @@ func (f *fakeUsersStore) SetWebAuthnSession(ctx context.Context, userID, session
 	return nil
 }
 func (f *fakeUsersStore) ClearWebAuthnSession(ctx context.Context, userID string) error { return nil }
+func (f *fakeUsersStore) ClearWebAuthnCredential(ctx context.Context, userID string) error {
+	if u, ok := f.users[userID]; ok {
+		u.WebAuthnCredential = ""
+	}
+	return nil
+}
 func (f *fakeUsersStore) SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error {
 	return nil
 }
@@ -543,6 +549,72 @@ func TestHandleSwapDevice_Cooldown(t *testing.T) {
 	}
 	if rec.Header().Get("Retry-After") == "" {
 		t.Fatalf("expected a Retry-After header")
+	}
+}
+
+// --- Device-swap token scope (code review 2026-10-06, finding #2) ---
+//
+// The short-lived deviceSwapRole token must only work against
+// /auth/devices/swap — auth.Middleware alone just checks the signature, so
+// without an explicit role check on every other route, a device rejected
+// with device_limit_reached could use that token directly against the real
+// app instead of ever completing the swap. These exercise the full router,
+// not a handler in isolation, since the bug was in router.go's wiring.
+
+func TestDeviceSwapToken_RejectedByMe(t *testing.T) {
+	users := newFakeUsersStore()
+	users.users["919876543210"] = &db.User{UserID: "919876543210"}
+	router := NewRouter(testDeps(&fakeOTPProvider{}, newFakeRateLimiter(), users))
+
+	swapToken, err := auth.IssueToken([]byte("test-signing-secret"), "919876543210", "", deviceSwapRole, deviceSwapTokenTTL)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+swapToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — a device-swap token must not work on /me; body = %s", rec.Code, rec.Body)
+	}
+}
+
+func TestDeviceSwapToken_RejectedByInsights(t *testing.T) {
+	users := newFakeUsersStore()
+	users.users["919876543210"] = &db.User{UserID: "919876543210"}
+	router := NewRouter(testDeps(&fakeOTPProvider{}, newFakeRateLimiter(), users))
+
+	swapToken, err := auth.IssueToken([]byte("test-signing-secret"), "919876543210", "", deviceSwapRole, deviceSwapTokenTTL)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/insights", nil)
+	req.Header.Set("Authorization", "Bearer "+swapToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — a device-swap token must not work on /insights; body = %s", rec.Code, rec.Body)
+	}
+}
+
+func TestNormalToken_StillAllowedOnMe(t *testing.T) {
+	users := newFakeUsersStore()
+	users.users["919876543210"] = &db.User{UserID: "919876543210", Name: "Amol"}
+	router := NewRouter(testDeps(&fakeOTPProvider{}, newFakeRateLimiter(), users))
+
+	normalToken, err := auth.IssueToken([]byte("test-signing-secret"), "919876543210", "pro", "customer", accessTokenTTL)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+normalToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — a normal customer token must still work on /me; body = %s", rec.Code, rec.Body)
 	}
 }
 
