@@ -72,7 +72,7 @@ export default function PlanSlider() {
 
       <div className="max-w-md mx-auto">
         <div
-          className="rounded-2xl p-6 sm:p-7 relative surface-card"
+          className="rounded-2xl p-6 sm:p-7 pt-8 relative surface-card"
           style={{
             background: "var(--surface)",
             border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
@@ -82,14 +82,14 @@ export default function PlanSlider() {
         >
           {pricing && pricing.discountPercent > 0 && (
             <div
-              className="absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide"
+              className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wide whitespace-nowrap animate-pulse"
               style={{
-                background: "color-mix(in srgb, var(--gold) 16%, transparent)",
-                color: "var(--gold)",
-                border: "1px solid color-mix(in srgb, var(--gold) 35%, transparent)",
+                background: "linear-gradient(135deg, #ff4d4d, #ff8a00)",
+                color: "#ffffff",
+                boxShadow: "0 4px 14px rgba(255, 77, 77, 0.45)",
               }}
             >
-              {pricing.discountPercent}% off
+              ⚡ Blast Offer — {pricing.discountPercent}% OFF
             </div>
           )}
 
