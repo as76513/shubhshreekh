@@ -19,7 +19,23 @@ this kind of testing.
 
 ---
 
-## 0. Before you start
+## 0. Stub tests (no AWS, no MSG91 — run this first, every time)
+
+Before testing against the live API at all, run the Go test suite — it
+exercises `/auth/send-otp`, `/auth/verify-otp`, `/auth/check-phone`, and the
+OTP rate-limiting rules (TD-006) entirely with in-memory fakes, no network
+calls:
+
+```bash
+cd backend && go test ./...
+```
+
+This is the cheapest way to catch a regression in the OTP flow — it costs
+nothing and takes under 2 seconds. It does **not** replace the live checks
+below (it can't catch a real MSG91 response-shape mismatch, TD-040), but it
+should always be green before you move on to spending real SMS credits.
+
+## 1. Before you start (live deploy)
 
 1. Confirm the Amplify build for this commit actually finished: AWS Console
    → Amplify → the app → the `main` branch → latest build should say
@@ -29,7 +45,7 @@ this kind of testing.
    `curl https://c630c7v98g.execute-api.ap-south-1.amazonaws.com/healthz`
    should return `{"status":"ok"}`.
 
-## 1. Biometric/PIN login (TD-048)
+## 2. Biometric/PIN login (TD-048)
 
 Do this on your **own phone or laptop** — it needs a real platform
 authenticator (Face ID, fingerprint, Windows Hello), which nothing
@@ -54,14 +70,15 @@ automated can simulate.
    `aws dynamodb update-item`), then repeat step 3 — it should now force a
    real OTP regardless of a successful biometric prompt.
 
-## 2. Thin insights CMS (TD-010)
+## 3. Thin insights CMS (TD-010)
 
-### 2a. Publish workflow (as the analyst)
+### 3a. Publish workflow (as the analyst)
 
 1. Log in with `9991100001` + OTP `223344`. You should see an **Admin**
    tab in the nav that no other test account shows.
-2. Open `/admin`, fill the form, **Save as draft**. It appears in the "All
-   insights" list below with a `draft` badge.
+2. Open `/admin`, fill the form (leave **Instrument Type** at its default,
+   "Equity", for this pass — see § 3c for F&O), **Save as draft**. It
+   appears in the "All insights" list below with a `draft` badge.
 3. In a **separate private/incognito window**, log in as `9999933333`
    (Pro) and open Market Insights → Active Trades. The draft must **not**
    appear. If it does, stop — that's a real bug, not a cosmetic one (see
@@ -71,7 +88,7 @@ automated can simulate.
 5. Click **Archive** on the admin side. Reload the customer page again —
    it's gone.
 
-### 2b. Tier-gating (as a customer)
+### 3b. Tier-gating (as a customer)
 
 1. Log in as `9999911111` (free) and `9999933333` (Pro) in two windows.
 2. Open Market Insights → Active Trades in both. The free account should
@@ -80,16 +97,59 @@ automated can simulate.
    of them with real numbers.
 3. **The check that actually matters**: open DevTools → Network on the
    free account, find the `/insights` response, and confirm the locked
-   entries' `cmp`/`target`/`stopLoss`/`rationale` are `0`/`""` — not just
-   hidden by CSS. If real numbers are sitting in that response, the
+   entries' `cmp`/`targets`/`stopLoss`/`rationale` are `0`/`[]`/`0`/`""` —
+   not just hidden by CSS. If real numbers are sitting in that response, the
    server-side gating broke and the UI overlay is the only thing protecting
    Pro content, which is exactly what architecture.md says never to do.
 
-## 3. Known gaps — not bugs, don't file them as such
+### 3c. F&O multi-target (equity vs. 1-3 targets)
 
-- **Dashboard's "Recent insights" widget still shows the old static mock**,
-  not the real published calls — only the Market Insights page was wired
-  up this round (TD-010's note).
+Equity calls carry one target; F&O calls (futures/options directional
+calls — **not** the Dashboard's separate static "F&O Desk" teaser, see
+architecture.md's note) carry up to 3 scaled booking levels.
+
+1. As the analyst (`9991100001`), open `/admin`, set **Instrument Type** to
+   **F&O**. The single Target field should be replaced by Target 1/2/3
+   (only Target 1 required). Fill at least Target 1, **Save as draft**,
+   **Publish**.
+2. As a Pro customer, open Market Insights → Active Trades. The card's main
+   ladder shows Target 1 same as an equity card, with Target 2/3 as extra
+   chips below the progress bar if you filled them in.
+3. Switch Instrument Type back to **Equity** on a new draft and confirm only
+   one Target field shows and the card renders the original single-target
+   layout — the two modes share one form/one card component, not a fork.
+4. Negative check: try publishing an Equity draft with Target left at 0, and
+   an F&O draft with all three Targets at 0 — both should be rejected with a
+   400 (`backend/internal/api/insights.go`'s `validate()`), not silently
+   saved as zero.
+
+## 4. OTP rate limiting (TD-006)
+
+Section 0 already covers the pure-logic/handler unit tests. This is the
+live-deploy check that the DynamoDB wiring actually works, since that's the
+one part the stub tests can't exercise.
+
+1. Use a phone number **not** in `OTP_TEST_PHONES` (so requests actually
+   reach the rate limiter instead of bypassing it) but also not a real
+   number you want SMS on — if MSG91 isn't live yet in this environment,
+   `d.OTP.Send` will still fail downstream, which is fine for this check;
+   we only care what happens *before* that call.
+2. `curl` `/auth/send-otp` for that phone twice in under 60 seconds. The
+   second call should come back `429` with a `Retry-After` header and body
+   `{"error":"too many OTP requests for this number — try again in ...s"}`.
+3. `aws dynamodb get-item --table-name shubhshreekh-otp-ratelimit-dev --key
+   '{"phone_date":{"S":"91XXXXXXXXXX#YYYYMMDD"}}'` (today's UTC date) should
+   show `sendCount` incremented and `lastSentAt` set.
+4. `curl` `/auth/verify-otp` for that phone with a wrong code 5 times. The
+   5th response locks it out; a 6th attempt (even with a correct code,
+   there isn't one here) should come back `429` immediately, before ever
+   reaching `d.OTP.Verify` — confirm via CloudWatch logs that the provider
+   wasn't called a 6th time.
+5. Confirm an `OTP_TEST_PHONES` number is immune to both of the above — it
+   should never produce a `429` no matter how many times you hit it.
+
+## 5. Known gaps — not bugs, don't file them as such
+
 - **Desktop without Face ID/Touch ID/Windows Hello gets no biometric
   benefit** — registration is silently skipped, and there's currently no
   "session expired, please log in again" prompt if a 30-minute-old token
@@ -100,7 +160,7 @@ automated can simulate.
 
 ## Related docs
 
-- [TECH_DEBT.md](TECH_DEBT.md) — TD-010, TD-047, TD-048, TD-049, TD-050
+- [TECH_DEBT.md](TECH_DEBT.md) — TD-006, TD-010, TD-047, TD-048, TD-049, TD-050, TD-051
 - [backend/README.md](backend/README.md) — the actual request-by-request
   flow this checklist is testing
 - [architecture.md](architecture.md) — why free-tier gating must happen

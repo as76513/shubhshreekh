@@ -288,10 +288,12 @@ export default function Dashboard() {
             <div className="space-y-2.5">
               {recentCalls.map(call => {
                 const isBuy = call.action === 'BUY'
-                const range = Math.abs(call.target - call.stopLoss) || 1
+                const targets = call.targets ?? []
+                const primaryTarget = targets[0] ?? call.entryPrice
+                const range = Math.abs(primaryTarget - call.stopLoss) || 1
                 const progress = Math.min(
                   100,
-                  Math.max(0, ((call.cmp - Math.min(call.stopLoss, call.target)) / range) * 100),
+                  Math.max(0, ((call.entryPrice - Math.min(call.stopLoss, primaryTarget)) / range) * 100),
                 )
                 return (
                 <div
@@ -327,8 +329,11 @@ export default function Dashboard() {
 
                   <div className="flex items-center justify-between gap-2 mb-1.5 text-[10px]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                     <span style={{ color: 'var(--loss)' }}>SL ₹{call.stopLoss.toLocaleString('en-IN')}</span>
-                    <span style={{ color: 'var(--navy)', fontWeight: 700 }}>₹{call.cmp.toLocaleString('en-IN')}</span>
-                    <span style={{ color: 'var(--gain)' }}>Tgt ₹{call.target.toLocaleString('en-IN')}</span>
+                    <span style={{ color: 'var(--navy)', fontWeight: 700 }}>₹{call.entryPrice.toLocaleString('en-IN')}</span>
+                    <span style={{ color: 'var(--gain)' }}>
+                      Tgt ₹{primaryTarget.toLocaleString('en-IN')}
+                      {targets.length > 1 && ` +${targets.length - 1}`}
+                    </span>
                   </div>
                   <div
                     className="relative h-1.5 rounded-full overflow-hidden"
@@ -352,7 +357,7 @@ export default function Dashboard() {
                         border: '2px solid #fff',
                         boxShadow: '0 0 0 1.5px rgba(11,42,85,0.28)',
                       }}
-                      title="CMP"
+                      title="Entry price"
                     />
                   </div>
                 </div>

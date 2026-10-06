@@ -135,10 +135,15 @@ export default function TradingCalls() {
         {activeCalls.map(call => {
           const locked = call.locked
           const isBuy = call.action === 'BUY'
-          const range = Math.abs(call.target - call.stopLoss) || 1
+          const isFno = call.instrumentType === 'fno'
+          const targets = call.targets ?? []
+          // Progress bar always tracks the nearest booking level (targets[0])
+          // — F&O's further targets are shown as extra text, not extra bar.
+          const primaryTarget = targets[0] ?? call.entryPrice
+          const range = Math.abs(primaryTarget - call.stopLoss) || 1
           const progress = Math.min(
             100,
-            Math.max(0, ((call.cmp - Math.min(call.stopLoss, call.target)) / range) * 100),
+            Math.max(0, ((call.entryPrice - Math.min(call.stopLoss, primaryTarget)) / range) * 100),
           )
           const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
           const fmtDate = (iso: string) => {
@@ -240,24 +245,24 @@ export default function TradingCalls() {
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
-                      CMP
+                      Entry
                     </p>
                     <p
                       className="text-sm font-bold"
                       style={{ color: 'var(--navy)', fontFamily: 'JetBrains Mono, monospace' }}
                     >
-                      {fmt(call.cmp)}
+                      {fmt(call.entryPrice)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
-                      Target
+                      {isFno && targets.length > 1 ? 'Target 1' : 'Target'}
                     </p>
                     <p
                       className="text-sm font-semibold"
                       style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
                     >
-                      {fmt(call.target)}
+                      {fmt(primaryTarget)}
                     </p>
                   </div>
                 </div>
@@ -284,9 +289,23 @@ export default function TradingCalls() {
                       border: '2.5px solid #fff',
                       boxShadow: '0 0 0 2px rgba(11,42,85,0.28), 0 1px 3px rgba(11,42,85,0.25)',
                     }}
-                    title="CMP"
+                    title="Entry price"
                   />
                 </div>
+
+                {isFno && targets.length > 1 && (
+                  <div className="flex items-center gap-2 mt-2.5 pt-2.5" style={{ borderTop: '1px dashed rgba(29,78,216,0.15)' }}>
+                    {targets.slice(1).map((t, i) => (
+                      <span
+                        key={i}
+                        className="text-[11px] font-semibold px-2 py-1 rounded-md"
+                        style={{ background: 'var(--gain-bg)', color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
+                      >
+                        T{i + 2} {fmt(t)}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )

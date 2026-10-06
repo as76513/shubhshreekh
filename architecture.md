@@ -138,7 +138,7 @@ plus GSIs for listing by type and publish date.
 
 Only rows with `status: published` get GSI1 keys written.
 
-**Example — insight (`INSIGHT#` / `META`)**
+**Example — equity insight (`INSIGHT#` / `META`)**
 
 ```json
 {
@@ -149,12 +149,13 @@ Only rows with `status: published` get GSI1 keys written.
   "status": "published",
   "tier": "pro",
   "action": "BUY",
+  "instrumentType": "equity",
   "stock": "Reliance Industries",
   "symbol": "RELIANCE",
   "category": "Large Cap",
   "timeframe": "Short Term",
   "cmp": 2920,
-  "target": 3200,
+  "targets": [3200],
   "stopLoss": 2780,
   "returnsPct": 9.6,
   "rationale": "Breakout above 200-DMA with volume…",
@@ -164,6 +165,29 @@ Only rows with `status: published` get GSI1 keys written.
   "updatedAt": "…"
 }
 ```
+
+**`instrumentType` (`equity` | `fno`) and `targets`:** equity calls carry
+exactly one target; F&O calls (futures/options directional calls, e.g. "BUY
+NIFTY FUT") carry 1-3 scaled booking levels — `targets: [24500, 24700,
+24900]` for a three-stage profit-booking F&O call, vs. a single-element
+array for equity. One admin form and one customer card render both: the
+form swaps a single Target input for Target 1/2/3 based on `instrumentType`
+(Target 2/3 optional), and the card always shows `targets[0]` in the
+SL→CMP→Target ladder, with any further targets rendered as extra chips
+below it. `returnsPct` stays a single number for the headline figure,
+computed off `targets[0]` regardless of how many targets exist. Validated
+server-side in `backend/internal/api/insights.go`'s `validate()` — never
+trust the admin form's shape alone (the "never trust the client" principle
+applies to the RA's own browser too, not just customers').
+
+**Not to be confused with the Dashboard's "F&O Desk" card** — that's a
+separate, still-static teaser (`foCalls` in `src/lib/data.ts`: options
+premium/expiry/lot-size, no CMP/target/stop-loss at all) gating Pro access
+to a live options desk that doesn't exist yet (TD-024, deferred past 18
+Oct). An `instrumentType: "fno"` row published through the real admin CMS
+is a directional stock/index call with scaled targets, shown on the Market
+Insights page like any other insight — it does not feed, and is not fed by,
+the Dashboard's F&O Desk card.
 
 **Example — course chapter**
 
@@ -298,6 +322,20 @@ forge it. Because it's derived from a **server-signed** claim the client
 can't alter, the tier check is trustworthy. This is the same principle behind
 the Phase 7 AI layer: the AI agent's tools do the same server-side
 entitlement check before returning any data.
+
+## Device-bound logins (anti-piracy) — planned, TD-054
+**Decided 2026-10-06** (see plan.md's "Decided: Pro-only pricing & trial
+model"), not yet built. The Free tier goes away entirely — one product,
+"Pro (7-day free trial)" — so the subscription claim above becomes a
+trial/paid-active check rather than a free-vs-pro one. On top of that, each
+account may have at most **2 registered devices**: login must check a
+server-held device registry (new) and reject an unrecognized 3rd device,
+not merely trust whatever device the client claims to be. Same "never trust
+the client" principle as the tier claim — device identity has to be
+something the server tracks and verifies, not a value the client asserts.
+Freeing a device slot is self-service ("log out other device"), rate-limited
+with a cooldown so that path can't itself be used to rotate past the
+2-device cap.
 
 ## Payment flow (the security-critical part)
 

@@ -67,6 +67,46 @@ in MVP scope** until a vendor grants API + redistribution terms.
 
 ---
 
+## Decided: Pro-only pricing & trial model
+
+**Decided 2026-10-06**, via RA/business-stakeholder input (see TECH_DEBT.md
+TD-052–059). Supersedes the earlier assumed free/pro split:
+
+- **One product, not two tiers.** The Free tier is removed entirely. What
+  was "Pro" is now the only paid product, marketed as **"Pro (7-day free
+  trial)"** — every new signup gets 7 days of full access automatically,
+  not a separate lower tier to fall back to.
+- **Hard revoke on trial expiry.** If the client hasn't paid by day 7,
+  access is revoked entirely — there is no reduced/free fallback state to
+  land in, unlike the old free tier.
+- **Anti-piracy device limit, not session-kicking.** Each account may have
+  at most **2 registered/identified devices** (the brief: "one mobile, one
+  laptop"). A 3rd, unrecognized device is **rejected at login** — existing
+  registered devices are never silently logged out to make room. Freeing a
+  slot is self-service ("log out other device") with a cooldown, to stop
+  that itself being used to get more than 2 effective devices in rotation.
+- **Three plans, discount is admin-configurable.** Monthly / Quarterly /
+  Annual, displayed with a struck-through anchor price and a discounted
+  price (50% at launch, landing ~₹1000–1200/month), behind a **72-hour**
+  countdown timer per client (starts at trial signup) with "bright, flashy"
+  urgency styling. The discount **percentage is stored server-side and
+  admin-editable** (not a hardcoded constant) specifically so it can be
+  bumped during festive sales without a deploy.
+- **`/orders` (TD-011, not yet built) must be designed against this model
+  from the start** — it's the reason TD-052–055 were pulled into the Oct 18
+  critical path (see build-plan.md) rather than deferred: a checkout can't
+  be built correctly against a pricing/entitlement model that doesn't exist
+  yet in the backend.
+
+**Explicitly deferred past 18 Oct** (same stakeholder round, but no payment
+dependency — see TECH_DEBT.md TD-056–059): a Live/Past/Closed-trades nav
+restructure with an F&O/Equity toggle, a customer-facing "Blogs" tab
+sourced from the admin's daily market-overview posts, admin-uploadable
+weekly PDF (replacing the static file), and an F&O-specific SMS alert +
+app-open popup for the latest live trade.
+
+---
+
 ## RA content publishing (Pipe B)
 
 ### Who publishes what

@@ -3,14 +3,22 @@
 import { useState, useRef } from "react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
-import { checkPhoneExists, confirmOtp, requestOtp } from "@/lib/api";
+import {
+  checkPhoneExists,
+  confirmOtp,
+  requestOtp,
+  swapDevice,
+  DeviceLimitError,
+  type DeviceInfo,
+} from "@/lib/api";
 import { isPlatformAuthenticatorAvailable, registerPasskey } from "@/lib/webauthn";
+import { getDeviceId, getDeviceLabel } from "@/lib/device";
 
 const OTP_LEN = 6;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Auth() {
-  const { login: onLogin, navigate } = useAuth();
+  const { login: onLogin, navigate, setShowUpgradeModal } = useAuth();
   const [step, setStep] = useState<"phone" | "signup" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [phoneNotFound, setPhoneNotFound] = useState(false);
@@ -21,7 +29,14 @@ export default function Auth() {
   const [otp, setOtp] = useState<string[]>(() => Array(OTP_LEN).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [trialExpired, setTrialExpired] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  // TD-054: set only when verify-otp rejects with device_limit_reached —
+  // renders a "which device to log out" screen instead of the OTP form.
+  const [deviceChoice, setDeviceChoice] = useState<{
+    devices: DeviceInfo[];
+    managementToken: string;
+  } | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const goToOtpStep = () => {
@@ -121,12 +136,14 @@ export default function Auth() {
       return;
     }
     setError("");
+    setTrialExpired(false);
     setLoading(true);
     try {
       const { token, subscription, name, userId, role } = await confirmOtp(
         phone,
         code,
         isSignup ? { firstName, lastName, email } : undefined,
+        { deviceId: getDeviceId(), deviceLabel: getDeviceLabel() },
       );
       onLogin("+91 " + phone, {
         token,
@@ -143,7 +160,42 @@ export default function Auth() {
         void registerPasskey(token);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Incorrect or expired OTP");
+      if (err instanceof DeviceLimitError) {
+        setDeviceChoice({ devices: err.devices, managementToken: err.deviceManagementToken });
+      } else if (err instanceof Error && err.message === "trial_expired") {
+        setTrialExpired(true);
+      } else {
+        setError(err instanceof Error ? err.message : "Incorrect or expired OTP");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // TD-054: completes the login that triggered deviceChoice — OTP was
+  // already confirmed, this just frees the slot the user picked and
+  // finishes issuing a normal session, same as handleOtpSubmit's success path.
+  const handleLogOutDevice = async (removeDeviceId: string) => {
+    if (!deviceChoice) return;
+    setError("");
+    setLoading(true);
+    try {
+      const { token, subscription, name, userId, role } = await swapDevice(
+        deviceChoice.managementToken,
+        removeDeviceId,
+        getDeviceId(),
+        getDeviceLabel(),
+      );
+      onLogin("+91 " + phone, {
+        token,
+        subscription: subscription === "pro" ? "pro" : "free",
+        name,
+        userId,
+        role,
+      });
+      setDeviceChoice(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not switch devices");
     } finally {
       setLoading(false);
     }
@@ -246,7 +298,68 @@ export default function Auth() {
             ← Back to home
           </button>
 
-          {step === "phone" ? (
+          {deviceChoice ? (
+            <div className="fade-in">
+              <div className="mb-6">
+                <h1
+                  className="text-2xl font-bold mb-1"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Too many devices
+                </h1>
+                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                  Pro accounts can only be used on 2 devices at a time. Log out one
+                  below to continue on this device.
+                </p>
+              </div>
+
+              <div className="space-y-3 mb-4">
+                {deviceChoice.devices.map((d) => (
+                  <div
+                    key={d.deviceId}
+                    className="flex items-center justify-between gap-3 rounded-xl p-4"
+                    style={{ background: "var(--secondary)", border: "1px solid var(--border)" }}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: "var(--foreground)" }}>
+                        {d.label || "Unknown device"}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        Last active {new Date(d.lastActiveAt).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleLogOutDevice(d.deviceId)}
+                      className="btn-action flex-shrink-0 px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+                    >
+                      Log out &amp; use this device
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {error && (
+                <p className="text-xs text-center mb-2" style={{ color: "#f87171" }}>
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDeviceChoice(null);
+                  setStep("phone");
+                  setError("");
+                }}
+                className="text-xs hover:underline"
+                style={{ color: "var(--primary)" }}
+              >
+                ← Use a different number
+              </button>
+            </div>
+          ) : step === "phone" ? (
             <form onSubmit={handlePhoneSubmit} className="fade-in">
               <div className="mb-7">
                 <h1
@@ -573,6 +686,7 @@ export default function Auth() {
                     setStep(isSignup ? "signup" : "phone");
                     setOtp(Array(OTP_LEN).fill(""));
                     setError("");
+                    setTrialExpired(false);
                     setPhoneNotFound(false);
                   }}
                   className="text-xs mt-1 hover:underline"
@@ -630,10 +744,26 @@ export default function Auth() {
                     />
                   ))}
                 </div>
-                {error && (
-                  <p className="text-xs mt-1.5 text-center" style={{ color: "#f87171" }}>
-                    {error}
-                  </p>
+                {trialExpired ? (
+                  <div className="text-center mt-2">
+                    <p className="text-xs" style={{ color: "#f87171" }}>
+                      Your 7-day free trial has ended.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="text-xs font-medium hover:underline"
+                      style={{ color: "var(--primary)" }}
+                    >
+                      Upgrade to keep access →
+                    </button>
+                  </div>
+                ) : (
+                  error && (
+                    <p className="text-xs mt-1.5 text-center" style={{ color: "#f87171" }}>
+                      {error}
+                    </p>
+                  )
                 )}
               </div>
 

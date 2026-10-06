@@ -42,7 +42,8 @@ Minimal Pipe B — **insights / trading calls only**:
 | DynamoDB `content` (insight rows) | Courses / videos admin |
 | `POST/PATCH /admin/insights` + publish | Full compliance approval workflow |
 | `GET /insights` (tier-gated) | Bulk import, WhatsApp bot, queues |
-| `/admin` form: stock, BUY/SELL, CMP, target, SL, rationale, tier | Rich text / HTML editor |
+| `/admin` form: stock, BUY/SELL, CMP, target(s), SL, rationale, tier | Rich text / HTML editor |
+| Equity (1 target) vs F&O (1-3 targets) on one form/one card | Separate admin screens per instrument type |
 | Wire Insights UI to API | `content_audit` v1 can be stubbed |
 
 No SQS/webhooks — RA submits a form; customers see formatted cards on next fetch.
@@ -58,6 +59,21 @@ No SQS/webhooks — RA submits a form; customers see formatted cards on next fet
 | Play Billing in TWA (+ PayU on web) | iOS |
 | Store listing + Data safety + Finance declaration | Marketing site beyond legal pages |
 | SEBI RA # + risk disclaimer visible | Compliance multi-step review UI |
+| Entry Price rename (CMP → Entry Price) | Nav restructure (Live/Past/Closed/Blogs tabs) |
+| Trade lifecycle: open/closed + target-hit/SL-hit outcome | Blogs (daily overview as its own customer-facing tab) |
+| Pro-only pricing + 7-day trial + 2-device anti-piracy login (TD-052–055) | Weekly Market Outlook PDF admin-upload (stays static for now) |
+| Admin-configurable discount % (no-deploy festive pricing) | F&O SMS alert + live-trade app-open popup |
+
+**Business-model update (decided 2026-10-06, via RA/stakeholder input):** the
+Free tier is removed entirely — one product, "Pro (7-day free trial)", hard
+revoke on non-payment, max 2 registered devices per account (self-service
+"log out other device" with a cooldown, anti-piracy not session-kicking).
+These four rows fold into the critical path below because `/orders` (PayU)
+cannot be built correctly without knowing the real entitlement/pricing
+model — the other four items from this round (nav restructure, Blogs,
+PDF upload, F&O SMS/popup) are pure product additions with no payment
+dependency, so they're deferred past 18 Oct. See TECH_DEBT.md TD-052
+through TD-059 and plan.md's "Decided: pricing & trial model" section.
 
 ### Calendar
 
@@ -82,10 +98,13 @@ original dates — see Honesty/Replan notes above):
 1. Org Play + D-U-N-S (if not already done — blocks everything else)
 2. Billing: not PayU-only inside Play app
 3. Thin insights CMS (admin write + customer read) — **not started as of 5 Oct**
-4. PayU order + verify + webhook — **not started as of 5 Oct**
-5. `analyst` role claim for RA phone (TD-013)
-6. AAB + Play signing SHA-256 in `assetlinks.json`
-7. Submit for production **by 16 Oct** (leave a review buffer before 18 Oct)
+4. ~~Entry Price rename + trade lifecycle~~ **done 2026-10-06** (TD-052/053)
+5. ~~Trial + 2-device login model (replaces free tier)~~ **done 2026-10-06** (TD-054) — needs `terraform apply` (no new table; `users` table gained fields) + Lambda rebuild before it's live
+6. ~~Admin-configurable discount pricing~~ **done 2026-10-06** (TD-055) — needs `terraform apply` (new `settings` table) + Lambda rebuild before it's live
+7. PayU order + verify + webhook — **not started as of 5 Oct**; the plan/pricing shape it needs (steps 4-6) now exists
+8. `analyst` role claim for RA phone (TD-013)
+9. AAB + Play signing SHA-256 in `assetlinks.json`
+10. Submit for production **by 16 Oct** (leave a review buffer before 18 Oct)
 
 ### Fallback if Production review slips past 18 Oct
 
@@ -142,21 +161,24 @@ Goal: a user can sign up and log in with phone + OTP.
 - Thu–Fri: Backend: verify-OTP endpoint → creates/looks up user in
   DynamoDB → issues session token via the already-built `auth.IssueToken`.
 
-**Pending — decide next session (not yet built):**
-- **No rate-limiting on `/auth/send-otp` or `/auth/verify-otp` yet.**
-  `send-otp` has no cooldown per phone/IP, and `verify-otp` has no
-  attempt-limit beyond the OTP's own expiry. Why this matters more than
-  the endpoints merely existing (they're already visible via the public
-  frontend's network calls and the public source regardless): unthrottled
-  `send-otp` enables **SMS pumping / toll fraud** — an attacker hammering
-  it with (often premium-rate) numbers to run up the MSG91 bill, sometimes
-  profiting off a revenue-share route on the receiving end. Unthrottled
-  `verify-otp` enables brute-forcing a 6-digit code. Decide tomorrow:
-  per-phone cooldown + attempt-limit/lockout, and whether it's DynamoDB-backed
-  (correct across Lambda's stateless invocations) or something simpler for
-  now given pre-launch volume is tiny. This is the same gap Week 6 Thu–Fri
-  below already names generically ("Rate-limit OTP") — this note is the
-  reasoning for *why*, ahead of actually building it.
+**Built 2026-10-05 — OTP rate limiting (TD-006):** `/auth/send-otp` enforces
+a per-phone 60s cooldown + 5/day cap; `/auth/verify-otp` locks a phone out
+for 15 minutes after 5 wrong codes. DynamoDB-backed (`shubhshreekh-otp-ratelimit-<env>`,
+keyed `<phone>#<UTC date>`, native TTL expiry) — the "correct across
+Lambda's stateless invocations" option from the original note below, not
+the in-memory simplification. The actual cooldown/cap/lockout rules are
+pure functions in `backend/internal/ratelimit` (unit-tested with no AWS
+involved); `backend/internal/db/ratelimit.go` is the thin DynamoDB glue.
+`OTP_TEST_PHONES` numbers are exempt — see `backend/internal/api/auth.go`'s
+`isTestPhone`. Needs a `terraform apply` (new table) + Lambda rebuild
+before it's live, same as every other dev-only change this session.
+
+**Original reasoning (kept for context):** unthrottled `send-otp` enables
+**SMS pumping / toll fraud** — an attacker hammering it with (often
+premium-rate) numbers to run up the MSG91 bill, sometimes profiting off a
+revenue-share route on the receiving end. Unthrottled `verify-otp` enables
+brute-forcing a 6-digit code. This is the same gap Week 6 Thu–Fri below
+already named generically ("Rate-limit OTP").
 
 **Week 5 — Frontend auth flow**
 - Mon–Tue: Popup calls send-OTP, shows OTP stage.
@@ -166,7 +188,8 @@ Goal: a user can sign up and log in with phone + OTP.
 **Week 6 — User records & hardening**
 - Mon–Tue: On first verify, create the user in DynamoDB.
 - Wed: Protect routes — unauthenticated users bounce to login.
-- Thu–Fri: Rate-limit OTP, handle resend, error states. Test edge cases.
+- Thu–Fri: ~~Rate-limit OTP~~ **done 2026-10-05, see Week 4's note above
+  (TD-006).** Handle resend, error states. Test edge cases.
 
 *Milestone: real signup/login works end-to-end.*
 

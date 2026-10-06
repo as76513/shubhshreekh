@@ -14,9 +14,11 @@ import (
 
 type Deps struct {
 	SigningSecret  []byte
-	Users          *db.UsersTable
+	Users          db.UsersStore
 	Content        *db.ContentTable
+	Settings       *db.SettingsTable
 	OTP            otp.Provider
+	RateLimit      RateLimiter
 	WebAuthn       *webauthn.WebAuthn
 	AllowedOrigins []string
 }
@@ -31,6 +33,17 @@ func NewRouter(deps Deps) http.Handler {
 	mux.HandleFunc("POST /auth/send-otp", deps.handleSendOTP)
 	mux.HandleFunc("POST /auth/check-phone", deps.handleCheckPhone)
 	mux.HandleFunc("POST /auth/verify-otp", deps.handleVerifyOTP)
+
+	// Device swap (TD-054) — requires the short-lived deviceManagementToken
+	// verify-otp returns on a device_limit_reached rejection, not a normal
+	// session token; auth.Middleware verifies it the same way regardless
+	// (same signing secret, same claims shape), handleSwapDevice itself
+	// checks the role is deviceSwapRole.
+	mux.Handle("POST /auth/devices/swap", mw(http.HandlerFunc(deps.handleSwapDevice)))
+
+	// Pricing (TD-055) — public read (landing/upgrade pages, logged out or
+	// in), admin-only write.
+	mux.HandleFunc("GET /pricing", deps.handleGetPricing)
 
 	// Registration requires a just-issued access token (the user already
 	// completed OTP). Refresh deliberately does NOT — a possibly-expired
@@ -50,6 +63,8 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("PATCH /admin/insights/{id}", mw(writer(http.HandlerFunc(deps.handleUpdateInsight))))
 	mux.Handle("POST /admin/insights/{id}/publish", mw(writer(http.HandlerFunc(deps.handlePublishInsight))))
 	mux.Handle("POST /admin/insights/{id}/archive", mw(writer(http.HandlerFunc(deps.handleArchiveInsight))))
+	mux.Handle("POST /admin/insights/{id}/close", mw(writer(http.HandlerFunc(deps.handleCloseInsight))))
+	mux.Handle("PATCH /admin/pricing", mw(writer(http.HandlerFunc(deps.handleUpdatePricing))))
 
 	origins := make(map[string]bool, len(deps.AllowedOrigins))
 	for _, o := range deps.AllowedOrigins {

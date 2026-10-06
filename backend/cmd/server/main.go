@@ -44,7 +44,9 @@ func main() {
 		SigningSecret:  []byte(secret),
 		Users:          db.NewUsersTable(client, os.Getenv("DYNAMODB_USERS_TABLE")),
 		Content:        db.NewContentTable(client, os.Getenv("DYNAMODB_CONTENT_TABLE")),
+		Settings:       db.NewSettingsTable(client, os.Getenv("DYNAMODB_SETTINGS_TABLE")),
 		OTP:            provider,
+		RateLimit:      db.NewRateLimitTable(client, os.Getenv("DYNAMODB_RATELIMIT_TABLE")),
 		WebAuthn:       webAuthn,
 		AllowedOrigins: strings.Split(origins, ","),
 	}

@@ -53,5 +53,7 @@ locals {
     aws_dynamodb_table.content.arn,
     # Querying a GSI needs its own resource ARN, not just the base table's.
     "${aws_dynamodb_table.content.arn}/index/*",
+    aws_dynamodb_table.otp_ratelimit.arn,
+    aws_dynamodb_table.settings.arn,
   ]
 }

@@ -38,23 +38,59 @@ type Insight struct {
 	GSI1PK string `dynamodbav:"gsi1pk,omitempty" json:"-"`
 	GSI1SK string `dynamodbav:"gsi1sk,omitempty" json:"-"`
 
-	ID          string  `dynamodbav:"id" json:"id"`
-	Status      string  `dynamodbav:"status" json:"status"` // draft | published | archived
-	Tier        string  `dynamodbav:"tier" json:"tier"`     // free | pro
-	Action      string  `dynamodbav:"action" json:"action"` // BUY | SELL
-	Stock       string  `dynamodbav:"stock" json:"stock"`
-	Symbol      string  `dynamodbav:"symbol" json:"symbol"`
-	Category    string  `dynamodbav:"category" json:"category"`
-	Timeframe   string  `dynamodbav:"timeframe" json:"timeframe"`
-	CMP         float64 `dynamodbav:"cmp" json:"cmp"`
-	Target      float64 `dynamodbav:"target" json:"target"`
-	StopLoss    float64 `dynamodbav:"stopLoss" json:"stopLoss"`
-	ReturnsPct  float64 `dynamodbav:"returnsPct" json:"returnsPct"`
-	Rationale   string  `dynamodbav:"rationale" json:"rationale"`
-	PublishedAt string  `dynamodbav:"publishedAt,omitempty" json:"publishedAt,omitempty"`
-	PublishedBy string  `dynamodbav:"publishedBy,omitempty" json:"publishedBy,omitempty"`
-	CreatedAt   string  `dynamodbav:"createdAt" json:"createdAt"`
-	UpdatedAt   string  `dynamodbav:"updatedAt" json:"updatedAt"`
+	ID             string    `dynamodbav:"id" json:"id"`
+	Status         string    `dynamodbav:"status" json:"status"`                 // draft | published | archived
+	Tier           string    `dynamodbav:"tier" json:"tier"`                     // free | pro
+	Action         string    `dynamodbav:"action" json:"action"`                 // BUY | SELL
+	InstrumentType string    `dynamodbav:"instrumentType" json:"instrumentType"` // equity | fno
+	Stock          string    `dynamodbav:"stock" json:"stock"`
+	Symbol         string    `dynamodbav:"symbol" json:"symbol"`
+	Category       string    `dynamodbav:"category" json:"category"`
+	Timeframe      string    `dynamodbav:"timeframe" json:"timeframe"`
+	EntryPrice     float64   `dynamodbav:"entryPrice" json:"entryPrice"` // was "CMP" — renamed 2026-10-06 (TD-052), RA's term is "price to enter at"
+	Targets        []float64 `dynamodbav:"targets" json:"targets"`      // 1 for equity, 1-3 for F&O (scaled booking levels)
+	StopLoss       float64   `dynamodbav:"stopLoss" json:"stopLoss"`
+	ReturnsPct     float64   `dynamodbav:"returnsPct" json:"returnsPct"`
+	Rationale      string    `dynamodbav:"rationale" json:"rationale"`
+	PublishedAt    string    `dynamodbav:"publishedAt,omitempty" json:"publishedAt,omitempty"`
+	PublishedBy    string    `dynamodbav:"publishedBy,omitempty" json:"publishedBy,omitempty"`
+	CreatedAt      string    `dynamodbav:"createdAt" json:"createdAt"`
+	UpdatedAt      string    `dynamodbav:"updatedAt" json:"updatedAt"`
+
+	// TradeStatus/Outcome/ClosedAt (TD-053, added 2026-10-06): the RA closes
+	// a trade by hand — there's no live price feed to detect a target/SL
+	// hit automatically (see architecture.md's deferred Pipe A). ClosedAt is
+	// separate from UpdatedAt so "when did this actually resolve" survives
+	// any later unrelated edit.
+	TradeStatus string `dynamodbav:"tradeStatus" json:"tradeStatus"`       // open | closed
+	Outcome     string `dynamodbav:"outcome,omitempty" json:"outcome,omitempty"` // "" | target_hit | sl_hit
+	ClosedAt    string `dynamodbav:"closedAt,omitempty" json:"closedAt,omitempty"`
+
+	// LegacyTarget/LegacyCMP read rows written before Targets/EntryPrice
+	// existed — never set on write. See backfillLegacy below; drop once all
+	// dev data has been re-saved through the current admin form.
+	LegacyTarget float64 `dynamodbav:"target,omitempty" json:"-"`
+	LegacyCMP    float64 `dynamodbav:"cmp,omitempty" json:"-"`
+}
+
+// backfillLegacy upgrades a row read from before this change (single
+// "target"/"cmp" attributes, no "targets"/"entryPrice"/"tradeStatus") in
+// place so old published insights keep rendering instead of silently
+// losing data. Safe to call on every read; a no-op once the row has been
+// re-saved via the admin form.
+func backfillLegacy(i *Insight) {
+	if len(i.Targets) == 0 && i.LegacyTarget != 0 {
+		i.Targets = []float64{i.LegacyTarget}
+	}
+	if i.EntryPrice == 0 && i.LegacyCMP != 0 {
+		i.EntryPrice = i.LegacyCMP
+	}
+	if i.InstrumentType == "" {
+		i.InstrumentType = "equity"
+	}
+	if i.TradeStatus == "" {
+		i.TradeStatus = "open"
+	}
 }
 
 type ContentTable struct {
@@ -67,16 +103,27 @@ func NewContentTable(client *dynamodb.Client, tableName string) *ContentTable {
 }
 
 type InsightInput struct {
-	Tier      string
-	Action    string
-	Stock     string
-	Symbol    string
-	Category  string
-	Timeframe string
-	CMP       float64
-	Target    float64
-	StopLoss  float64
-	Rationale string
+	Tier           string
+	Action         string
+	InstrumentType string // equity | fno
+	Stock          string
+	Symbol         string
+	Category       string
+	Timeframe      string
+	EntryPrice     float64
+	Targets        []float64 // 1 for equity, 1-3 for F&O
+	StopLoss       float64
+	Rationale      string
+}
+
+// primaryTarget is the nearest/first booking level — used for the
+// returnsPct headline figure regardless of how many targets a F&O call
+// carries (architecture.md's returnsPct is a single number, not a list).
+func primaryTarget(targets []float64) float64 {
+	if len(targets) == 0 {
+		return 0
+	}
+	return targets[0]
 }
 
 // CreateInsight writes a new draft — no GSI1 keys yet, so it's invisible to
@@ -85,23 +132,25 @@ func (t *ContentTable) CreateInsight(ctx context.Context, in InsightInput) (*Ins
 	now := time.Now().UTC().Format(time.RFC3339)
 	id := uuid.NewString()
 	insight := Insight{
-		PK:         "INSIGHT#" + id,
-		SK:         "META",
-		ID:         id,
-		Status:     "draft",
-		Tier:       in.Tier,
-		Action:     in.Action,
-		Stock:      in.Stock,
-		Symbol:     in.Symbol,
-		Category:   in.Category,
-		Timeframe:  in.Timeframe,
-		CMP:        in.CMP,
-		Target:     in.Target,
-		StopLoss:   in.StopLoss,
-		ReturnsPct: computeReturnsPct(in.Action, in.CMP, in.Target),
-		Rationale:  in.Rationale,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		PK:             "INSIGHT#" + id,
+		SK:             "META",
+		ID:             id,
+		Status:         "draft",
+		Tier:           in.Tier,
+		Action:         in.Action,
+		InstrumentType: in.InstrumentType,
+		Stock:          in.Stock,
+		Symbol:         in.Symbol,
+		Category:       in.Category,
+		Timeframe:      in.Timeframe,
+		EntryPrice:     in.EntryPrice,
+		Targets:        in.Targets,
+		StopLoss:       in.StopLoss,
+		ReturnsPct:     computeReturnsPct(in.Action, in.EntryPrice, primaryTarget(in.Targets)),
+		Rationale:      in.Rationale,
+		TradeStatus:    "open",
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	item, err := attributevalue.MarshalMap(insight)
 	if err != nil {
@@ -117,19 +166,41 @@ func (t *ContentTable) CreateInsight(ctx context.Context, in InsightInput) (*Ins
 // Publish/Archive are the only paths that change whether an insight is
 // visible to customers.
 func (t *ContentTable) UpdateInsight(ctx context.Context, id string, in InsightInput) error {
+	targetAVs := make([]types.AttributeValue, len(in.Targets))
+	for i, target := range in.Targets {
+		targetAVs[i] = &types.AttributeValueMemberN{Value: formatFloat(target)}
+	}
 	set := map[string]types.AttributeValue{
-		"tier":       &types.AttributeValueMemberS{Value: in.Tier},
-		"action":     &types.AttributeValueMemberS{Value: in.Action},
-		"stock":      &types.AttributeValueMemberS{Value: in.Stock},
-		"symbol":     &types.AttributeValueMemberS{Value: in.Symbol},
-		"category":   &types.AttributeValueMemberS{Value: in.Category},
-		"timeframe":  &types.AttributeValueMemberS{Value: in.Timeframe},
-		"cmp":        &types.AttributeValueMemberN{Value: formatFloat(in.CMP)},
-		"target":     &types.AttributeValueMemberN{Value: formatFloat(in.Target)},
-		"stopLoss":   &types.AttributeValueMemberN{Value: formatFloat(in.StopLoss)},
-		"returnsPct": &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(in.Action, in.CMP, in.Target))},
-		"rationale":  &types.AttributeValueMemberS{Value: in.Rationale},
-		"updatedAt":  &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+		"tier":           &types.AttributeValueMemberS{Value: in.Tier},
+		"action":         &types.AttributeValueMemberS{Value: in.Action},
+		"instrumentType": &types.AttributeValueMemberS{Value: in.InstrumentType},
+		"stock":          &types.AttributeValueMemberS{Value: in.Stock},
+		"symbol":         &types.AttributeValueMemberS{Value: in.Symbol},
+		"category":       &types.AttributeValueMemberS{Value: in.Category},
+		"timeframe":      &types.AttributeValueMemberS{Value: in.Timeframe},
+		"entryPrice":     &types.AttributeValueMemberN{Value: formatFloat(in.EntryPrice)},
+		"targets":        &types.AttributeValueMemberL{Value: targetAVs},
+		"stopLoss":       &types.AttributeValueMemberN{Value: formatFloat(in.StopLoss)},
+		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(in.Action, in.EntryPrice, primaryTarget(in.Targets)))},
+		"rationale":      &types.AttributeValueMemberS{Value: in.Rationale},
+		"updatedAt":      &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+	}
+	// Drop the pre-migration singular attributes once a row is re-saved
+	// through the current form, so they don't linger alongside the renamed ones.
+	return t.updateItem(ctx, id, set, []string{"target", "cmp"})
+}
+
+// CloseInsight marks a trade resolved — the RA does this by hand (TD-053),
+// since there's no live price feed to detect a target/SL hit automatically.
+// Leaves Status/GSI1 untouched: a closed trade can still be "published" and
+// visible, just no longer "open".
+func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	set := map[string]types.AttributeValue{
+		"tradeStatus": &types.AttributeValueMemberS{Value: "closed"},
+		"outcome":     &types.AttributeValueMemberS{Value: outcome},
+		"closedAt":    &types.AttributeValueMemberS{Value: now},
+		"updatedAt":   &types.AttributeValueMemberS{Value: now},
 	}
 	return t.updateItem(ctx, id, set, nil)
 }
@@ -178,6 +249,7 @@ func (t *ContentTable) GetInsight(ctx context.Context, id string) (*Insight, err
 	if err := attributevalue.UnmarshalMap(out.Item, &insight); err != nil {
 		return nil, err
 	}
+	backfillLegacy(&insight)
 	return &insight, nil
 }
 
@@ -203,6 +275,9 @@ func (t *ContentTable) ListPublished(ctx context.Context) ([]Insight, error) {
 	if err := attributevalue.UnmarshalListOfMaps(out.Items, &insights); err != nil {
 		return nil, err
 	}
+	for i := range insights {
+		backfillLegacy(&insights[i])
+	}
 	return insights, nil
 }
 
@@ -219,6 +294,9 @@ func (t *ContentTable) ListAll(ctx context.Context) ([]Insight, error) {
 	var insights []Insight
 	if err := attributevalue.UnmarshalListOfMaps(out.Items, &insights); err != nil {
 		return nil, err
+	}
+	for i := range insights {
+		backfillLegacy(&insights[i])
 	}
 	return insights, nil
 }
@@ -277,11 +355,11 @@ func (t *ContentTable) updateItem(ctx context.Context, id string, set map[string
 	return nil
 }
 
-func computeReturnsPct(action string, cmp, target float64) float64 {
-	if cmp == 0 {
+func computeReturnsPct(action string, entryPrice, target float64) float64 {
+	if entryPrice == 0 {
 		return 0
 	}
-	pct := (target - cmp) / cmp * 100
+	pct := (target - entryPrice) / entryPrice * 100
 	if action == "SELL" {
 		pct = -pct
 	}

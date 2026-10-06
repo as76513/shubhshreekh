@@ -25,3 +25,8 @@ Insights still on `data.ts` until `GET /insights` is wired; ticker stays static.
 **Decided:** no live market-data vendor for MVP. **Play Store:** Organization
 account + Play Billing (or billing choice) required for public listing.
 **Decided:** thin insights CMS in Oct 18 scope (not full Pipe B).
+**Decided (2026-10-06):** Free tier removed — Pro-only with a 7-day trial,
+2-device anti-piracy login, admin-configurable discount pricing (see
+plan.md's "Decided: Pro-only pricing & trial model" and TECH_DEBT.md
+TD-052–059). Folded into the Oct 18 critical path since `/orders` depends
+on this model existing first.

@@ -34,6 +34,28 @@ export class ApiError extends Error {
   }
 }
 
+export type DeviceInfo = {
+  deviceId: string;
+  label: string;
+  lastActiveAt: string;
+};
+
+/**
+ * Thrown by confirmOtp when the 2-device anti-piracy cap (TD-054) rejects
+ * this login — carries what a normal Error can't (the occupied devices,
+ * and the short-lived token swapDevice needs) so the caller can show a
+ * "log out which device?" picker instead of a generic error string.
+ */
+export class DeviceLimitError extends Error {
+  devices: DeviceInfo[];
+  deviceManagementToken: string;
+  constructor(devices: DeviceInfo[], deviceManagementToken: string) {
+    super("device_limit_reached");
+    this.devices = devices;
+    this.deviceManagementToken = deviceManagementToken;
+  }
+}
+
 /** Optional Bearer token for authenticated API calls. */
 export function authHeaders(token?: string | null): HeadersInit {
   const headers: Record<string, string> = {
@@ -69,7 +91,8 @@ export async function checkPhoneExists(phone: string): Promise<boolean> {
 export async function confirmOtp(
   phone: string,
   otp: string,
-  profile?: { firstName: string; lastName: string; email: string }
+  profile?: { firstName: string; lastName: string; email: string },
+  device?: { deviceId: string; deviceLabel: string }
 ): Promise<{ token: string; subscription: string; name?: string; userId?: string; role?: string }> {
   const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
     method: "POST",
@@ -84,7 +107,30 @@ export async function confirmOtp(
             email: profile.email,
           }
         : {}),
+      ...(device ? { deviceId: device.deviceId, deviceLabel: device.deviceLabel } : {}),
     }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    if (res.status === 403 && body?.error === "device_limit_reached") {
+      throw new DeviceLimitError(body.devices ?? [], body.deviceManagementToken ?? "");
+    }
+    throw new Error(body?.error ?? "Something went wrong, please try again.");
+  }
+  return res.json();
+}
+
+/** Completes a login that confirmOtp blocked with DeviceLimitError, by freeing one device slot. */
+export async function swapDevice(
+  deviceManagementToken: string,
+  removeDeviceId: string,
+  newDeviceId: string,
+  newDeviceLabel: string
+): Promise<{ token: string; subscription: string; name?: string; userId?: string; role?: string }> {
+  const res = await fetch(`${API_BASE_URL}/auth/devices/swap`, {
+    method: "POST",
+    headers: authHeaders(deviceManagementToken),
+    body: JSON.stringify({ removeDeviceId, newDeviceId, newDeviceLabel }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
@@ -143,21 +189,32 @@ export async function refreshFinish(
 
 // --- RA content platform (Pipe B) — thin insights CMS --------------------
 
+/** "equity" calls carry exactly one target; "fno" calls carry 1-3 scaled booking levels. */
+export type InstrumentType = "equity" | "fno";
+
+/** "open" until the RA marks it resolved by hand (TD-053) — no live price feed to detect this automatically. */
+export type TradeStatus = "open" | "closed";
+export type TradeOutcome = "target_hit" | "sl_hit" | "";
+
 export type Insight = {
   id: string;
   stock: string;
   symbol: string;
   action: string;
+  instrumentType: InstrumentType;
   category: string;
   timeframe: string;
   tier: string;
   locked: boolean;
-  cmp: number;
-  target: number;
+  entryPrice: number;
+  targets: number[];
   stopLoss: number;
   returnsPct: number;
   rationale: string;
   date: string;
+  tradeStatus: TradeStatus;
+  outcome?: TradeOutcome;
+  closedAt?: string;
 };
 
 /** Every row ever created (draft/published/archived) — analyst's own admin list. */
@@ -166,29 +223,34 @@ export type AdminInsight = {
   status: "draft" | "published" | "archived";
   tier: string;
   action: string;
+  instrumentType: InstrumentType;
   stock: string;
   symbol: string;
   category: string;
   timeframe: string;
-  cmp: number;
-  target: number;
+  entryPrice: number;
+  targets: number[];
   stopLoss: number;
   returnsPct: number;
   rationale: string;
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+  tradeStatus: TradeStatus;
+  outcome?: TradeOutcome;
+  closedAt?: string;
 };
 
 export type InsightInput = {
   tier: string;
   action: string;
+  instrumentType: InstrumentType;
   stock: string;
   symbol: string;
   category: string;
   timeframe: string;
-  cmp: number;
-  target: number;
+  entryPrice: number;
+  targets: number[];
   stopLoss: number;
   rationale: string;
 };
@@ -241,5 +303,48 @@ export async function archiveInsight(token: string, id: string): Promise<void> {
     `${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}/archive`,
     { method: "POST", headers: authHeaders(token) }
   );
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function closeInsight(
+  token: string,
+  id: string,
+  outcome: "target_hit" | "sl_hit"
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}/close`,
+    { method: "POST", headers: authHeaders(token), body: JSON.stringify({ outcome }) }
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+// --- Pricing (TD-055) — discount % is admin-configurable, anchor prices are not ---
+
+export type PricingPlan = {
+  id: string;
+  label: string;
+  anchorPrice: number;
+  discountedPrice: number;
+};
+
+export type Pricing = {
+  discountPercent: number;
+  offerWindowHours: number;
+  plans: PricingPlan[];
+};
+
+/** Public — no auth required, same as a logged-out visitor viewing the landing page's plans. */
+export async function getPricing(): Promise<Pricing> {
+  const res = await fetch(`${API_BASE_URL}/pricing`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updatePricing(token: string, discountPercent: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/admin/pricing`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ discountPercent }),
+  });
   if (!res.ok) throw new Error(await parseError(res));
 }

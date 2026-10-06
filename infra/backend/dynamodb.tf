@@ -76,3 +76,37 @@ resource "aws_dynamodb_table" "content" {
     projection_type = "ALL"
   }
 }
+
+# OTP abuse prevention (TECH_DEBT.md TD-006) — send cooldown/daily cap +
+# verify attempt lockout. Keyed by "<phone>#<UTC date>" so same-day state
+# resets without a cleanup job; native TTL expires each day's row ~2 hours
+# after it rolls over (see backend/internal/db/ratelimit.go).
+resource "aws_dynamodb_table" "otp_ratelimit" {
+  name         = "shubhshreekh-otp-ratelimit-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "phone_date"
+
+  attribute {
+    name = "phone_date"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+}
+
+# Admin-configurable app settings (TD-055) — a singleton row today
+# (pricing discount %), but keyed so further settings can share this table
+# later instead of spawning a new table per setting.
+resource "aws_dynamodb_table" "settings" {
+  name         = "shubhshreekh-settings-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "settingKey"
+
+  attribute {
+    name = "settingKey"
+    type = "S"
+  }
+}

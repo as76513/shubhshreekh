@@ -39,6 +39,38 @@ type User struct {
 	// does. This bounds how long a WebAuthn credential alone (without
 	// repeating OTP) can keep a session alive.
 	VerifiedUntil string `dynamodbav:"verified_until,omitempty"`
+
+	// TrialEndsAt (RFC3339, TD-054, added 2026-10-06) is set once at account
+	// creation to now+7days. Empty on any row created before this field
+	// existed — HasActiveEntitlement treats that as "pre-trial-model
+	// account" and falls back to the legacy Subscription field rather than
+	// treating a blank timestamp as "expired" (see that function's comment).
+	TrialEndsAt string `dynamodbav:"trial_ends_at,omitempty"`
+
+	// Devices (TD-054): at most MaxDevices entries — anti-piracy, not
+	// session-kicking. A login from an unrecognized device beyond the cap
+	// is rejected (see devices.go), never silently evicting an existing one.
+	Devices []Device `dynamodbav:"devices,omitempty"`
+
+	// LastDeviceSwapAt (TD-054) gates the self-service "log out other
+	// device" cooldown — see devices.go's CanSwapDevice.
+	LastDeviceSwapAt string `dynamodbav:"last_device_swap_at,omitempty"`
+}
+
+// UsersStore is what backend/internal/api's handlers depend on — *UsersTable
+// satisfies it for production (DynamoDB-backed); tests inject an in-memory
+// fake instead so the auth/OTP handlers are testable without real AWS
+// access (see backend/internal/api/auth_test.go).
+type UsersStore interface {
+	Get(ctx context.Context, userID string) (*User, error)
+	GetOrCreateByPhone(ctx context.Context, phone, name, email string) (*User, error)
+	PutStub(ctx context.Context, userID string) error
+	SetWebAuthnSession(ctx context.Context, userID, sessionJSON string) error
+	ClearWebAuthnSession(ctx context.Context, userID string) error
+	SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error
+	SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error
+	RegisterDevice(ctx context.Context, userID, deviceID, label string) (allowed bool, devices []Device, err error)
+	SwapDevice(ctx context.Context, userID, removeDeviceID, newDeviceID, newLabel string) (ok bool, retryAfter time.Duration, err error)
 }
 
 type UsersTable struct {
@@ -98,13 +130,17 @@ func (t *UsersTable) GetOrCreateByPhone(ctx context.Context, phone, name, email 
 		return existing, nil
 	}
 
+	now := time.Now().UTC()
 	user := User{
 		UserID:       phone,
 		PhoneNumber:  "+" + phone,
 		Name:         name,
 		Email:        email,
 		Subscription: "free",
-		CreatedAt:    time.Now().UTC().Format(time.RFC3339),
+		CreatedAt:    now.Format(time.RFC3339),
+		// TD-054: every new signup gets a 7-day Pro trial — there's no
+		// separate Free tier to fall into instead.
+		TrialEndsAt: now.Add(TrialDuration).Format(time.RFC3339),
 	}
 	item, err := attributevalue.MarshalMap(user)
 	if err != nil {
@@ -145,10 +181,21 @@ func (t *UsersTable) PutStub(ctx context.Context, userID string) error {
 	return err
 }
 
-// update sets and/or removes a handful of top-level attributes on a user
-// row without reading-then-writing the whole item — used by the WebAuthn
-// ceremony handlers, which only ever touch one or two fields at a time.
+// update sets and/or removes a handful of top-level string attributes on a
+// user row without reading-then-writing the whole item — used by the
+// WebAuthn ceremony handlers, which only ever touch one or two fields at a
+// time. Thin wrapper over updateAV for the common string-only case.
 func (t *UsersTable) update(ctx context.Context, userID string, set map[string]string, remove []string) error {
+	av := make(map[string]types.AttributeValue, len(set))
+	for attr, val := range set {
+		av[attr] = &types.AttributeValueMemberS{Value: val}
+	}
+	return t.updateAV(ctx, userID, av, remove)
+}
+
+// updateAV is the general form: any attribute value, not just strings —
+// needed for Devices (a list of structs), unlike update's string-only set.
+func (t *UsersTable) updateAV(ctx context.Context, userID string, set map[string]types.AttributeValue, remove []string) error {
 	key, err := attributevalue.MarshalMap(map[string]string{"user_id": userID})
 	if err != nil {
 		return err
@@ -162,7 +209,7 @@ func (t *UsersTable) update(ctx context.Context, userID string, set map[string]s
 	for attr, val := range set {
 		nameKey, valKey := fmt.Sprintf("#n%d", i), fmt.Sprintf(":v%d", i)
 		names[nameKey] = attr
-		values[valKey] = &types.AttributeValueMemberS{Value: val}
+		values[valKey] = val
 		setClauses = append(setClauses, fmt.Sprintf("%s = %s", nameKey, valKey))
 		i++
 	}

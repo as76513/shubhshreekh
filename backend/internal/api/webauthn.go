@@ -256,10 +256,14 @@ func (d Deps) handleRefreshFinish(w http.ResponseWriter, r *http.Request) {
 		_ = d.Users.SetWebAuthnCredential(r.Context(), user.UserID, string(credentialJSON))
 	}
 
-	subscription := "free"
-	if user.Subscription == "pro" {
-		subscription = "pro"
+	// TD-054: a refresh must not outlive the trial/paid entitlement either
+	// — otherwise a device that registered a passkey during an active
+	// trial could keep minting tokens indefinitely after it lapses.
+	if !db.HasActiveEntitlement(user, time.Now()) {
+		writeError(w, http.StatusForbidden, "trial_expired")
+		return
 	}
+	subscription := "pro"
 	role := roleForPhone(user.UserID)
 	token, err := auth.IssueToken(d.SigningSecret, user.UserID, subscription, role, accessTokenTTL)
 	if err != nil {

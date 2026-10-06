@@ -7,19 +7,24 @@ import {
   createInsight,
   publishInsight,
   archiveInsight,
+  closeInsight,
+  getPricing,
+  updatePricing,
   type AdminInsight,
   type InsightInput,
+  type Pricing,
 } from "@/lib/api";
 
 const emptyForm: InsightInput = {
   tier: "free",
   action: "BUY",
+  instrumentType: "equity",
   stock: "",
   symbol: "",
   category: "Large Cap",
   timeframe: "Short Term",
-  cmp: 0,
-  target: 0,
+  entryPrice: 0,
+  targets: [0],
   stopLoss: 0,
   rationale: "",
 };
@@ -31,6 +36,11 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const [pricing, setPricing] = useState<Pricing | null>(null);
+  const [discountInput, setDiscountInput] = useState("");
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingError, setPricingError] = useState("");
 
   const refresh = async () => {
     setLoading(true);
@@ -45,10 +55,40 @@ export default function Admin() {
     }
   };
 
+  const refreshPricing = async () => {
+    try {
+      const data = await getPricing();
+      setPricing(data);
+      setDiscountInput(String(data.discountPercent));
+    } catch (err) {
+      setPricingError(err instanceof Error ? err.message : "Could not load pricing");
+    }
+  };
+
   useEffect(() => {
     refresh();
+    refreshPricing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSavePricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pct = Number(discountInput);
+    if (!Number.isFinite(pct) || pct <= 0 || pct >= 100) {
+      setPricingError("Enter a discount between 1 and 99");
+      return;
+    }
+    setPricingError("");
+    setPricingSaving(true);
+    try {
+      await withAuth((token) => updatePricing(token, pct));
+      await refreshPricing();
+    } catch (err) {
+      setPricingError(err instanceof Error ? err.message : "Could not save pricing");
+    } finally {
+      setPricingSaving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,10 +96,19 @@ export default function Admin() {
       setError("Stock, symbol, and rationale are required");
       return;
     }
+    const targets = form.targets.filter((t) => t > 0);
+    if (form.instrumentType === "equity" && targets.length !== 1) {
+      setError("Equity calls need exactly one target");
+      return;
+    }
+    if (form.instrumentType === "fno" && targets.length === 0) {
+      setError("F&O calls need at least one target");
+      return;
+    }
     setError("");
     setSubmitting(true);
     try {
-      await withAuth((token) => createInsight(token, form));
+      await withAuth((token) => createInsight(token, { ...form, targets }));
       setForm(emptyForm);
       await refresh();
     } catch (err) {
@@ -87,6 +136,15 @@ export default function Admin() {
     }
   };
 
+  const handleClose = async (id: string, outcome: "target_hit" | "sl_hit") => {
+    try {
+      await withAuth((token) => closeInsight(token, id, outcome));
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not close trade");
+    }
+  };
+
   const field = (label: string, children: React.ReactNode) => (
     <div>
       <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-text)" }}>
@@ -109,6 +167,61 @@ export default function Admin() {
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--blue-accent)" }}>
           Admin
         </p>
+
+        <div
+          className="rounded-2xl p-5 mb-8"
+          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+        >
+          <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+            Pricing discount
+          </h2>
+          <p className="text-xs mb-4" style={{ color: "var(--muted-text)" }}>
+            Changes take effect immediately, no deploy needed — use this for festive-season bumps.
+          </p>
+          <form onSubmit={handleSavePricing} className="flex flex-wrap items-end gap-4">
+            {field(
+              "Discount %",
+              <input
+                type="number"
+                className={inputClass}
+                style={{ ...inputStyle, maxWidth: "120px" }}
+                value={discountInput}
+                onChange={(e) => setDiscountInput(e.target.value)}
+              />,
+            )}
+            <button
+              type="submit"
+              disabled={pricingSaving}
+              className="btn-action px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+            >
+              {pricingSaving ? "Saving…" : "Save"}
+            </button>
+            {pricingError && (
+              <p className="text-xs" style={{ color: "var(--loss)" }}>
+                {pricingError}
+              </p>
+            )}
+          </form>
+          {pricing && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+              {pricing.plans.map((p) => (
+                <div key={p.id} className="rounded-xl p-3" style={{ background: "rgba(11,42,85,0.06)" }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: "var(--navy)" }}>
+                    {p.label}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+                    <span style={{ textDecoration: "line-through" }}>₹{p.anchorPrice}</span>
+                    {" → "}
+                    <span className="font-bold" style={{ color: "var(--gain)" }}>
+                      ₹{p.discountedPrice}
+                    </span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <h1
           className="text-2xl font-bold mb-1.5"
           style={{ fontFamily: "DM Serif Display, serif", color: "var(--navy)" }}
@@ -119,7 +232,6 @@ export default function Admin() {
           Drafts are only visible here until you hit Publish — customers never see a
           draft, regardless of what this page shows you.
         </p>
-
         <form
           onSubmit={handleSubmit}
           className="rounded-2xl p-5 mb-8 grid grid-cols-2 sm:grid-cols-3 gap-4"
@@ -158,6 +270,30 @@ export default function Admin() {
             </select>,
           )}
           {field(
+            "Instrument Type",
+            <select
+              className={inputClass}
+              style={inputStyle}
+              value={form.instrumentType}
+              onChange={(e) => {
+                const instrumentType = e.target.value as "equity" | "fno";
+                setForm((f) => ({
+                  ...f,
+                  instrumentType,
+                  // Equity keeps just the first target; F&O pads out to 3
+                  // slots (2 and 3 optional) without losing what's typed.
+                  targets:
+                    instrumentType === "equity"
+                      ? [f.targets[0] ?? 0]
+                      : [f.targets[0] ?? 0, f.targets[1] ?? 0, f.targets[2] ?? 0],
+                }));
+              }}
+            >
+              <option value="equity">Equity</option>
+              <option value="fno">F&amp;O</option>
+            </select>,
+          )}
+          {field(
             "Category",
             <input
               className={inputClass}
@@ -190,24 +326,77 @@ export default function Admin() {
             </select>,
           )}
           {field(
-            "CMP (₹)",
+            "Entry Price (₹)",
             <input
               type="number"
               className={inputClass}
               style={inputStyle}
-              value={form.cmp || ""}
-              onChange={(e) => setForm((f) => ({ ...f, cmp: Number(e.target.value) }))}
+              value={form.entryPrice || ""}
+              onChange={(e) => setForm((f) => ({ ...f, entryPrice: Number(e.target.value) }))}
             />,
           )}
-          {field(
-            "Target (₹)",
-            <input
-              type="number"
-              className={inputClass}
-              style={inputStyle}
-              value={form.target || ""}
-              onChange={(e) => setForm((f) => ({ ...f, target: Number(e.target.value) }))}
-            />,
+          {form.instrumentType === "equity" ? (
+            field(
+              "Target (₹)",
+              <input
+                type="number"
+                className={inputClass}
+                style={inputStyle}
+                value={form.targets[0] || ""}
+                onChange={(e) => setForm((f) => ({ ...f, targets: [Number(e.target.value)] }))}
+              />,
+            )
+          ) : (
+            <>
+              {field(
+                "Target 1 (₹)",
+                <input
+                  type="number"
+                  className={inputClass}
+                  style={inputStyle}
+                  value={form.targets[0] || ""}
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const targets = [...f.targets];
+                      targets[0] = Number(e.target.value);
+                      return { ...f, targets };
+                    })
+                  }
+                />,
+              )}
+              {field(
+                "Target 2 (₹) — optional",
+                <input
+                  type="number"
+                  className={inputClass}
+                  style={inputStyle}
+                  value={form.targets[1] || ""}
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const targets = [...f.targets];
+                      targets[1] = Number(e.target.value);
+                      return { ...f, targets };
+                    })
+                  }
+                />,
+              )}
+              {field(
+                "Target 3 (₹) — optional",
+                <input
+                  type="number"
+                  className={inputClass}
+                  style={inputStyle}
+                  value={form.targets[2] || ""}
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const targets = [...f.targets];
+                      targets[2] = Number(e.target.value);
+                      return { ...f, targets };
+                    })
+                  }
+                />,
+              )}
+            </>
           )}
           {field(
             "Stop Loss (₹)",
@@ -301,14 +490,25 @@ export default function Admin() {
                       {row.status}
                     </span>
                     <span className="text-[10px]" style={{ color: "var(--muted-text)" }}>
-                      {row.tier}
+                      {row.tier} · {row.instrumentType === "fno" ? "F&O" : "Equity"}
                     </span>
+                    {row.tradeStatus === "closed" && (
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                        style={{
+                          background: row.outcome === "target_hit" ? "var(--gain-bg)" : "var(--loss-bg)",
+                          color: row.outcome === "target_hit" ? "var(--gain)" : "var(--loss)",
+                        }}
+                      >
+                        {row.outcome === "target_hit" ? "Target Hit" : "SL Hit"}
+                      </span>
+                    )}
                   </div>
                   <p className="font-semibold text-sm truncate" style={{ color: "var(--navy)" }}>
                     {row.stock} <span style={{ color: "var(--muted-text)" }}>· {row.symbol}</span>
                   </p>
                   <p className="text-xs" style={{ color: "var(--muted-text)" }}>
-                    CMP ₹{row.cmp} · Tgt ₹{row.target} · SL ₹{row.stopLoss}
+                    Entry ₹{row.entryPrice} · Tgt ₹{row.targets.join(" / ")} · SL ₹{row.stopLoss}
                   </p>
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-2">
@@ -320,6 +520,24 @@ export default function Admin() {
                     >
                       Publish
                     </button>
+                  )}
+                  {row.status === "published" && row.tradeStatus !== "closed" && (
+                    <>
+                      <button
+                        onClick={() => handleClose(row.id, "target_hit")}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                      >
+                        ✅ Target Hit
+                      </button>
+                      <button
+                        onClick={() => handleClose(row.id, "sl_hit")}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: "var(--loss-bg)", color: "var(--loss)" }}
+                      >
+                        🛑 SL Hit
+                      </button>
+                    </>
                   )}
                   {row.status === "published" && (
                     <button

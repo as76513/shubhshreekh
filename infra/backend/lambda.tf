@@ -32,6 +32,8 @@ resource "aws_lambda_function" "api" {
       DYNAMODB_SUBSCRIPTIONS_TABLE = aws_dynamodb_table.subscriptions.name
       DYNAMODB_ORDERS_TABLE        = aws_dynamodb_table.orders.name
       DYNAMODB_CONTENT_TABLE       = aws_dynamodb_table.content.name
+      DYNAMODB_RATELIMIT_TABLE     = aws_dynamodb_table.otp_ratelimit.name
+      DYNAMODB_SETTINGS_TABLE      = aws_dynamodb_table.settings.name
       SESSION_TOKEN_SIGNING_SECRET = var.session_token_signing_secret
       CORS_ALLOWED_ORIGINS         = join(",", var.cors_allowed_origins)
       MSG91_AUTH_KEY               = var.msg91_auth_key

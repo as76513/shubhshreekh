@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
@@ -9,30 +10,57 @@ import (
 )
 
 type insightRequest struct {
-	Tier      string  `json:"tier"`
-	Action    string  `json:"action"`
-	Stock     string  `json:"stock"`
-	Symbol    string  `json:"symbol"`
-	Category  string  `json:"category"`
-	Timeframe string  `json:"timeframe"`
-	CMP       float64 `json:"cmp"`
-	Target    float64 `json:"target"`
-	StopLoss  float64 `json:"stopLoss"`
-	Rationale string  `json:"rationale"`
+	Tier           string    `json:"tier"`
+	Action         string    `json:"action"`
+	InstrumentType string    `json:"instrumentType"` // equity | fno
+	Stock          string    `json:"stock"`
+	Symbol         string    `json:"symbol"`
+	Category       string    `json:"category"`
+	Timeframe      string    `json:"timeframe"`
+	EntryPrice     float64   `json:"entryPrice"`
+	Targets        []float64 `json:"targets"` // equity: exactly 1; fno: 1-3
+	StopLoss       float64   `json:"stopLoss"`
+	Rationale      string    `json:"rationale"`
+}
+
+// validate enforces architecture.md's "never trust the client" at the one
+// place both create and edit funnel through — equity calls carry a single
+// target, F&O calls carry up to 3 scaled booking levels, and the UI's own
+// form shape is not itself a guarantee the stored data is well-formed.
+func (req insightRequest) validate() error {
+	switch req.InstrumentType {
+	case "equity":
+		if len(req.Targets) != 1 {
+			return errors.New("equity calls require exactly one target")
+		}
+	case "fno":
+		if len(req.Targets) < 1 || len(req.Targets) > 3 {
+			return errors.New("F&O calls require 1 to 3 targets")
+		}
+	default:
+		return errors.New(`instrumentType must be "equity" or "fno"`)
+	}
+	for _, t := range req.Targets {
+		if t <= 0 {
+			return errors.New("targets must be positive")
+		}
+	}
+	return nil
 }
 
 func (req insightRequest) toInput() db.InsightInput {
 	return db.InsightInput{
-		Tier:      req.Tier,
-		Action:    req.Action,
-		Stock:     req.Stock,
-		Symbol:    req.Symbol,
-		Category:  req.Category,
-		Timeframe: req.Timeframe,
-		CMP:       req.CMP,
-		Target:    req.Target,
-		StopLoss:  req.StopLoss,
-		Rationale: req.Rationale,
+		Tier:           req.Tier,
+		Action:         req.Action,
+		InstrumentType: req.InstrumentType,
+		Stock:          req.Stock,
+		Symbol:         req.Symbol,
+		Category:       req.Category,
+		Timeframe:      req.Timeframe,
+		EntryPrice:     req.EntryPrice,
+		Targets:        req.Targets,
+		StopLoss:       req.StopLoss,
+		Rationale:      req.Rationale,
 	}
 }
 
@@ -43,6 +71,10 @@ func (d Deps) handleCreateInsight(w http.ResponseWriter, r *http.Request) {
 	var req insightRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := req.validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	insight, err := d.Content.CreateInsight(r.Context(), req.toInput())
@@ -59,6 +91,10 @@ func (d Deps) handleUpdateInsight(w http.ResponseWriter, r *http.Request) {
 	var req insightRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := req.validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := d.Content.UpdateInsight(r.Context(), id, req.toInput()); err != nil {
@@ -92,6 +128,32 @@ func (d Deps) handleArchiveInsight(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"archived": true})
 }
 
+type closeInsightRequest struct {
+	Outcome string `json:"outcome"` // target_hit | sl_hit
+}
+
+// handleCloseInsight: POST /admin/insights/{id}/close — TD-053. The RA
+// marks a trade resolved by hand (no live price feed to detect this
+// automatically); independent of Status/GSI1, so a closed trade can stay
+// "published" and visible, just no longer "open".
+func (d Deps) handleCloseInsight(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req closeInsightRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Outcome != "target_hit" && req.Outcome != "sl_hit" {
+		writeError(w, http.StatusBadRequest, `outcome must be "target_hit" or "sl_hit"`)
+		return
+	}
+	if err := d.Content.CloseInsight(r.Context(), id, req.Outcome); err != nil {
+		writeError(w, http.StatusNotFound, "insight not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"closed": true})
+}
+
 // handleListAllInsights: GET /admin/insights — drafts + published +
 // archived, for the analyst's own "my content" list (Publish/Archive
 // buttons). Distinct from the customer-facing handleListInsights below.
@@ -110,20 +172,28 @@ func (d Deps) handleListAllInsights(w http.ResponseWriter, r *http.Request) {
 // it" — so a free user's network tab never contains the numbers, unlike
 // the pre-API static-mock version this replaces.
 type customerInsight struct {
-	ID         string  `json:"id"`
-	Stock      string  `json:"stock"`
-	Symbol     string  `json:"symbol"`
-	Action     string  `json:"action"`
-	Category   string  `json:"category"`
-	Timeframe  string  `json:"timeframe"`
-	Tier       string  `json:"tier"`
-	Locked     bool    `json:"locked"`
-	CMP        float64 `json:"cmp"`
-	Target     float64 `json:"target"`
-	StopLoss   float64 `json:"stopLoss"`
-	ReturnsPct float64 `json:"returnsPct"`
-	Rationale  string  `json:"rationale"`
-	Date       string  `json:"date"`
+	ID             string    `json:"id"`
+	Stock          string    `json:"stock"`
+	Symbol         string    `json:"symbol"`
+	Action         string    `json:"action"`
+	InstrumentType string    `json:"instrumentType"`
+	Category       string    `json:"category"`
+	Timeframe      string    `json:"timeframe"`
+	Tier           string    `json:"tier"`
+	Locked         bool      `json:"locked"`
+	EntryPrice     float64   `json:"entryPrice"`
+	Targets        []float64 `json:"targets"`
+	StopLoss       float64   `json:"stopLoss"`
+	ReturnsPct     float64   `json:"returnsPct"`
+	Rationale      string    `json:"rationale"`
+	Date           string    `json:"date"`
+	// TradeStatus/Outcome/ClosedAt are status metadata, not the sensitive
+	// trade-detail numbers architecture.md says to zero for locked rows —
+	// shown regardless of tier so a free user can at least see a Pro call
+	// resolved, just not its numbers.
+	TradeStatus string `json:"tradeStatus"`
+	Outcome     string `json:"outcome,omitempty"`
+	ClosedAt    string `json:"closedAt,omitempty"`
 }
 
 // handleListInsights: GET /insights — published insights, tier-gated.
@@ -143,19 +213,24 @@ func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
 	for _, in := range insights {
 		locked := in.Tier == "pro" && claims.Subscription != "pro"
 		c := customerInsight{
-			ID:        in.ID,
-			Stock:     in.Stock,
-			Symbol:    in.Symbol,
-			Action:    in.Action,
-			Category:  in.Category,
-			Timeframe: in.Timeframe,
-			Tier:      in.Tier,
-			Locked:    locked,
-			Date:      in.PublishedAt,
+			ID:             in.ID,
+			Stock:          in.Stock,
+			Symbol:         in.Symbol,
+			Action:         in.Action,
+			InstrumentType: in.InstrumentType,
+			Category:       in.Category,
+			Timeframe:      in.Timeframe,
+			Tier:           in.Tier,
+			Locked:         locked,
+			Targets:        []float64{},
+			Date:           in.PublishedAt,
+			TradeStatus:    in.TradeStatus,
+			Outcome:        in.Outcome,
+			ClosedAt:       in.ClosedAt,
 		}
 		if !locked {
-			c.CMP = in.CMP
-			c.Target = in.Target
+			c.EntryPrice = in.EntryPrice
+			c.Targets = in.Targets
 			c.StopLoss = in.StopLoss
 			c.ReturnsPct = in.ReturnsPct
 			c.Rationale = in.Rationale
