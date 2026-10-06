@@ -544,48 +544,25 @@ export const testimonials = [
   },
 ]
 
-export const plans = [
-  {
-    name: 'Free',
-    price: 0,
-    badge: null,
-    features: [
-      '3 Market Insights / week',
-      'Free Courses (2 available)',
-      'Free Video Tutorials',
-      'Market Overview & News',
-      'Community Forum Access',
-    ],
-    missing: [
-      'Unlimited Market Insights',
-      'All Pro Courses',
-      'F&O Desk (Futures & Options)',
-      'Options Education Notes',
-      'Portfolio Advisory',
-      'Priority WhatsApp Support',
-      'Monthly Live Webinars',
-      'Pre-IPO & NFO Analysis',
-    ],
-  },
-  {
-    name: 'Pro',
-    price: 999,
-    yearlyPrice: 7999,
-    badge: 'Most Popular',
-    features: [
-      'Unlimited Market Insights daily',
-      'All 45+ Courses included',
-      'All Video Tutorials',
-      'F&O Desk (Futures & Options)',
-      'Options Education Notes',
-      'Portfolio Advisory (1-on-1)',
-      'Priority WhatsApp Support',
-      'Monthly Live Webinars',
-      'Pre-IPO & NFO Analysis',
-      'Tax Planning Guide',
-      'Exclusive Research Reports',
-      'Early access to new content',
-    ],
-    missing: [],
-  },
-]
+// One product, "Pro (7-day free trial)" — the Free tier was removed
+// 2026-10-06 (TD-054). Pricing itself (anchor/discounted price, discount %)
+// comes live from GET /pricing (TD-055, admin-configurable), not from here
+// — this only holds the feature list, which doesn't change per pricing update.
+export const proPlan = {
+  name: 'Pro',
+  badge: '7-Day Free Trial',
+  features: [
+    'Unlimited Market Insights daily',
+    'All 45+ Courses included',
+    'All Video Tutorials',
+    'F&O Desk (Futures & Options)',
+    'Options Education Notes',
+    'Portfolio Advisory (1-on-1)',
+    'Priority WhatsApp Support',
+    'Monthly Live Webinars',
+    'Pre-IPO & NFO Analysis',
+    'Tax Planning Guide',
+    'Exclusive Research Reports',
+    'Early access to new content',
+  ],
+}

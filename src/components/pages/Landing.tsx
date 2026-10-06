@@ -55,7 +55,7 @@ export default function Landing() {
               onClick={() => navigate('login')}
               className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
             >
-              Start free
+              Start free trial
             </button>
             <button
               onClick={() => {
@@ -127,7 +127,7 @@ export default function Landing() {
               Simple pricing
             </h2>
             <p className="text-base" style={{ color: 'var(--muted-foreground)' }}>
-              Start free. Upgrade when you are ready.
+              Try Pro free for 7 days. No card required to start.
             </p>
           </div>
           <PlanSlider />
@@ -282,13 +282,13 @@ export default function Landing() {
             Ready when you are
           </h2>
           <p className="text-base mb-8" style={{ color: '#a8b8cc' }}>
-            Join learners building market knowledge with ShubhShree. Free to start.
+            Join learners building market knowledge with ShubhShree. 7 days free, no card required.
           </p>
           <button
             onClick={() => navigate('login')}
             className="btn-action px-10 py-4 rounded-xl font-semibold text-base"
           >
-            Create free account
+            Start free trial
           </button>
         </div>
       </section>
