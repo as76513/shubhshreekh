@@ -10,9 +10,16 @@ import {
   closeInsight,
   getPricing,
   updatePricing,
+  listOverviews,
+  createOverview,
+  getWeeklyPDF,
+  setWeeklyPDF,
+  uploadMedia,
   type AdminInsight,
   type InsightInput,
   type Pricing,
+  type Overview,
+  type WeeklyPDF,
 } from "@/lib/api";
 
 // No Free tier left to choose (TD-054) — every logged-in user is "pro," so
@@ -45,6 +52,22 @@ export default function Admin() {
   const [pricingSaving, setPricingSaving] = useState(false);
   const [pricingError, setPricingError] = useState("");
 
+  // Daily Market Overview (TD-057)
+  const [overviewText, setOverviewText] = useState("");
+  const [overviewPhotoUrls, setOverviewPhotoUrls] = useState<string[]>([]);
+  const [overviewUploading, setOverviewUploading] = useState(false);
+  const [overviewSubmitting, setOverviewSubmitting] = useState(false);
+  const [overviewError, setOverviewError] = useState("");
+  const [recentOverviews, setRecentOverviews] = useState<Overview[]>([]);
+
+  // Weekly market outlook PDF (TD-058)
+  const [pdfTitle, setPdfTitle] = useState("");
+  const [pdfSummary, setPdfSummary] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfSaving, setPdfSaving] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+
   const refresh = async () => {
     setLoading(true);
     try {
@@ -68,9 +91,31 @@ export default function Admin() {
     }
   };
 
+  const refreshOverviews = async () => {
+    try {
+      const data = await withAuth((token) => listOverviews(token));
+      setRecentOverviews(data.slice(0, 5));
+    } catch {
+      // Non-critical preview list — the post form above still works either way.
+    }
+  };
+
+  const refreshWeeklyPdf = async () => {
+    try {
+      const data = await withAuth((token) => getWeeklyPDF(token));
+      setPdfTitle(data.title);
+      setPdfSummary(data.summary);
+      setPdfUrl(data.pdfUrl);
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : "Could not load weekly PDF");
+    }
+  };
+
   useEffect(() => {
     refresh();
     refreshPricing();
+    refreshOverviews();
+    refreshWeeklyPdf();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -90,6 +135,82 @@ export default function Admin() {
       setPricingError(err instanceof Error ? err.message : "Could not save pricing");
     } finally {
       setPricingSaving(false);
+    }
+  };
+
+  const handleOverviewPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setOverviewUploading(true);
+    setOverviewError("");
+    try {
+      const urls = await withAuth(async (token) => {
+        const uploaded: string[] = [];
+        for (const file of Array.from(files)) {
+          uploaded.push(await uploadMedia(token, file, "overview-photo"));
+        }
+        return uploaded;
+      });
+      setOverviewPhotoUrls((prev) => [...prev, ...urls]);
+    } catch (err) {
+      setOverviewError(err instanceof Error ? err.message : "Could not upload photo");
+    } finally {
+      setOverviewUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handlePostOverview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!overviewText.trim()) {
+      setOverviewError("Write something first");
+      return;
+    }
+    setOverviewError("");
+    setOverviewSubmitting(true);
+    try {
+      await withAuth((token) => createOverview(token, overviewText.trim(), overviewPhotoUrls));
+      setOverviewText("");
+      setOverviewPhotoUrls([]);
+      await refreshOverviews();
+    } catch (err) {
+      setOverviewError(err instanceof Error ? err.message : "Could not post overview");
+    } finally {
+      setOverviewSubmitting(false);
+    }
+  };
+
+  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfUploading(true);
+    setPdfError("");
+    try {
+      const url = await withAuth((token) => uploadMedia(token, file, "weekly-pdf"));
+      setPdfUrl(url);
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : "Could not upload PDF");
+    } finally {
+      setPdfUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleSaveWeeklyPdf = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pdfTitle.trim() || !pdfUrl) {
+      setPdfError("Title and an uploaded PDF are required");
+      return;
+    }
+    setPdfError("");
+    setPdfSaving(true);
+    try {
+      await withAuth((token) => setWeeklyPDF(token, { title: pdfTitle.trim(), summary: pdfSummary.trim(), pdfUrl }));
+      await refreshWeeklyPdf();
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : "Could not save weekly PDF");
+    } finally {
+      setPdfSaving(false);
     }
   };
 
@@ -139,9 +260,13 @@ export default function Admin() {
     }
   };
 
-  const handleClose = async (id: string, outcome: "target_hit" | "sl_hit") => {
+  const handleClose = async (
+    id: string,
+    outcome: "target_hit" | "sl_hit",
+    targetIndex?: number
+  ) => {
     try {
-      await withAuth((token) => closeInsight(token, id, outcome));
+      await withAuth((token) => closeInsight(token, id, outcome, targetIndex));
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not close trade");
@@ -223,6 +348,141 @@ export default function Admin() {
               ))}
             </div>
           )}
+        </div>
+
+        <div
+          className="rounded-2xl p-5 mb-8"
+          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+        >
+          <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+            Today&apos;s market overview
+          </h2>
+          <p className="text-xs mb-4" style={{ color: "var(--muted-text)" }}>
+            Posts immediately — shows on the customer Dashboard and the Blogs archive. No draft step.
+          </p>
+          <form onSubmit={handlePostOverview}>
+            {field(
+              "What happened in the market today",
+              <textarea
+                className={inputClass}
+                style={{ ...inputStyle, minHeight: "90px" }}
+                value={overviewText}
+                onChange={(e) => setOverviewText(e.target.value)}
+                placeholder="NIFTY held above 24,300 as IT and banking stocks led gains..."
+              />,
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label
+                className="px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+                style={{ background: "rgba(11,42,85,0.08)", color: "var(--navy)" }}
+              >
+                {overviewUploading ? "Uploading…" : "+ Add photo(s)"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  multiple
+                  className="hidden"
+                  onChange={handleOverviewPhotoSelect}
+                  disabled={overviewUploading}
+                />
+              </label>
+              {overviewPhotoUrls.map((url) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={url} src={url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+              ))}
+              <button
+                type="submit"
+                disabled={overviewSubmitting || overviewUploading}
+                className="btn-action px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 ml-auto"
+              >
+                {overviewSubmitting ? "Posting…" : "Post"}
+              </button>
+            </div>
+            {overviewError && (
+              <p className="text-xs mt-2" style={{ color: "var(--loss)" }}>
+                {overviewError}
+              </p>
+            )}
+          </form>
+
+          {recentOverviews.length > 0 && (
+            <div className="mt-5 pt-4 space-y-3" style={{ borderTop: "1px solid rgba(11,42,85,0.1)" }}>
+              {recentOverviews.map((ov) => (
+                <div key={ov.id} className="text-xs" style={{ color: "var(--muted-text)" }}>
+                  <span style={{ color: "var(--navy)", fontWeight: 600 }}>
+                    {new Date(ov.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                  </span>{" "}
+                  — {ov.text}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div
+          className="rounded-2xl p-5 mb-8"
+          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+        >
+          <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+            Weekly market outlook PDF
+          </h2>
+          <p className="text-xs mb-4" style={{ color: "var(--muted-text)" }}>
+            Replaces what the Dashboard&apos;s &quot;Today&apos;s Update&quot; card links to.
+          </p>
+          <form onSubmit={handleSaveWeeklyPdf} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {field(
+              "Title",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={pdfTitle}
+                onChange={(e) => setPdfTitle(e.target.value)}
+                placeholder="Market Pulse — 12 October 2026"
+              />,
+            )}
+            {field(
+              "Summary",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={pdfSummary}
+                onChange={(e) => setPdfSummary(e.target.value)}
+                placeholder="This week's session recap and outlook"
+              />,
+            )}
+            <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
+              <label
+                className="px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+                style={{ background: "rgba(11,42,85,0.08)", color: "var(--navy)" }}
+              >
+                {pdfUploading ? "Uploading…" : pdfUrl ? "Replace PDF" : "+ Upload PDF"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handlePdfFileSelect}
+                  disabled={pdfUploading}
+                />
+              </label>
+              {pdfUrl && (
+                <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: "var(--blue-accent)" }}>
+                  View current PDF →
+                </a>
+              )}
+              <button
+                type="submit"
+                disabled={pdfSaving || pdfUploading}
+                className="btn-action px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 ml-auto"
+              >
+                {pdfSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+            {pdfError && (
+              <p className="sm:col-span-2 text-xs" style={{ color: "var(--loss)" }}>
+                {pdfError}
+              </p>
+            )}
+          </form>
         </div>
 
         <h1
@@ -491,7 +751,11 @@ export default function Admin() {
                           color: row.outcome === "target_hit" ? "var(--gain)" : "var(--loss)",
                         }}
                       >
-                        {row.outcome === "target_hit" ? "Target Hit" : "SL Hit"}
+                        {row.outcome === "target_hit"
+                          ? row.targets.length > 1
+                            ? `Target ${(row.targetHitIndex ?? 0) + 1} Hit`
+                            : "Target Hit"
+                          : "SL Hit"}
                       </span>
                     )}
                   </div>
@@ -514,13 +778,26 @@ export default function Admin() {
                   )}
                   {row.status === "published" && row.tradeStatus !== "closed" && (
                     <>
-                      <button
-                        onClick={() => handleClose(row.id, "target_hit")}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
-                      >
-                        ✅ Target Hit
-                      </button>
+                      {row.targets.length > 1 ? (
+                        row.targets.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleClose(row.id, "target_hit", i)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                          >
+                            ✅ T{i + 1} Hit
+                          </button>
+                        ))
+                      ) : (
+                        <button
+                          onClick={() => handleClose(row.id, "target_hit")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                        >
+                          ✅ Target Hit
+                        </button>
+                      )}
                       <button
                         onClick={() => handleClose(row.id, "sl_hit")}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold"

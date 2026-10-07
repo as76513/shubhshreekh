@@ -343,7 +343,9 @@ export default function TradingCalls() {
           {visible.map(call => {
             const isBuy = call.action === 'BUY'
             const isTargetHit = call.outcome === 'target_hit'
-            const exitPrice = isTargetHit ? (call.targets?.[0] ?? call.entryPrice) : call.stopLoss
+            const hitIdx = call.targetHitIndex ?? 0
+            const exitPrice = isTargetHit ? (call.targets?.[hitIdx] ?? call.entryPrice) : call.stopLoss
+            const targetLabel = (call.targets?.length ?? 0) > 1 ? `Target ${hitIdx + 1}` : 'Target'
 
             return (
               <div
@@ -374,7 +376,7 @@ export default function TradingCalls() {
                           color: isTargetHit ? 'var(--gain)' : 'var(--loss)',
                         }}
                       >
-                        {isTargetHit ? 'Target Hit' : 'SL Hit'}
+                        {isTargetHit ? `${targetLabel} Hit` : 'SL Hit'}
                       </span>
                       <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
                         Published {fmtDate(call.date)}{call.closedAt && ` · Closed ${fmtDate(call.closedAt)}`}
@@ -384,7 +386,7 @@ export default function TradingCalls() {
                       {call.stock}
                     </h3>
                     <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
-                      {call.symbol} · Entry {fmt(call.entryPrice)} → {isTargetHit ? 'Target' : 'SL'} {fmt(exitPrice)}
+                      {call.symbol} · Entry {fmt(call.entryPrice)} → {isTargetHit ? targetLabel : 'SL'} {fmt(exitPrice)}
                     </p>
                   </div>
 

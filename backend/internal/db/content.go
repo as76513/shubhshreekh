@@ -66,6 +66,14 @@ type Insight struct {
 	Outcome     string `dynamodbav:"outcome,omitempty" json:"outcome,omitempty"` // "" | target_hit | sl_hit
 	ClosedAt    string `dynamodbav:"closedAt,omitempty" json:"closedAt,omitempty"`
 
+	// TargetHitIndex (added 2026-10-07): which element of Targets was
+	// actually hit, for a target_hit close on a F&O call with more than one
+	// booking level — a RA closing a 3-target call might see T1, T2, or T3
+	// hit, not always the first. Pointer so index 0 (T1) is distinguishable
+	// from "not set"; only meaningful when Outcome == "target_hit". nil for
+	// sl_hit closes and for every still-open row.
+	TargetHitIndex *int `dynamodbav:"targetHitIndex,omitempty" json:"targetHitIndex,omitempty"`
+
 	// LegacyTarget/LegacyCMP read rows written before Targets/EntryPrice
 	// existed — never set on write. See backfillLegacy below; drop once all
 	// dev data has been re-saved through the current admin form.
@@ -190,17 +198,48 @@ func (t *ContentTable) UpdateInsight(ctx context.Context, id string, in InsightI
 	return t.updateItem(ctx, id, set, []string{"target", "cmp"})
 }
 
+// ErrTargetIndexOutOfRange means a target_hit close named a target index
+// that doesn't exist on this insight's own Targets array — caught here
+// (against server-held data), not trusted from the client's own count.
+var ErrTargetIndexOutOfRange = errors.New("target index out of range for this insight's targets")
+
 // CloseInsight marks a trade resolved — the RA does this by hand (TD-053),
 // since there's no live price feed to detect a target/SL hit automatically.
 // Leaves Status/GSI1 untouched: a closed trade can still be "published" and
-// visible, just no longer "open".
-func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string) error {
+// visible, just no longer "open". For outcome "target_hit", targetIndex says
+// which of the insight's own Targets was actually hit (nil defaults to 0,
+// the only valid index for an equity call); returnsPct is recomputed off
+// that real hit price (or the stop-loss for "sl_hit") so the customer
+// Closed tab shows the actual realised return, not the original "expected"
+// figure from publish time.
+func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string, targetIndex *int) error {
+	insight, err := t.GetInsight(ctx, id)
+	if err != nil {
+		return err
+	}
+	if insight == nil {
+		return fmt.Errorf("insight %q not found", id)
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 	set := map[string]types.AttributeValue{
 		"tradeStatus": &types.AttributeValueMemberS{Value: "closed"},
 		"outcome":     &types.AttributeValueMemberS{Value: outcome},
 		"closedAt":    &types.AttributeValueMemberS{Value: now},
 		"updatedAt":   &types.AttributeValueMemberS{Value: now},
+	}
+	if outcome == "target_hit" {
+		idx := 0
+		if targetIndex != nil {
+			idx = *targetIndex
+		}
+		if idx < 0 || idx >= len(insight.Targets) {
+			return ErrTargetIndexOutOfRange
+		}
+		set["targetHitIndex"] = &types.AttributeValueMemberN{Value: strconv.Itoa(idx)}
+		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, insight.EntryPrice, insight.Targets[idx]))}
+	} else {
+		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, insight.EntryPrice, insight.StopLoss))}
 	}
 	return t.updateItem(ctx, id, set, nil)
 }

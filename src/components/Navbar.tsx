@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 
 const navLinks: { label: string; view: AppView }[] = [
   { label: 'Insights', view: 'trading' },
+  { label: 'Blogs', view: 'blogs' },
   { label: 'Courses', view: 'courses' },
   { label: 'Videos', view: 'videos' },
 ]

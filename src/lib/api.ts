@@ -215,6 +215,8 @@ export type Insight = {
   tradeStatus: TradeStatus;
   outcome?: TradeOutcome;
   closedAt?: string;
+  /** Which `targets[]` element was hit, for a "target_hit" close on a F&O call with more than one booking level. Undefined means T1 (index 0). */
+  targetHitIndex?: number;
 };
 
 /** Every row ever created (draft/published/archived) — analyst's own admin list. */
@@ -239,6 +241,7 @@ export type AdminInsight = {
   tradeStatus: TradeStatus;
   outcome?: TradeOutcome;
   closedAt?: string;
+  targetHitIndex?: number;
 };
 
 export type InsightInput = {
@@ -309,11 +312,16 @@ export async function archiveInsight(token: string, id: string): Promise<void> {
 export async function closeInsight(
   token: string,
   id: string,
-  outcome: "target_hit" | "sl_hit"
+  outcome: "target_hit" | "sl_hit",
+  targetIndex?: number
 ): Promise<void> {
   const res = await fetch(
     `${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}/close`,
-    { method: "POST", headers: authHeaders(token), body: JSON.stringify({ outcome }) }
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ outcome, ...(targetIndex !== undefined ? { targetIndex } : {}) }),
+    }
   );
   if (!res.ok) throw new Error(await parseError(res));
 }
@@ -347,4 +355,91 @@ export async function updatePricing(token: string, discountPercent: number): Pro
     body: JSON.stringify({ discountPercent }),
   });
   if (!res.ok) throw new Error(await parseError(res));
+}
+
+// --- Daily Market Overview + weekly PDF (TD-057/058) --------------------
+
+export type Overview = {
+  id: string;
+  text: string;
+  photoUrls?: string[];
+  publishedAt: string;
+};
+
+export type WeeklyPDF = {
+  title: string;
+  summary: string;
+  pdfUrl: string;
+  updatedAt?: string;
+};
+
+/** The Dashboard card's data — null if the RA hasn't posted today (or ever). */
+export async function getLatestOverview(token: string): Promise<Overview | null> {
+  const res = await fetch(`${API_BASE_URL}/overview/latest`, { headers: authHeaders(token) });
+  if (!res.ok) throw new ApiError(res.status, await parseError(res));
+  const data = await res.json();
+  return data ?? null;
+}
+
+/** Full history, newest first — the Blogs archive page. */
+export async function listOverviews(token: string): Promise<Overview[]> {
+  const res = await fetch(`${API_BASE_URL}/overview`, { headers: authHeaders(token) });
+  if (!res.ok) throw new ApiError(res.status, await parseError(res));
+  return res.json();
+}
+
+export async function createOverview(token: string, text: string, photoUrls: string[]): Promise<Overview> {
+  const res = await fetch(`${API_BASE_URL}/admin/overview`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ text, photoUrls }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function getWeeklyPDF(token: string): Promise<WeeklyPDF> {
+  const res = await fetch(`${API_BASE_URL}/weekly-pdf`, { headers: authHeaders(token) });
+  if (!res.ok) throw new ApiError(res.status, await parseError(res));
+  return res.json();
+}
+
+export async function setWeeklyPDF(token: string, pdf: WeeklyPDF): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/admin/weekly-pdf`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(pdf),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+/** Presigned S3 PUT URL — the browser uploads the file bytes directly to `uploadUrl`, never through our API. */
+export async function getMediaUploadURL(
+  token: string,
+  contentType: string,
+  purpose: "overview-photo" | "weekly-pdf"
+): Promise<{ uploadUrl: string; publicUrl: string }> {
+  const res = await fetch(`${API_BASE_URL}/admin/media/upload-url`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ contentType, purpose }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+/** Uploads a File directly to S3 via the presigned URL from getMediaUploadURL, then returns its public URL. */
+export async function uploadMedia(
+  token: string,
+  file: File,
+  purpose: "overview-photo" | "weekly-pdf"
+): Promise<string> {
+  const { uploadUrl, publicUrl } = await getMediaUploadURL(token, file.type, purpose);
+  const res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!res.ok) throw new Error("Could not upload file");
+  return publicUrl;
 }

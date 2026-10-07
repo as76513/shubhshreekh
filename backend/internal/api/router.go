@@ -5,6 +5,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
@@ -13,14 +14,17 @@ import (
 )
 
 type Deps struct {
-	SigningSecret  []byte
-	Users          db.UsersStore
-	Content        *db.ContentTable
-	Settings       *db.SettingsTable
-	OTP            otp.Provider
-	RateLimit      RateLimiter
-	WebAuthn       *webauthn.WebAuthn
-	AllowedOrigins []string
+	SigningSecret     []byte
+	Users             db.UsersStore
+	Content           *db.ContentTable
+	Settings          *db.SettingsTable
+	OTP               otp.Provider
+	RateLimit         RateLimiter
+	WebAuthn          *webauthn.WebAuthn
+	S3                *s3.Client
+	MediaBucket       string
+	MediaBucketRegion string
+	AllowedOrigins    []string
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -66,6 +70,14 @@ func NewRouter(deps Deps) http.Handler {
 	// RA content platform (Pipe B) — thin insights CMS, see architecture.md.
 	mux.Handle("GET /insights", mw(customer(http.HandlerFunc(deps.handleListInsights))))
 
+	// Daily Market Overview + weekly PDF (TD-057/058) — customer reads
+	// behind the same login-gated customer role as everything else shown
+	// on the Dashboard; not public like /pricing, which also needs to work
+	// for a logged-out landing-page visitor.
+	mux.Handle("GET /overview/latest", mw(customer(http.HandlerFunc(deps.handleGetLatestOverview))))
+	mux.Handle("GET /overview", mw(customer(http.HandlerFunc(deps.handleListOverviews))))
+	mux.Handle("GET /weekly-pdf", mw(customer(http.HandlerFunc(deps.handleGetWeeklyPDF))))
+
 	writer := requireRole("analyst", "admin")
 	mux.Handle("GET /admin/insights", mw(writer(http.HandlerFunc(deps.handleListAllInsights))))
 	mux.Handle("POST /admin/insights", mw(writer(http.HandlerFunc(deps.handleCreateInsight))))
@@ -74,6 +86,9 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("POST /admin/insights/{id}/archive", mw(writer(http.HandlerFunc(deps.handleArchiveInsight))))
 	mux.Handle("POST /admin/insights/{id}/close", mw(writer(http.HandlerFunc(deps.handleCloseInsight))))
 	mux.Handle("PATCH /admin/pricing", mw(writer(http.HandlerFunc(deps.handleUpdatePricing))))
+	mux.Handle("POST /admin/overview", mw(writer(http.HandlerFunc(deps.handleCreateOverview))))
+	mux.Handle("PATCH /admin/weekly-pdf", mw(writer(http.HandlerFunc(deps.handleSetWeeklyPDF))))
+	mux.Handle("POST /admin/media/upload-url", mw(writer(http.HandlerFunc(deps.handleMediaUploadURL))))
 
 	origins := make(map[string]bool, len(deps.AllowedOrigins))
 	for _, o := range deps.AllowedOrigins {

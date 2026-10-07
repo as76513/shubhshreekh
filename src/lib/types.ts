@@ -6,7 +6,8 @@ export type AppView =
   | "admin"
   | "courses"
   | "course-detail"
-  | "videos";
+  | "videos"
+  | "blogs";
 
 export interface User {
   phone: string;

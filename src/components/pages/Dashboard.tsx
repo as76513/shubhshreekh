@@ -1,18 +1,41 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { todaysUpdate, courses } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
+import { getLatestOverview, getWeeklyPDF, type Overview, type WeeklyPDF } from "@/lib/api";
 
 export default function Dashboard() {
-  const { user, navigate } = useAuth();
+  const { user, navigate, withAuth } = useAuth();
   const isPro = user?.subscription === 'pro'
   // RA/admin accounts land on /admin now (see auth-context.tsx's login()),
   // but this still guards direct navigation here — an analyst publishing
   // content has no reason to see a customer-facing "Pro Member" banner.
   const isCustomer = user?.role === 'customer' || !user?.role
 
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [weeklyPdf, setWeeklyPdf] = useState<WeeklyPDF | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    withAuth((token) => getLatestOverview(token))
+      .then((data) => { if (!cancelled) setOverview(data) })
+      .catch(() => { /* no overview posted yet — card just doesn't render */ })
+    withAuth((token) => getWeeklyPDF(token))
+      .then((data) => { if (!cancelled) setWeeklyPdf(data) })
+      .catch(() => { /* falls back to the static placeholder below */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
   if (!user) return null
   const featuredCourses = courses.slice(0, 3)
+  // TD-058: show the RA's uploaded PDF once one exists; the static file
+  // stays as the fallback so this card is never empty on a fresh deploy.
+  const pdfTitle = weeklyPdf?.pdfUrl ? weeklyPdf.title : todaysUpdate.title
+  const pdfSummary = weeklyPdf?.pdfUrl ? weeklyPdf.summary : todaysUpdate.summary
+  const pdfHref = weeklyPdf?.pdfUrl || todaysUpdate.pdfUrl
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--screen-bg)' }}>
@@ -49,8 +72,30 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        {overview && (
+          <div
+            className="rounded-2xl p-5 mb-5"
+            style={{ background: 'var(--card-bg)', borderLeft: '4px solid var(--blue-accent)' }}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--blue-accent)' }}>
+              Today&apos;s Market Overview
+            </p>
+            <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--navy)' }}>
+              {overview.text}
+            </p>
+            {overview.photoUrls && overview.photoUrls.length > 0 && (
+              <div className="flex gap-2 mt-2">
+                {overview.photoUrls.map((url) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={url} src={url} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <a
-          href={todaysUpdate.pdfUrl}
+          href={pdfHref}
           target="_blank"
           rel="noopener noreferrer"
           className="motion-lift rounded-2xl p-5 mb-8 flex items-center gap-4"
@@ -74,10 +119,10 @@ export default function Dashboard() {
               Today&apos;s Update
             </p>
             <p className="font-semibold text-sm mb-0.5 truncate" style={{ color: 'var(--navy)' }}>
-              {todaysUpdate.title}
+              {pdfTitle}
             </p>
             <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
-              {todaysUpdate.summary}
+              {pdfSummary}
             </p>
           </div>
           <span

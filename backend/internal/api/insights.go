@@ -129,13 +129,17 @@ func (d Deps) handleArchiveInsight(w http.ResponseWriter, r *http.Request) {
 }
 
 type closeInsightRequest struct {
-	Outcome string `json:"outcome"` // target_hit | sl_hit
+	Outcome     string `json:"outcome"`               // target_hit | sl_hit
+	TargetIndex *int   `json:"targetIndex,omitempty"` // which Targets[] element was hit; target_hit only, defaults to 0
 }
 
 // handleCloseInsight: POST /admin/insights/{id}/close — TD-053. The RA
 // marks a trade resolved by hand (no live price feed to detect this
 // automatically); independent of Status/GSI1, so a closed trade can stay
-// "published" and visible, just no longer "open".
+// "published" and visible, just no longer "open". For a F&O call with more
+// than one booking level, TargetIndex says which one was actually hit —
+// db.CloseInsight validates it against that insight's own Targets array
+// rather than trusting the client's count.
 func (d Deps) handleCloseInsight(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req closeInsightRequest
@@ -147,7 +151,11 @@ func (d Deps) handleCloseInsight(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, `outcome must be "target_hit" or "sl_hit"`)
 		return
 	}
-	if err := d.Content.CloseInsight(r.Context(), id, req.Outcome); err != nil {
+	if err := d.Content.CloseInsight(r.Context(), id, req.Outcome, req.TargetIndex); err != nil {
+		if errors.Is(err, db.ErrTargetIndexOutOfRange) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		writeError(w, http.StatusNotFound, "insight not found")
 		return
 	}
@@ -191,9 +199,10 @@ type customerInsight struct {
 	// trade-detail numbers architecture.md says to zero for locked rows —
 	// shown regardless of tier so a free user can at least see a Pro call
 	// resolved, just not its numbers.
-	TradeStatus string `json:"tradeStatus"`
-	Outcome     string `json:"outcome,omitempty"`
-	ClosedAt    string `json:"closedAt,omitempty"`
+	TradeStatus    string `json:"tradeStatus"`
+	Outcome        string `json:"outcome,omitempty"`
+	ClosedAt       string `json:"closedAt,omitempty"`
+	TargetHitIndex *int   `json:"targetHitIndex,omitempty"`
 }
 
 // handleListInsights: GET /insights — published insights, tier-gated.
@@ -227,6 +236,7 @@ func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
 			TradeStatus:    in.TradeStatus,
 			Outcome:        in.Outcome,
 			ClosedAt:       in.ClosedAt,
+			TargetHitIndex: in.TargetHitIndex,
 		}
 		if !locked {
 			c.EntryPrice = in.EntryPrice

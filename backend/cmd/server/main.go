@@ -21,6 +21,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("dynamodb client: %v", err)
 	}
+	s3Client, err := db.NewS3Client(ctx)
+	if err != nil {
+		log.Fatalf("s3 client: %v", err)
+	}
 
 	secret := os.Getenv("SESSION_TOKEN_SIGNING_SECRET")
 	if secret == "" {
@@ -41,14 +45,17 @@ func main() {
 	}
 
 	deps := api.Deps{
-		SigningSecret:  []byte(secret),
-		Users:          db.NewUsersTable(client, os.Getenv("DYNAMODB_USERS_TABLE")),
-		Content:        db.NewContentTable(client, os.Getenv("DYNAMODB_CONTENT_TABLE")),
-		Settings:       db.NewSettingsTable(client, os.Getenv("DYNAMODB_SETTINGS_TABLE")),
-		OTP:            provider,
-		RateLimit:      db.NewRateLimitTable(client, os.Getenv("DYNAMODB_RATELIMIT_TABLE")),
-		WebAuthn:       webAuthn,
-		AllowedOrigins: strings.Split(origins, ","),
+		SigningSecret:     []byte(secret),
+		Users:             db.NewUsersTable(client, os.Getenv("DYNAMODB_USERS_TABLE")),
+		Content:           db.NewContentTable(client, os.Getenv("DYNAMODB_CONTENT_TABLE")),
+		Settings:          db.NewSettingsTable(client, os.Getenv("DYNAMODB_SETTINGS_TABLE")),
+		OTP:               provider,
+		RateLimit:         db.NewRateLimitTable(client, os.Getenv("DYNAMODB_RATELIMIT_TABLE")),
+		WebAuthn:          webAuthn,
+		S3:                s3Client,
+		MediaBucket:       os.Getenv("CONTENT_MEDIA_BUCKET"),
+		MediaBucketRegion: os.Getenv("AWS_REGION"),
+		AllowedOrigins:    strings.Split(origins, ","),
 	}
 
 	port := os.Getenv("PORT")

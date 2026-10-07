@@ -40,6 +40,23 @@ resource "aws_iam_role_policy" "dynamodb" {
   })
 }
 
+resource "aws_iam_role_policy" "s3_media" {
+  name = "s3-media-upload"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      # Only PutObject — the Lambda signs upload URLs, it never reads
+      # objects back (customers fetch the plain public URL directly, see
+      # s3.tf's bucket policy).
+      Effect   = "Allow"
+      Action   = ["s3:PutObject"]
+      Resource = "${aws_s3_bucket.content_media.arn}/*"
+    }]
+  })
+}
+
 resource "aws_iam_role_policy" "logs" {
   name = "cloudwatch-logs"
   role = aws_iam_role.lambda_exec.id
