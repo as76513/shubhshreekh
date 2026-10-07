@@ -165,7 +165,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setUser(next);
       saveSession(next);
-      router.push("/dashboard");
+      // RA/admin accounts land on /admin, not the customer dashboard — same
+      // role check as app/admin/page.tsx's own write-access guard, so this
+      // never drifts from what actually grants access.
+      const isRAOrAdmin = next.role === "analyst" || next.role === "admin";
+      router.push(isRAOrAdmin ? "/admin" : "/dashboard");
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [router],

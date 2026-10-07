@@ -15,8 +15,11 @@ import {
   type Pricing,
 } from "@/lib/api";
 
+// No Free tier left to choose (TD-054) — every logged-in user is "pro," so
+// the RA is never asked to pick a tier anymore. Still sent on the request
+// since the backend field exists, just fixed rather than form-driven.
 const emptyForm: InsightInput = {
-  tier: "free",
+  tier: "pro",
   action: "BUY",
   instrumentType: "equity",
   stock: "",
@@ -312,18 +315,6 @@ export default function Admin() {
               onChange={(e) => setForm((f) => ({ ...f, timeframe: e.target.value }))}
               placeholder="Short Term"
             />,
-          )}
-          {field(
-            "Tier",
-            <select
-              className={inputClass}
-              style={inputStyle}
-              value={form.tier}
-              onChange={(e) => setForm((f) => ({ ...f, tier: e.target.value }))}
-            >
-              <option value="free">Free</option>
-              <option value="pro">Pro</option>
-            </select>,
           )}
           {field(
             "Entry Price (₹)",
