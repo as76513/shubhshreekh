@@ -1,15 +1,41 @@
 "use client";
 
-import { useEffect, useState } from 'react'
-import { pastPerformances } from "@/lib/data";
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from "@/lib/auth-context";
 import { listInsights, type Insight } from "@/lib/api";
 
+type ViewKey = 'live' | 'past' | 'closed'
+type InstrumentFilter = 'equity' | 'fno'
+
+// "Today" per the RA's own spec: a call published today (UTC, matching
+// when the backend stamps publishedAt) and not yet closed is Live; the
+// same call is still Live at 11:59pm and becomes Past the instant the UTC
+// date rolls over, regardless of local IST time — simplest unambiguous
+// rule, and the backend's own dates are all UTC already.
+function isTodayUTC(iso: string): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  const now = new Date()
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
+  )
+}
+
+const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
+const fmtDate = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export default function TradingCalls() {
-  const { user, onUpgrade, withAuth } = useAuth();
-  const isPro = user?.subscription === 'pro'
-  const [view, setView] = useState<'active' | 'past'>('active')
-  const [activeCalls, setActiveCalls] = useState<Insight[]>([])
+  const { withAuth } = useAuth();
+  const [view, setView] = useState<ViewKey>('live')
+  const [instrument, setInstrument] = useState<InstrumentFilter>('equity')
+  const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -17,59 +43,63 @@ export default function TradingCalls() {
     let cancelled = false
     setLoading(true)
     withAuth((token) => listInsights(token))
-      .then((data) => { if (!cancelled) { setActiveCalls(data); setError('') } })
+      .then((data) => { if (!cancelled) { setInsights(data); setError('') } })
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load insights') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-    // Refetch on tier change so an upgrade mid-session re-reveals locked
-    // cards without a manual reload — the server, not the client, decides
-    // `locked` on each fetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPro])
+  }, [withAuth])
 
-  const lockedCount = view === 'active'
-    ? activeCalls.filter(c => c.locked).length
-    : pastPerformances.filter(p => p.isPro).length
+  const byInstrument = useMemo(
+    () => insights.filter(c => c.instrumentType === instrument),
+    [insights, instrument],
+  )
+  const liveCalls = useMemo(
+    () => byInstrument.filter(c => c.tradeStatus === 'open' && isTodayUTC(c.date)),
+    [byInstrument],
+  )
+  const pastCalls = useMemo(
+    () => byInstrument.filter(c => c.tradeStatus === 'open' && !isTodayUTC(c.date)),
+    [byInstrument],
+  )
+  const closedCalls = useMemo(
+    () => byInstrument.filter(c => c.tradeStatus === 'closed'),
+    [byInstrument],
+  )
+  const openCalls = useMemo(() => [...liveCalls, ...pastCalls], [liveCalls, pastCalls])
+
+  const visible = view === 'live' ? liveCalls : view === 'past' ? pastCalls : closedCalls
+  const emptyMessage = view === 'live'
+    ? "No live trades published today — check back soon."
+    : view === 'past'
+      ? "No past open trades right now."
+      : "No closed trades yet."
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--blue-accent)' }}>
-              Research
-            </p>
-            <h1
-              className="text-3xl font-bold mb-1.5"
-              style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--navy)' }}
-            >
-              Market Insights
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--muted-text)' }}>
-              Research-backed buy/sell calls with clear targets and stop-losses.
-              {!isPro && ' Upgrade to Pro for unlimited access.'}
-            </p>
-          </div>
-          {!isPro && (
-            <button
-              onClick={onUpgrade}
-              className="btn-pro flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold"
-            >
-              ✦ Unlock All
-            </button>
-          )}
-        </div>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--blue-accent)' }}>
+          Research
+        </p>
+        <h1
+          className="text-3xl font-bold mb-1.5"
+          style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--navy)' }}
+        >
+          Market Insights
+        </h1>
+        <p className="text-sm" style={{ color: 'var(--muted-text)' }}>
+          Research-backed buy/sell calls with clear targets and stop-losses.
+        </p>
 
-        {/* Stats row */}
+        {/* Stats row — reflects the Equity/F&O filter below, not the Live/Past/Closed tab, so it doesn't jitter on tab switches */}
         <div className="grid grid-cols-3 gap-3 mt-6">
           {[
-            { label: 'Active Calls', value: isPro ? activeCalls.length : activeCalls.filter(c => !c.locked).length },
-            { label: 'Achieved This Month', value: pastPerformances.filter(p => p.outcome === 'Target Hit').length },
+            { label: 'Live Today', value: liveCalls.length },
+            { label: 'Target Hit', value: closedCalls.filter(c => c.outcome === 'target_hit').length },
             {
               label: 'Avg Target Return',
-              value: activeCalls.length
-                ? `+${(activeCalls.reduce((a, c) => a + c.returnsPct, 0) / activeCalls.length).toFixed(1)}%`
+              value: openCalls.length
+                ? `+${(openCalls.reduce((a, c) => a + c.returnsPct, 0) / openCalls.length).toFixed(1)}%`
                 : '—',
             },
           ].map(s => (
@@ -92,12 +122,37 @@ export default function TradingCalls() {
         </div>
       </div>
 
+      {/* Equity / F&O filter — applies across Live, Past, and Closed alike */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(11,42,85,0.06)', border: '1px solid rgba(29,78,216,0.15)' }} role="radiogroup" aria-label="Instrument type">
+          {([
+            { key: 'equity', label: 'Equity' },
+            { key: 'fno', label: 'F&O' },
+          ] as const).map(i => (
+            <button
+              key={i.key}
+              role="radio"
+              aria-checked={instrument === i.key}
+              onClick={() => setInstrument(i.key)}
+              className="px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all"
+              style={{
+                background: instrument === i.key ? 'var(--navy)' : 'transparent',
+                color: instrument === i.key ? '#ffffff' : 'var(--muted-text)',
+              }}
+            >
+              {i.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* View toggle */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(11,42,85,0.06)', border: '1px solid rgba(29,78,216,0.15)' }}>
           {([
-            { key: 'active', label: 'Active Trades' },
-            { key: 'past', label: 'Past Performances' },
+            { key: 'live', label: 'Live Trades' },
+            { key: 'past', label: 'Past Trades' },
+            { key: 'closed', label: 'Closed Trades' },
           ] as const).map(v => (
             <button
               key={v.key}
@@ -114,245 +169,191 @@ export default function TradingCalls() {
         </div>
       </div>
 
-      {/* Active trades */}
-      {view === 'active' && loading && (
+      {loading && (
         <p className="text-sm text-center py-8" style={{ color: 'var(--muted-text)' }}>
           Loading insights…
         </p>
       )}
-      {view === 'active' && !loading && error && (
+      {!loading && error && (
         <p className="text-sm text-center py-8" style={{ color: 'var(--loss)' }}>
           {error}
         </p>
       )}
-      {view === 'active' && !loading && !error && activeCalls.length === 0 && (
+      {!loading && !error && visible.length === 0 && (
         <p className="text-sm text-center py-8" style={{ color: 'var(--muted-text)' }}>
-          No published insights yet — check back soon.
+          {emptyMessage}
         </p>
       )}
-      {view === 'active' && !loading && !error && activeCalls.length > 0 && (
-      <div className="space-y-3">
-        {activeCalls.map(call => {
-          const locked = call.locked
-          const isBuy = call.action === 'BUY'
-          const isFno = call.instrumentType === 'fno'
-          const targets = call.targets ?? []
-          // Progress bar always tracks the nearest booking level (targets[0])
-          // — F&O's further targets are shown as extra text, not extra bar.
-          const primaryTarget = targets[0] ?? call.entryPrice
-          const range = Math.abs(primaryTarget - call.stopLoss) || 1
-          const progress = Math.min(
-            100,
-            Math.max(0, ((call.entryPrice - Math.min(call.stopLoss, primaryTarget)) / range) * 100),
-          )
-          const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
-          const fmtDate = (iso: string) => {
-            const d = new Date(iso)
-            return Number.isNaN(d.getTime())
-              ? iso
-              : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-          }
 
-          return (
-            <div
-              key={call.id}
-              className="relative rounded-2xl p-4 sm:p-5 transition-all"
-              style={{
-                background: 'linear-gradient(150deg, #eef3fb, #e3ebf8)',
-                border: '1px solid rgba(29,78,216,0.2)',
-                opacity: locked ? 0.75 : 1,
-              }}
-            >
-              {locked && (
-                <div
-                  className="absolute inset-0 rounded-2xl flex items-center justify-center z-10 cursor-pointer"
-                  style={{
-                    background: 'color-mix(in srgb, var(--screen-bg) 65%, transparent)',
-                    backdropFilter: 'blur(6px)',
-                    WebkitBackdropFilter: 'blur(6px)',
-                  }}
-                  onClick={onUpgrade}
-                >
-                  <div className="text-center">
-                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--navy)' }}>
-                      Pro Content
-                    </p>
-                    <button className="btn-pro mt-2 px-4 py-1.5 rounded-lg text-xs font-semibold">
-                      Upgrade to Unlock →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Header */}
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span
-                      className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md"
-                      style={{
-                        background: isBuy ? 'var(--buy-badge)' : 'var(--sell-badge)',
-                        color: '#ffffff',
-                        fontFamily: 'JetBrains Mono, monospace',
-                      }}
-                    >
-                      {call.action}
-                    </span>
-                    <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
-                      {call.category} · {call.timeframe}
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-base leading-tight truncate" style={{ color: 'var(--navy)' }}>
-                    {call.stock}
-                  </h3>
-                  <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
-                    {call.symbol} · {fmtDate(call.date)}
-                  </p>
-                </div>
-
-                <div
-                  className="flex-shrink-0 text-right px-3 py-2 rounded-xl"
-                  style={{ background: 'var(--gain-bg)' }}
-                >
-                  <p
-                    className="text-lg font-bold leading-none"
-                    style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
-                  >
-                    {call.returnsPct > 0 ? '+' : ''}{call.returnsPct}%
-                  </p>
-                  <p className="text-[10px] mt-1" style={{ color: 'var(--gain)', opacity: 0.75 }}>
-                    expected
-                  </p>
-                </div>
-              </div>
-
-              {/* Price ladder */}
-              <div
-                className="rounded-xl px-3.5 py-3 mb-3"
-                style={{ background: 'rgba(11,42,85,0.06)', border: '1px solid rgba(29,78,216,0.15)' }}
-              >
-                <div className="flex items-end justify-between gap-2 mb-2">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
-                      Stop loss
-                    </p>
-                    <p
-                      className="text-sm font-semibold"
-                      style={{ color: 'var(--loss)', fontFamily: 'JetBrains Mono, monospace' }}
-                    >
-                      {fmt(call.stopLoss)}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
-                      Entry
-                    </p>
-                    <p
-                      className="text-sm font-bold"
-                      style={{ color: 'var(--navy)', fontFamily: 'JetBrains Mono, monospace' }}
-                    >
-                      {fmt(call.entryPrice)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
-                      {isFno && targets.length > 1 ? 'Target 1' : 'Target'}
-                    </p>
-                    <p
-                      className="text-sm font-semibold"
-                      style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
-                    >
-                      {fmt(primaryTarget)}
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  className="relative h-2 rounded-full overflow-hidden"
-                  style={{ background: 'rgba(11,42,85,0.1)' }}
-                  aria-hidden
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{
-                      width: '100%',
-                      background: isBuy
-                        ? 'linear-gradient(90deg, #f87171, #4ade80)'
-                        : 'linear-gradient(90deg, #4ade80, #f87171)',
-                    }}
-                  />
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full"
-                    style={{
-                      left: `calc(${progress}% - 7px)`,
-                      background: 'var(--navy)',
-                      border: '2.5px solid #fff',
-                      boxShadow: '0 0 0 2px rgba(11,42,85,0.28), 0 1px 3px rgba(11,42,85,0.25)',
-                    }}
-                    title="Entry price"
-                  />
-                </div>
-
-                {isFno && targets.length > 1 && (
-                  <div className="flex items-center gap-2 mt-2.5 pt-2.5" style={{ borderTop: '1px dashed rgba(29,78,216,0.15)' }}>
-                    {targets.slice(1).map((t, i) => (
-                      <span
-                        key={i}
-                        className="text-[11px] font-semibold px-2 py-1 rounded-md"
-                        style={{ background: 'var(--gain-bg)', color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
-                      >
-                        T{i + 2} {fmt(t)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      )}
-
-      {/* Past performances */}
-      {view === 'past' && (
+      {/* Live / Past — open trades, same card shape */}
+      {!loading && !error && visible.length > 0 && view !== 'closed' && (
         <div className="space-y-3">
-          {pastPerformances.map(perf => {
-            const locked = perf.isPro && !isPro
-            const isBuy = perf.action === 'BUY'
-            const isProfit = perf.returnsPct >= 0
-            const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
+          {visible.map(call => {
+            const isBuy = call.action === 'BUY'
+            const isFno = call.instrumentType === 'fno'
+            const targets = call.targets ?? []
+            const primaryTarget = targets[0] ?? call.entryPrice
+            const range = Math.abs(primaryTarget - call.stopLoss) || 1
+            const progress = Math.min(
+              100,
+              Math.max(0, ((call.entryPrice - Math.min(call.stopLoss, primaryTarget)) / range) * 100),
+            )
 
             return (
               <div
-                key={perf.id}
+                key={call.id}
                 className="relative rounded-2xl p-4 sm:p-5 transition-all"
                 style={{
                   background: 'linear-gradient(150deg, #eef3fb, #e3ebf8)',
                   border: '1px solid rgba(29,78,216,0.2)',
-                  opacity: locked ? 0.75 : 1,
                 }}
               >
-                {locked && (
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span
+                        className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md"
+                        style={{
+                          background: isBuy ? 'var(--buy-badge)' : 'var(--sell-badge)',
+                          color: '#ffffff',
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}
+                      >
+                        {call.action}
+                      </span>
+                      <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
+                        {call.category} · {call.timeframe}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-base leading-tight truncate" style={{ color: 'var(--navy)' }}>
+                      {call.stock}
+                    </h3>
+                    <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
+                      {call.symbol} · {fmtDate(call.date)}
+                    </p>
+                  </div>
+
                   <div
-                    className="absolute inset-0 rounded-2xl flex items-center justify-center z-10 cursor-pointer"
-                    style={{
-                      background: 'color-mix(in srgb, var(--screen-bg) 65%, transparent)',
-                      backdropFilter: 'blur(6px)',
-                      WebkitBackdropFilter: 'blur(6px)',
-                    }}
-                    onClick={onUpgrade}
+                    className="flex-shrink-0 text-right px-3 py-2 rounded-xl"
+                    style={{ background: 'var(--gain-bg)' }}
                   >
-                    <div className="text-center">
-                      <p className="text-sm font-semibold mb-1" style={{ color: 'var(--navy)' }}>
-                        Pro Content
+                    <p
+                      className="text-lg font-bold leading-none"
+                      style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
+                    >
+                      {call.returnsPct > 0 ? '+' : ''}{call.returnsPct}%
+                    </p>
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--gain)', opacity: 0.75 }}>
+                      expected
+                    </p>
+                  </div>
+                </div>
+
+                {/* Price ladder */}
+                <div
+                  className="rounded-xl px-3.5 py-3 mb-3"
+                  style={{ background: 'rgba(11,42,85,0.06)', border: '1px solid rgba(29,78,216,0.15)' }}
+                >
+                  <div className="flex items-end justify-between gap-2 mb-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
+                        Stop loss
                       </p>
-                      <button className="btn-pro mt-2 px-4 py-1.5 rounded-lg text-xs font-semibold">
-                        Upgrade to Unlock →
-                      </button>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: 'var(--loss)', fontFamily: 'JetBrains Mono, monospace' }}
+                      >
+                        {fmt(call.stopLoss)}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
+                        Entry
+                      </p>
+                      <p
+                        className="text-sm font-bold"
+                        style={{ color: 'var(--navy)', fontFamily: 'JetBrains Mono, monospace' }}
+                      >
+                        {fmt(call.entryPrice)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--muted-text)' }}>
+                        {isFno && targets.length > 1 ? 'Target 1' : 'Target'}
+                      </p>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
+                      >
+                        {fmt(primaryTarget)}
+                      </p>
                     </div>
                   </div>
-                )}
 
+                  <div
+                    className="relative h-2 rounded-full overflow-hidden"
+                    style={{ background: 'rgba(11,42,85,0.1)' }}
+                    aria-hidden
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        width: '100%',
+                        background: isBuy
+                          ? 'linear-gradient(90deg, #f87171, #4ade80)'
+                          : 'linear-gradient(90deg, #4ade80, #f87171)',
+                      }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full"
+                      style={{
+                        left: `calc(${progress}% - 7px)`,
+                        background: 'var(--navy)',
+                        border: '2.5px solid #fff',
+                        boxShadow: '0 0 0 2px rgba(11,42,85,0.28), 0 1px 3px rgba(11,42,85,0.25)',
+                      }}
+                      title="Entry price"
+                    />
+                  </div>
+
+                  {isFno && targets.length > 1 && (
+                    <div className="flex items-center gap-2 mt-2.5 pt-2.5" style={{ borderTop: '1px dashed rgba(29,78,216,0.15)' }}>
+                      {targets.slice(1).map((t, i) => (
+                        <span
+                          key={i}
+                          className="text-[11px] font-semibold px-2 py-1 rounded-md"
+                          style={{ background: 'var(--gain-bg)', color: 'var(--gain)', fontFamily: 'JetBrains Mono, monospace' }}
+                        >
+                          T{i + 2} {fmt(t)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Closed — resolved trades, outcome instead of a live progress bar */}
+      {!loading && !error && visible.length > 0 && view === 'closed' && (
+        <div className="space-y-3">
+          {visible.map(call => {
+            const isBuy = call.action === 'BUY'
+            const isTargetHit = call.outcome === 'target_hit'
+            const exitPrice = isTargetHit ? (call.targets?.[0] ?? call.entryPrice) : call.stopLoss
+
+            return (
+              <div
+                key={call.id}
+                className="relative rounded-2xl p-4 sm:p-5 transition-all"
+                style={{
+                  background: 'linear-gradient(150deg, #eef3fb, #e3ebf8)',
+                  border: '1px solid rgba(29,78,216,0.2)',
+                }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -364,40 +365,40 @@ export default function TradingCalls() {
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
                       >
-                        {perf.action}
+                        {call.action}
                       </span>
                       <span
                         className="text-[10px] font-medium px-2 py-0.5 rounded-md"
                         style={{
-                          background: perf.outcome === 'Target Hit' ? 'var(--gain-bg)' : 'var(--loss-bg)',
-                          color: perf.outcome === 'Target Hit' ? 'var(--gain)' : 'var(--loss)',
+                          background: isTargetHit ? 'var(--gain-bg)' : 'var(--loss-bg)',
+                          color: isTargetHit ? 'var(--gain)' : 'var(--loss)',
                         }}
                       >
-                        {perf.outcome}
+                        {isTargetHit ? 'Target Hit' : 'SL Hit'}
                       </span>
                       <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
-                        {perf.duration} · Closed {perf.closedDate}
+                        Published {fmtDate(call.date)}{call.closedAt && ` · Closed ${fmtDate(call.closedAt)}`}
                       </span>
                     </div>
                     <h3 className="font-bold text-base leading-tight truncate" style={{ color: 'var(--navy)' }}>
-                      {perf.stock}
+                      {call.stock}
                     </h3>
                     <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
-                      {perf.symbol} · Entry {fmt(perf.entryPrice)} → Exit {fmt(perf.exitPrice)}
+                      {call.symbol} · Entry {fmt(call.entryPrice)} → {isTargetHit ? 'Target' : 'SL'} {fmt(exitPrice)}
                     </p>
                   </div>
 
                   <div
                     className="flex-shrink-0 text-right px-3 py-2 rounded-xl"
-                    style={{ background: isProfit ? 'var(--gain-bg)' : 'var(--loss-bg)' }}
+                    style={{ background: isTargetHit ? 'var(--gain-bg)' : 'var(--loss-bg)' }}
                   >
                     <p
                       className="text-lg font-bold leading-none"
-                      style={{ color: isProfit ? 'var(--gain)' : 'var(--loss)', fontFamily: 'JetBrains Mono, monospace' }}
+                      style={{ color: isTargetHit ? 'var(--gain)' : 'var(--loss)', fontFamily: 'JetBrains Mono, monospace' }}
                     >
-                      {perf.returnsPct > 0 ? '+' : ''}{perf.returnsPct}%
+                      {call.returnsPct > 0 ? '+' : ''}{call.returnsPct}%
                     </p>
-                    <p className="text-[10px] mt-1" style={{ color: isProfit ? 'var(--gain)' : 'var(--loss)', opacity: 0.75 }}>
+                    <p className="text-[10px] mt-1" style={{ color: isTargetHit ? 'var(--gain)' : 'var(--loss)', opacity: 0.75 }}>
                       realised
                     </p>
                   </div>
@@ -405,30 +406,6 @@ export default function TradingCalls() {
               </div>
             )
           })}
-        </div>
-      )}
-
-      {!isPro && (
-        <div
-          className="mt-6 rounded-2xl p-6 text-center"
-          style={{
-            background: 'linear-gradient(135deg, #e3ebf8 0%, #f8efd4 100%)',
-            border: '1px dashed rgba(201,162,39,0.4)',
-          }}
-        >
-          <p className="text-2xl mb-2">🔒</p>
-          <p className="font-bold mb-1" style={{ color: 'var(--navy)' }}>
-            {lockedCount} more {view === 'active' ? 'research ideas' : 'past performance records'} available on Pro
-          </p>
-          <p className="text-sm mb-4" style={{ color: 'var(--muted-text)' }}>
-            Get unlimited access to all market insights and premium courses.
-          </p>
-          <button
-            onClick={onUpgrade}
-            className="btn-pro px-6 py-2.5 rounded-xl font-semibold text-sm"
-          >
-            Upgrade to Pro · ₹999/month
-          </button>
         </div>
       )}
     </div>
