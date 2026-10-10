@@ -51,3 +51,7 @@ next-env.d.ts
 /android/*.keystore
 /android/android.keystore
 /android/signingKey.properties
+/android/*.apk
+/android/*.apk.idsig
+/android/*.aab
+/android/.bw-home/

@@ -122,8 +122,8 @@ export default function Admin() {
   const handleSavePricing = async (e: React.FormEvent) => {
     e.preventDefault();
     const pct = Number(discountInput);
-    if (!Number.isFinite(pct) || pct <= 0 || pct >= 100) {
-      setPricingError("Enter a discount between 1 and 99");
+    if (!Number.isFinite(pct) || pct < 25 || pct >= 100) {
+      setPricingError("Enter a discount between 25 and 99");
       return;
     }
     setPricingError("");
@@ -311,6 +311,8 @@ export default function Admin() {
               "Discount %",
               <input
                 type="number"
+                min={25}
+                max={99}
                 className={inputClass}
                 style={{ ...inputStyle, maxWidth: "120px" }}
                 value={discountInput}

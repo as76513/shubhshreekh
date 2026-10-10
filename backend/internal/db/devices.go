@@ -59,14 +59,21 @@ func HasActiveEntitlement(user *User, now time.Time) bool {
 }
 
 // CheckDevice reports whether deviceID may log in: either it's already
-// registered (just renewing its session), or there's still a free slot.
-func CheckDevice(devices []Device, deviceID string) bool {
+// registered (just renewing its session), or there's still a free slot
+// under maxDevices. maxDevices <= 0 means unlimited — used for staff roles
+// (analyst/admin/compliance) that legitimately need multiple people/devices
+// pushing trades; the anti-piracy cap is a customer-subscription concern,
+// not an internal-tooling one (see handleVerifyOTP).
+func CheckDevice(devices []Device, deviceID string, maxDevices int) bool {
 	for _, d := range devices {
 		if d.DeviceID == deviceID {
 			return true
 		}
 	}
-	return len(devices) < MaxDevices
+	if maxDevices <= 0 {
+		return true
+	}
+	return len(devices) < maxDevices
 }
 
 // TouchOrRegisterDevice updates an existing device's lastActiveAt/label, or
@@ -116,14 +123,15 @@ func CanSwapDevice(lastSwapAt string, now time.Time) (ok bool, retryAfter time.D
 
 // RegisterDevice is the DB glue around CheckDevice/TouchOrRegisterDevice —
 // called at verify-otp time. Returns the current device list either way,
-// so a rejection can show the caller what's occupying both slots.
+// so a rejection can show the caller what's occupying both slots. maxDevices
+// is forwarded to CheckDevice (<=0 means unlimited — see CheckDevice).
 //
 // Retries on a fresh read if the optimistic-concurrency write loses a race
 // (see DevicesVersion) — without this, two logins arriving at nearly the
 // same instant could both read the same starting device list, both pass
 // CheckDevice, and both get issued a session, landing at more than
 // MaxDevices concurrently-valid logins (found in code review 2026-10-06).
-func (t *UsersTable) RegisterDevice(ctx context.Context, userID, deviceID, label string) (allowed bool, devices []Device, err error) {
+func (t *UsersTable) RegisterDevice(ctx context.Context, userID, deviceID, label string, maxDevices int) (allowed bool, devices []Device, err error) {
 	for attempt := 0; attempt < maxDeviceWriteRetries; attempt++ {
 		user, err := t.Get(ctx, userID)
 		if err != nil {
@@ -132,7 +140,7 @@ func (t *UsersTable) RegisterDevice(ctx context.Context, userID, deviceID, label
 		if user == nil {
 			return false, nil, nil
 		}
-		if !CheckDevice(user.Devices, deviceID) {
+		if !CheckDevice(user.Devices, deviceID, maxDevices) {
 			return false, user.Devices, nil
 		}
 		now := time.Now().UTC()

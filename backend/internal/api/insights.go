@@ -108,7 +108,11 @@ func (d Deps) handleUpdateInsight(w http.ResponseWriter, r *http.Request) {
 // that makes an insight visible via GET /insights (writes its GSI1 keys).
 func (d Deps) handlePublishInsight(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	claims, _ := auth.FromContext(r.Context())
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	if err := d.Content.PublishInsight(r.Context(), id, claims.Subject); err != nil {
 		writeError(w, http.StatusNotFound, "insight not found")
 		return
@@ -174,11 +178,10 @@ func (d Deps) handleListAllInsights(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, insights)
 }
 
-// customerInsight is GET /insights' response shape. Free-tier callers get
-// the stub form with locked:true and every trade-detail field zeroed —
-// architecture.md: "never send full Pro content and rely on the UI to hide
-// it" — so a free user's network tab never contains the numbers, unlike
-// the pre-API static-mock version this replaces.
+// customerInsight is GET /insights' response shape. There's no Free tier
+// left to gate against (TD-054 — every active session is "pro"), so this
+// is a straight read of the published row; see TECH_DEBT.md TD-062 for the
+// history of the per-row lock this replaced.
 type customerInsight struct {
 	ID             string    `json:"id"`
 	Stock          string    `json:"stock"`
@@ -188,27 +191,21 @@ type customerInsight struct {
 	Category       string    `json:"category"`
 	Timeframe      string    `json:"timeframe"`
 	Tier           string    `json:"tier"`
-	Locked         bool      `json:"locked"`
 	EntryPrice     float64   `json:"entryPrice"`
 	Targets        []float64 `json:"targets"`
 	StopLoss       float64   `json:"stopLoss"`
 	ReturnsPct     float64   `json:"returnsPct"`
 	Rationale      string    `json:"rationale"`
 	Date           string    `json:"date"`
-	// TradeStatus/Outcome/ClosedAt are status metadata, not the sensitive
-	// trade-detail numbers architecture.md says to zero for locked rows —
-	// shown regardless of tier so a free user can at least see a Pro call
-	// resolved, just not its numbers.
-	TradeStatus    string `json:"tradeStatus"`
-	Outcome        string `json:"outcome,omitempty"`
-	ClosedAt       string `json:"closedAt,omitempty"`
-	TargetHitIndex *int   `json:"targetHitIndex,omitempty"`
+	TradeStatus    string    `json:"tradeStatus"`
+	Outcome        string    `json:"outcome,omitempty"`
+	ClosedAt       string    `json:"closedAt,omitempty"`
+	TargetHitIndex *int      `json:"targetHitIndex,omitempty"`
 }
 
-// handleListInsights: GET /insights — published insights, tier-gated.
+// handleListInsights: GET /insights — published insights.
 func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
+	if _, ok := auth.FromContext(r.Context()); !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
@@ -220,8 +217,7 @@ func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]customerInsight, 0, len(insights))
 	for _, in := range insights {
-		locked := in.Tier == "pro" && claims.Subscription != "pro"
-		c := customerInsight{
+		out = append(out, customerInsight{
 			ID:             in.ID,
 			Stock:          in.Stock,
 			Symbol:         in.Symbol,
@@ -230,22 +226,17 @@ func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
 			Category:       in.Category,
 			Timeframe:      in.Timeframe,
 			Tier:           in.Tier,
-			Locked:         locked,
-			Targets:        []float64{},
+			EntryPrice:     in.EntryPrice,
+			Targets:        in.Targets,
+			StopLoss:       in.StopLoss,
+			ReturnsPct:     in.ReturnsPct,
+			Rationale:      in.Rationale,
 			Date:           in.PublishedAt,
 			TradeStatus:    in.TradeStatus,
 			Outcome:        in.Outcome,
 			ClosedAt:       in.ClosedAt,
 			TargetHitIndex: in.TargetHitIndex,
-		}
-		if !locked {
-			c.EntryPrice = in.EntryPrice
-			c.Targets = in.Targets
-			c.StopLoss = in.StopLoss
-			c.ReturnsPct = in.ReturnsPct
-			c.Rationale = in.Rationale
-		}
-		out = append(out, c)
+		})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

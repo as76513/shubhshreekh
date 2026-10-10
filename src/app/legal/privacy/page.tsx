@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-        Last updated: 11 September 2026 · Placeholder for Play Store / launch —
+        Last updated: 8 October 2026 · Placeholder for Play Store / launch —
         replace with counsel-approved text before charging users.
       </p>
 
@@ -24,7 +24,9 @@ export default function PrivacyPage() {
         <p>
           Shubhshree Knowledge Hub Private Limited (“ShubhShreekh”) provides
           research notes and financial education via our web and Android app at
-          app.shubhshreeknowledgehub.com.
+          app.shubhshreeknowledgehub.com. SEBI Research Analyst Registration
+          No.: [PENDING — insert once allotted/confirmed]. BASL Membership
+          No.: [PENDING].
         </p>
 
         <h2 className="text-lg font-semibold">Data we collect</h2>
@@ -51,12 +53,11 @@ export default function PrivacyPage() {
 
         <h2 className="text-lg font-semibold">Contact</h2>
         <p>
-          Privacy questions: use the contact email published in the Play Store
-          listing, or the{" "}
+          Privacy questions: email support@shubhshree.in, or see the{" "}
           <a href="/legal/grievance" style={{ color: "var(--primary)" }}>
             grievance
           </a>{" "}
-          page.
+          page for the escalation path.
         </p>
       </section>
     </article>

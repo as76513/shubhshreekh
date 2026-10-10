@@ -48,6 +48,12 @@ variable "otp_test_code" {
   sensitive   = true
 }
 
+variable "otp_bypass_all" {
+  description = "TD-065: time-boxed internal-testing-only flag. When \"true\", every phone number (not just otp_test_phones) accepts otp_test_code instead of real OTP. Default false — never leave true outside the agreed testing window."
+  type        = string
+  default     = "false"
+}
+
 variable "analyst_phones" {
   description = "Comma-separated RA/analyst phones (10-digit or 91…) — granted the analyst role claim on login, which gates /admin/insights/*. See TECH_DEBT.md TD-013."
   type        = string

@@ -26,7 +26,11 @@ func (d Deps) handleCreateOverview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "text is required")
 		return
 	}
-	claims, _ := auth.FromContext(r.Context())
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	ov, err := d.Content.CreateOverview(r.Context(), text, req.PhotoURLs, claims.Subject)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not post overview")
@@ -79,7 +83,11 @@ func (d Deps) handleSetWeeklyPDF(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "title and pdfUrl are required")
 		return
 	}
-	claims, _ := auth.FromContext(r.Context())
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	if err := d.Settings.SetWeeklyPDF(r.Context(), title, strings.TrimSpace(req.Summary), pdfURL, claims.Subject); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not update weekly PDF")
 		return

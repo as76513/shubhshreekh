@@ -15,25 +15,25 @@ export default function GrievancePage() {
         Grievance redressal
       </h1>
       <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-        Last updated: 11 September 2026 · Placeholder — confirm officer name,
+        Last updated: 8 October 2026 · Placeholder — confirm officer name,
         email, and escalation with your SEBI compliance advisor.
       </p>
 
       <section className="space-y-3 text-sm leading-relaxed">
         <h2 className="text-lg font-semibold">How to raise a complaint</h2>
         <p>
-          Email your registered mobile number, a short description of the
-          issue, and any screenshots to the support address listed on our Play
-          Store / website listing. We aim to acknowledge within a few business
-          days.
+          Email support@shubhshree.in with your registered mobile number, a
+          short description of the issue, and any screenshots. We aim to
+          acknowledge within a few business days.
         </p>
 
         <h2 className="text-lg font-semibold">Escalation</h2>
         <p>
-          If unresolved, escalate to the designated Grievance Officer (details
-          to be published here before charging subscribers). SEBI / SCORES
-          avenues may also apply for Research Analyst services as per
-          regulation.
+          If unresolved, escalate to our designated Grievance Officer:{" "}
+          <strong>[PENDING — officer name]</strong>,{" "}
+          <strong>[PENDING — direct email]</strong>. SEBI / SCORES avenues
+          (scores.sebi.gov.in) may also apply for Research Analyst services as
+          per regulation — SEBI Research Analyst Registration No.: [PENDING].
         </p>
 
         <h2 className="text-lg font-semibold">Related</h2>

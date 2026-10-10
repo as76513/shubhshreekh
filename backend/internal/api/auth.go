@@ -24,6 +24,12 @@ import (
 const deviceSwapRole = "device_swap"
 const deviceSwapTokenTTL = 10 * time.Minute
 
+// maxDeviceFieldLen bounds the client-supplied deviceId/deviceLabel —
+// nothing exploitable today, but without a cap a pathologically large
+// value would bloat the devices list item stored on the user row (TD-064).
+// Real device IDs are UUIDs (~36 chars); labels are short device names.
+const maxDeviceFieldLen = 128
+
 // phoneRe matches a bare 10-digit Indian mobile number (no country code —
 // the frontend collects it separately, see src/components/SignupModal.tsx).
 // Never trust this format assumption from the client alone; it's re-checked
@@ -246,7 +252,19 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "device id required")
 		return
 	}
-	deviceAllowed, devices, err := d.Users.RegisterDevice(r.Context(), user.UserID, req.DeviceID, req.DeviceLabel)
+	if len(req.DeviceID) > maxDeviceFieldLen || len(req.DeviceLabel) > maxDeviceFieldLen {
+		writeError(w, http.StatusBadRequest, "device id or label too long")
+		return
+	}
+	// Anti-piracy device cap is a customer-subscription concern — RA/admin
+	// staff legitimately run 2-3 people pushing trades from their own
+	// devices, so analyst/admin/compliance roles get no cap (maxDevices<=0
+	// means unlimited, see db.CheckDevice).
+	maxDevices := db.MaxDevices
+	if roleForPhone(fullPhone) != "customer" {
+		maxDevices = 0
+	}
+	deviceAllowed, devices, err := d.Users.RegisterDevice(r.Context(), user.UserID, req.DeviceID, req.DeviceLabel, maxDevices)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue session")
 		return
@@ -299,6 +317,10 @@ func (d Deps) handleSwapDevice(w http.ResponseWriter, r *http.Request) {
 	var req swapDeviceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RemoveDeviceID == "" || req.NewDeviceID == "" {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.RemoveDeviceID) > maxDeviceFieldLen || len(req.NewDeviceID) > maxDeviceFieldLen || len(req.NewDeviceLabel) > maxDeviceFieldLen {
+		writeError(w, http.StatusBadRequest, "device id or label too long")
 		return
 	}
 

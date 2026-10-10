@@ -81,11 +81,15 @@ func (d Deps) handleUpdatePricing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.DiscountPercent <= 0 || req.DiscountPercent >= 100 {
-		writeError(w, http.StatusBadRequest, "discountPercent must be between 0 and 100")
+	if req.DiscountPercent < 25 || req.DiscountPercent >= 100 {
+		writeError(w, http.StatusBadRequest, "discountPercent must be between 25 and 100")
 		return
 	}
-	claims, _ := auth.FromContext(r.Context())
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	if err := d.Settings.SetDiscountPercent(r.Context(), req.DiscountPercent, claims.Subject); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not update pricing")
 		return

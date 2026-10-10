@@ -127,12 +127,12 @@ func (f *fakeUsersStore) SetVerifiedUntil(ctx context.Context, userID string, un
 // internal/db/devices.go — only the storage (an in-memory map here instead
 // of DynamoDB) is faked, so these tests exercise the actual device-limit
 // rules, not a reimplementation of them.
-func (f *fakeUsersStore) RegisterDevice(ctx context.Context, userID, deviceID, label string) (bool, []db.Device, error) {
+func (f *fakeUsersStore) RegisterDevice(ctx context.Context, userID, deviceID, label string, maxDevices int) (bool, []db.Device, error) {
 	u, ok := f.users[userID]
 	if !ok {
 		return false, nil, nil
 	}
-	if !db.CheckDevice(u.Devices, deviceID) {
+	if !db.CheckDevice(u.Devices, deviceID, maxDevices) {
 		return false, u.Devices, nil
 	}
 	u.Devices = db.TouchOrRegisterDevice(u.Devices, deviceID, label, time.Now().UTC())
@@ -451,6 +451,45 @@ func TestHandleVerifyOTP_DeviceLimitReached(t *testing.T) {
 	}
 	if resp.DeviceManagementToken == "" {
 		t.Fatalf("expected a deviceManagementToken to complete the swap with")
+	}
+}
+
+// Analyst/admin/compliance accounts run 2-3 people pushing trades from their
+// own devices — the anti-piracy cap exists for customer subscriptions, not
+// internal RA tooling, so a role derived from ANALYST_PHONES should never
+// see device_limit_reached.
+func TestHandleVerifyOTP_AnalystBypassesDeviceLimit(t *testing.T) {
+	t.Setenv("ANALYST_PHONES", "9876543210")
+
+	otpProvider := &fakeOTPProvider{verifyOK: true}
+	limiter := newFakeRateLimiter()
+	users := newFakeUsersStore()
+	users.users["919876543210"] = &db.User{
+		UserID:      "919876543210",
+		TrialEndsAt: time.Now().UTC().Add(db.TrialDuration).Format(time.RFC3339),
+		Devices: []db.Device{
+			{DeviceID: "device-1", Label: "Chrome on Mac", LastActiveAt: time.Now().UTC().Format(time.RFC3339)},
+			{DeviceID: "device-2", Label: "Chrome on Windows", LastActiveAt: time.Now().UTC().Format(time.RFC3339)},
+		},
+	}
+	d := testDeps(otpProvider, limiter, users)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(`{"phone":"9876543210","otp":"223344","deviceId":"device-3"}`))
+	rec := httptest.NewRecorder()
+	d.handleVerifyOTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (analyst should bypass the device cap); body = %s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		Role string `json:"role"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.Role != "analyst" {
+		t.Fatalf("role = %q, want analyst", resp.Role)
+	}
+	if len(users.users["919876543210"].Devices) != 3 {
+		t.Fatalf("devices = %+v, want all 3 registered (no cap for analyst)", users.users["919876543210"].Devices)
 	}
 }
 

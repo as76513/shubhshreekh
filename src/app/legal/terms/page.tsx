@@ -15,7 +15,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-        Last updated: 11 September 2026 · Placeholder for Play Store / launch —
+        Last updated: 8 October 2026 · Placeholder for Play Store / launch —
         replace with counsel-approved text before charging users.
       </p>
 
@@ -23,16 +23,22 @@ export default function TermsPage() {
         <h2 className="text-lg font-semibold">Service</h2>
         <p>
           ShubhShreekh offers research notes, educational content, and related
-          tools for Indian investors. Content is for education / research
-          purposes and is not a brokerage or order-execution service.
+          tools for Indian investors, provided by Shubhshree Knowledge Hub
+          Private Limited under SEBI Research Analyst Registration No.:
+          [PENDING — insert once allotted/confirmed] (BASL Membership No.:
+          [PENDING]). Content is for education / research purposes and is not
+          a brokerage or order-execution service.
         </p>
 
-        <h2 className="text-lg font-semibold">Not investment advice guarantee</h2>
+        <h2 className="text-lg font-semibold">Risk disclosure</h2>
         <p>
-          Markets involve risk. Past performance is not a guarantee of future
-          results. You are responsible for your own investment decisions.
-          Displayed SEBI Research Analyst registration details apply as shown
-          in the app.
+          Investments in securities market are subject to market risks. Read
+          all related documents carefully before investing. Past performance
+          is not indicative of future returns. Shubhshree Knowledge Hub Pvt.
+          Ltd. is not a SEBI registered investment advisor. Market insights
+          are for educational and informational purposes only and should not
+          be construed as investment advice. You are responsible for your own
+          investment decisions.
         </p>
 
         <h2 className="text-lg font-semibold">Accounts</h2>

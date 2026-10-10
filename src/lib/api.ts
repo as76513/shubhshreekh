@@ -205,7 +205,6 @@ export type Insight = {
   category: string;
   timeframe: string;
   tier: string;
-  locked: boolean;
   entryPrice: number;
   targets: number[];
   stopLoss: number;

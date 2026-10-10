@@ -80,7 +80,7 @@ type UsersStore interface {
 	SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error
 	ClearWebAuthnCredential(ctx context.Context, userID string) error
 	SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error
-	RegisterDevice(ctx context.Context, userID, deviceID, label string) (allowed bool, devices []Device, err error)
+	RegisterDevice(ctx context.Context, userID, deviceID, label string, maxDevices int) (allowed bool, devices []Device, err error)
 	SwapDevice(ctx context.Context, userID, removeDeviceID, newDeviceID, newLabel string) (ok bool, retryAfter time.Duration, err error)
 }
 

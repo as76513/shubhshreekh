@@ -32,14 +32,17 @@ func TestHasActiveEntitlement(t *testing.T) {
 func TestCheckDevice(t *testing.T) {
 	devices := []Device{{DeviceID: "a"}, {DeviceID: "b"}}
 
-	if !CheckDevice(devices, "a") {
+	if !CheckDevice(devices, "a", MaxDevices) {
 		t.Error("an already-registered device should always be allowed")
 	}
-	if CheckDevice(devices, "c") {
+	if CheckDevice(devices, "c", MaxDevices) {
 		t.Error("a 3rd unregistered device should be rejected once MaxDevices is reached")
 	}
-	if !CheckDevice([]Device{{DeviceID: "a"}}, "c") {
+	if !CheckDevice([]Device{{DeviceID: "a"}}, "c", MaxDevices) {
 		t.Error("a new device should be allowed while there's still a free slot")
+	}
+	if !CheckDevice(devices, "c", 0) {
+		t.Error("maxDevices<=0 should mean unlimited (analyst/admin/compliance roles)")
 	}
 }
 

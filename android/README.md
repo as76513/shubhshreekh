@@ -4,6 +4,19 @@ Wraps the live PWA at **https://app.shubhshreeknowledgehub.com** in a
 full-screen Android app. The APK is a thin shell (~10 MB); UI updates ship when
 you deploy the web app — testers do not need a new APK for every UI change.
 
+## Alternative: containerized build (no local installs, used 2026-10-08)
+
+The steps below install a JDK + Android SDK directly on your Mac. If you'd
+rather not do that, `Dockerfile.build` has a disposable `linux/amd64` image
+with everything needed (Android build-tools are x86_64-only on Linux —
+arm64 Macs need `--platform linux/amd64`, QEMU-emulated). `twa-manifest.json`,
+the Gradle project, `android.keystore`, and `signingKey.properties` here were
+all generated this way — see TECH_DEBT.md TD-012 for the exact commands, the
+3 bugs hit getting it working, and why `bubblewrap init`'s interactive wizard
+had to be bypassed with `noninteractive-init.js` instead. `docker rmi
+shubhshreekh-android-build` removes the image when you're done; the generated
+project files stay regardless.
+
 ## One-time setup (on your Mac)
 
 ### 1. Install build tools
