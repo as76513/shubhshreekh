@@ -255,6 +255,16 @@ resource "aws_amplify_branch" "main" {
   branch_name = "main"
   stage       = "PRODUCTION"
   framework   = "Next.js - SSR"
+
+  # The app-level environment_variables above aren't enough on their own —
+  # found 2026-10-10 debugging assetlinks.json: Amplify's SSR runtime reads
+  # env vars from the BRANCH, not just the app, so without this block a
+  # Route Handler's process.env lookup sees nothing even though the app
+  # "has" the variable set.
+  environment_variables = {
+    NEXT_PUBLIC_API_BASE_URL = var.api_base_url
+    TWA_SHA256_FINGERPRINT   = var.twa_sha256_fingerprint
+  }
 }
 
 ##############################################################################
