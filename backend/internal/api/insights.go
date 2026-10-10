@@ -52,6 +52,27 @@ func (req insightRequest) validate() error {
 	if req.EntryPriceLow > req.EntryPriceHigh {
 		return errors.New("entry price low must not exceed entry price high")
 	}
+	if req.StopLoss <= 0 {
+		return errors.New("stop loss must be positive")
+	}
+	// Stop loss direction depends on the call direction: a BUY loses money
+	// as price falls, so its stop sits below the entry range; a SELL loses
+	// money as price rises, so its stop sits above the entry range. Checked
+	// against the whole range's near edge (EntryPriceLow for BUY,
+	// EntryPriceHigh for SELL) so the stop still protects a fill anywhere
+	// in the range, not just at one end of it.
+	switch req.Action {
+	case "BUY":
+		if req.StopLoss >= req.EntryPriceLow {
+			return errors.New("stop loss must be below the entry price for a BUY call")
+		}
+	case "SELL":
+		if req.StopLoss <= req.EntryPriceHigh {
+			return errors.New("stop loss must be above the entry price for a SELL call")
+		}
+	default:
+		return errors.New(`action must be "BUY" or "SELL"`)
+	}
 	return nil
 }
 
@@ -179,6 +200,36 @@ func (d Deps) handleCloseInsight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"closed": true})
+}
+
+type markTargetHitRequest struct {
+	TargetIndex *int `json:"targetIndex,omitempty"` // which Targets[] element was hit; defaults to 0
+}
+
+// handleMarkTargetHit: POST /admin/insights/{id}/mark-target-hit — records
+// that a scaled F&O target was reached *without* closing the trade. A real
+// multi-target F&O call often hits T1, stays open, and later hits T2 and/or
+// T3 too — the old handleCloseInsight-only flow treated any target hit as
+// final, with no way to keep tracking a still-open trade past its first
+// booking level. This can be called again later with a higher index as the
+// trade keeps running; handleCloseInsight picks up whatever was last
+// recorded here if it isn't given its own targetIndex.
+func (d Deps) handleMarkTargetHit(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req markTargetHitRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := d.Content.MarkTargetHit(r.Context(), id, req.TargetIndex); err != nil {
+		if errors.Is(err, db.ErrTargetIndexOutOfRange) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeError(w, http.StatusNotFound, "insight not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"marked": true})
 }
 
 // handleListAllInsights: GET /admin/insights — drafts + published +

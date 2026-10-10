@@ -137,6 +137,7 @@ type ContentStore interface {
 	PublishInsight(ctx context.Context, id, publishedBy string) error
 	ArchiveInsight(ctx context.Context, id string) error
 	CloseInsight(ctx context.Context, id, outcome string, targetIndex *int) error
+	MarkTargetHit(ctx context.Context, id string, targetIndex *int) error
 	GetInsight(ctx context.Context, id string) (*Insight, error)
 	ListAll(ctx context.Context) ([]Insight, error)
 	ListPublished(ctx context.Context) ([]Insight, error)
@@ -273,15 +274,46 @@ func ResolveTargetHitIndex(targets []float64, targetIndex *int) (int, error) {
 	return idx, nil
 }
 
+// MarkTargetHit records progress toward a scaled F&O call's targets
+// *without* closing the trade — a real multi-target F&O call often reaches
+// more than one booking level over its life (T1, then later T2, then later
+// T3), and the RA needs to record each as it happens while the trade stays
+// open, rather than the old behavior where hitting any target immediately
+// and permanently closed it. Unlike CloseInsight, this never touches
+// TradeStatus/Outcome/ClosedAt — only an explicit CloseInsight call
+// finalizes the trade. ReturnsPct is updated to preview the return at this
+// target so the admin list reflects current progress even before close.
+func (t *ContentTable) MarkTargetHit(ctx context.Context, id string, targetIndex *int) error {
+	insight, err := t.GetInsight(ctx, id)
+	if err != nil {
+		return err
+	}
+	if insight == nil {
+		return fmt.Errorf("insight %q not found", id)
+	}
+	idx, err := ResolveTargetHitIndex(insight.Targets, targetIndex)
+	if err != nil {
+		return err
+	}
+	set := map[string]types.AttributeValue{
+		"targetHitIndex": &types.AttributeValueMemberN{Value: strconv.Itoa(idx)},
+		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.Targets[idx]))},
+		"updatedAt":      &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+	}
+	return t.updateItem(ctx, id, set, nil)
+}
+
 // CloseInsight marks a trade resolved — the RA does this by hand (TD-053),
 // since there's no live price feed to detect a target/SL hit automatically.
 // Leaves Status/GSI1 untouched: a closed trade can still be "published" and
 // visible, just no longer "open". For outcome "target_hit", targetIndex says
-// which of the insight's own Targets was actually hit (nil defaults to 0,
-// the only valid index for an equity call); returnsPct is recomputed off
-// that real hit price (or the stop-loss for "sl_hit") so the customer
-// Closed tab shows the actual realised return, not the original "expected"
-// figure from publish time.
+// which of the insight's own Targets was actually hit; a nil targetIndex
+// falls back to whatever MarkTargetHit last recorded (insight.TargetHitIndex),
+// or index 0 if neither was ever set — the only valid index for an equity
+// call's single target. returnsPct is recomputed off that real hit price
+// (or the stop-loss for "sl_hit") so the customer Closed tab shows the
+// actual realised return, not the original "expected" figure from publish
+// time.
 func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string, targetIndex *int) error {
 	insight, err := t.GetInsight(ctx, id)
 	if err != nil {
@@ -299,7 +331,11 @@ func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string, tar
 		"updatedAt":   &types.AttributeValueMemberS{Value: now},
 	}
 	if outcome == "target_hit" {
-		idx, err := ResolveTargetHitIndex(insight.Targets, targetIndex)
+		effectiveIndex := targetIndex
+		if effectiveIndex == nil {
+			effectiveIndex = insight.TargetHitIndex
+		}
+		idx, err := ResolveTargetHitIndex(insight.Targets, effectiveIndex)
 		if err != nil {
 			return err
 		}

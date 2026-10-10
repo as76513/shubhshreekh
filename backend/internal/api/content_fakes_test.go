@@ -93,9 +93,10 @@ func (f *fakeContentStore) ArchiveInsight(ctx context.Context, id string) error 
 	return nil
 }
 
-// CloseInsight mirrors db.ContentTable.CloseInsight's bounds-check by
-// calling the same exported pure function (db.ResolveTargetHitIndex)
-// production uses, rather than reimplementing the rule.
+// CloseInsight mirrors db.ContentTable.CloseInsight's bounds-check and
+// fallback-to-last-marked-target behavior, calling the same exported pure
+// function (db.ResolveTargetHitIndex) production uses, rather than
+// reimplementing the rule.
 func (f *fakeContentStore) CloseInsight(ctx context.Context, id, outcome string, targetIndex *int) error {
 	existing, ok := f.insights[id]
 	if !ok {
@@ -106,7 +107,11 @@ func (f *fakeContentStore) CloseInsight(ctx context.Context, id, outcome string,
 	// an out-of-range index never leaves the trade half-closed either way.
 	var idx *int
 	if outcome == "target_hit" {
-		resolved, err := db.ResolveTargetHitIndex(existing.Targets, targetIndex)
+		effectiveIndex := targetIndex
+		if effectiveIndex == nil {
+			effectiveIndex = existing.TargetHitIndex
+		}
+		resolved, err := db.ResolveTargetHitIndex(existing.Targets, effectiveIndex)
 		if err != nil {
 			return err
 		}
@@ -116,6 +121,21 @@ func (f *fakeContentStore) CloseInsight(ctx context.Context, id, outcome string,
 	existing.Outcome = outcome
 	existing.ClosedAt = time.Now().UTC().Format(time.RFC3339)
 	existing.TargetHitIndex = idx
+	return nil
+}
+
+// MarkTargetHit mirrors db.ContentTable.MarkTargetHit — records progress
+// without touching TradeStatus/Outcome/ClosedAt.
+func (f *fakeContentStore) MarkTargetHit(ctx context.Context, id string, targetIndex *int) error {
+	existing, ok := f.insights[id]
+	if !ok {
+		return fmt.Errorf("insight %q not found", id)
+	}
+	idx, err := db.ResolveTargetHitIndex(existing.Targets, targetIndex)
+	if err != nil {
+		return err
+	}
+	existing.TargetHitIndex = &idx
 	return nil
 }
 

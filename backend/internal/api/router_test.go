@@ -31,6 +31,7 @@ func adminRoutes(insightID string) []adminRoute {
 		{http.MethodPost, "/admin/insights/" + insightID + "/publish", ""},
 		{http.MethodPost, "/admin/insights/" + insightID + "/archive", ""},
 		{http.MethodPost, "/admin/insights/" + insightID + "/close", `{"outcome":"sl_hit"}`},
+		{http.MethodPost, "/admin/insights/" + insightID + "/mark-target-hit", `{"targetIndex":0}`},
 		{http.MethodPatch, "/admin/pricing", `{"discountPercent":50}`},
 		{http.MethodPost, "/admin/overview", `{"text":"today's update"}`},
 		{http.MethodPatch, "/admin/weekly-pdf", `{"title":"Week 1","pdfUrl":"https://bucket.s3.ap-south-1.amazonaws.com/weekly-pdf/a.pdf"}`},

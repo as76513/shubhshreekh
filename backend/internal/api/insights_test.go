@@ -41,18 +41,24 @@ func TestInsightRequestValidate(t *testing.T) {
 		req     insightRequest
 		wantErr bool
 	}{
-		{"equity with exactly one target", insightRequest{InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920}, false},
-		{"equity with zero targets", insightRequest{InstrumentType: "equity", Targets: nil, EntryPriceLow: 2900, EntryPriceHigh: 2920}, true},
-		{"equity with two targets rejected", insightRequest{InstrumentType: "equity", Targets: []float64{3200, 3300}, EntryPriceLow: 2900, EntryPriceHigh: 2920}, true},
-		{"fno with one target", insightRequest{InstrumentType: "fno", Targets: []float64{24500}, EntryPriceLow: 24000, EntryPriceHigh: 24050}, false},
-		{"fno with three targets", insightRequest{InstrumentType: "fno", Targets: []float64{24500, 24700, 24900}, EntryPriceLow: 24000, EntryPriceHigh: 24050}, false},
-		{"fno with four targets rejected", insightRequest{InstrumentType: "fno", Targets: []float64{1, 2, 3, 4}, EntryPriceLow: 24000, EntryPriceHigh: 24050}, true},
-		{"fno with zero targets rejected", insightRequest{InstrumentType: "fno", Targets: nil, EntryPriceLow: 24000, EntryPriceHigh: 24050}, true},
-		{"unknown instrument type rejected", insightRequest{InstrumentType: "option", Targets: []float64{100}, EntryPriceLow: 90, EntryPriceHigh: 95}, true},
-		{"zero target value rejected", insightRequest{InstrumentType: "equity", Targets: []float64{0}, EntryPriceLow: 2900, EntryPriceHigh: 2920}, true},
-		{"negative target value rejected", insightRequest{InstrumentType: "fno", Targets: []float64{100, -5}, EntryPriceLow: 90, EntryPriceHigh: 95}, true},
-		{"entry price low above high rejected", insightRequest{InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2920, EntryPriceHigh: 2900}, true},
-		{"zero entry price rejected", insightRequest{InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 0, EntryPriceHigh: 0}, true},
+		{"equity with exactly one target", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2780}, false},
+		{"equity with zero targets", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: nil, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2780}, true},
+		{"equity with two targets rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200, 3300}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2780}, true},
+		{"fno with one target", insightRequest{Action: "BUY", InstrumentType: "fno", Targets: []float64{24500}, EntryPriceLow: 24000, EntryPriceHigh: 24050, StopLoss: 23800}, false},
+		{"fno with three targets", insightRequest{Action: "BUY", InstrumentType: "fno", Targets: []float64{24500, 24700, 24900}, EntryPriceLow: 24000, EntryPriceHigh: 24050, StopLoss: 23800}, false},
+		{"fno with four targets rejected", insightRequest{Action: "BUY", InstrumentType: "fno", Targets: []float64{1, 2, 3, 4}, EntryPriceLow: 24000, EntryPriceHigh: 24050, StopLoss: 23800}, true},
+		{"fno with zero targets rejected", insightRequest{Action: "BUY", InstrumentType: "fno", Targets: nil, EntryPriceLow: 24000, EntryPriceHigh: 24050, StopLoss: 23800}, true},
+		{"unknown instrument type rejected", insightRequest{Action: "BUY", InstrumentType: "option", Targets: []float64{100}, EntryPriceLow: 90, EntryPriceHigh: 95, StopLoss: 80}, true},
+		{"zero target value rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{0}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2780}, true},
+		{"negative target value rejected", insightRequest{Action: "BUY", InstrumentType: "fno", Targets: []float64{100, -5}, EntryPriceLow: 90, EntryPriceHigh: 95, StopLoss: 80}, true},
+		{"entry price low above high rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2920, EntryPriceHigh: 2900, StopLoss: 2780}, true},
+		{"zero entry price rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 0, EntryPriceHigh: 0, StopLoss: 2780}, true},
+		{"zero stop loss rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 0}, true},
+		{"BUY stop loss above entry low rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2910}, true},
+		{"BUY stop loss equal to entry low rejected", insightRequest{Action: "BUY", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2900}, true},
+		{"SELL stop loss above entry high accepted", insightRequest{Action: "SELL", InstrumentType: "equity", Targets: []float64{2800}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2950}, false},
+		{"SELL stop loss below entry high rejected", insightRequest{Action: "SELL", InstrumentType: "equity", Targets: []float64{2800}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2910}, true},
+		{"unknown action rejected", insightRequest{Action: "HOLD", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2780}, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -106,7 +112,7 @@ func TestHandleUpdateInsight_NotFound(t *testing.T) {
 	store := newFakeContentStore()
 	d := Deps{SigningSecret: testSigningSecret, Content: store}
 
-	body := `{"instrumentType":"equity","targets":[100],"entryPriceLow":90,"entryPriceHigh":95}`
+	body := `{"action":"BUY","instrumentType":"equity","targets":[100],"entryPriceLow":90,"entryPriceHigh":95,"stopLoss":80}`
 	req := httptest.NewRequest(http.MethodPatch, "/admin/insights/does-not-exist", strings.NewReader(body))
 	req.SetPathValue("id", "does-not-exist")
 	rec := httptest.NewRecorder()
@@ -205,6 +211,109 @@ func TestHandleCloseInsight_InvalidOutcome(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body)
+	}
+}
+
+// --- POST /admin/insights/{id}/mark-target-hit ---
+
+func TestHandleMarkTargetHit_KeepsTradeOpen(t *testing.T) {
+	store := newFakeContentStore()
+	insight, err := store.CreateInsight(t.Context(), db.InsightInput{InstrumentType: "fno", Targets: []float64{24500, 24700, 24900}})
+	if err != nil {
+		t.Fatalf("CreateInsight: %v", err)
+	}
+	d := Deps{SigningSecret: testSigningSecret, Content: store}
+
+	// T1 hit: the old close-only flow would have ended the trade here —
+	// mark-target-hit must leave it open so T2/T3 can still be recorded
+	// later as the trade keeps running.
+	body := `{"targetIndex":0}`
+	req := httptest.NewRequest(http.MethodPost, "/admin/insights/"+insight.ID+"/mark-target-hit", strings.NewReader(body))
+	req.SetPathValue("id", insight.ID)
+	rec := httptest.NewRecorder()
+	d.handleMarkTargetHit(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body)
+	}
+	got := store.insights[insight.ID]
+	if got.TradeStatus != "open" {
+		t.Fatalf("TradeStatus = %q, want still open after marking a target hit", got.TradeStatus)
+	}
+	if got.TargetHitIndex == nil || *got.TargetHitIndex != 0 {
+		t.Fatalf("TargetHitIndex = %v, want 0", got.TargetHitIndex)
+	}
+
+	// T2 hit later, same still-open trade.
+	body = `{"targetIndex":1}`
+	req = httptest.NewRequest(http.MethodPost, "/admin/insights/"+insight.ID+"/mark-target-hit", strings.NewReader(body))
+	req.SetPathValue("id", insight.ID)
+	rec = httptest.NewRecorder()
+	d.handleMarkTargetHit(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body)
+	}
+	got = store.insights[insight.ID]
+	if got.TradeStatus != "open" {
+		t.Fatalf("TradeStatus = %q, want still open after marking a second target hit", got.TradeStatus)
+	}
+	if got.TargetHitIndex == nil || *got.TargetHitIndex != 1 {
+		t.Fatalf("TargetHitIndex = %v, want 1", got.TargetHitIndex)
+	}
+}
+
+func TestHandleMarkTargetHit_TargetIndexOutOfRange(t *testing.T) {
+	store := newFakeContentStore()
+	insight, err := store.CreateInsight(t.Context(), db.InsightInput{InstrumentType: "fno", Targets: []float64{24500, 24700, 24900}})
+	if err != nil {
+		t.Fatalf("CreateInsight: %v", err)
+	}
+	d := Deps{SigningSecret: testSigningSecret, Content: store}
+
+	body := `{"targetIndex":5}`
+	req := httptest.NewRequest(http.MethodPost, "/admin/insights/"+insight.ID+"/mark-target-hit", strings.NewReader(body))
+	req.SetPathValue("id", insight.ID)
+	rec := httptest.NewRecorder()
+	d.handleMarkTargetHit(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body)
+	}
+}
+
+func TestHandleCloseInsight_FallsBackToLastMarkedTarget(t *testing.T) {
+	store := newFakeContentStore()
+	insight, err := store.CreateInsight(t.Context(), db.InsightInput{InstrumentType: "fno", Targets: []float64{24500, 24700, 24900}})
+	if err != nil {
+		t.Fatalf("CreateInsight: %v", err)
+	}
+	d := Deps{SigningSecret: testSigningSecret, Content: store}
+
+	// Mark T2 hit (index 1), trade stays open.
+	body := `{"targetIndex":1}`
+	req := httptest.NewRequest(http.MethodPost, "/admin/insights/"+insight.ID+"/mark-target-hit", strings.NewReader(body))
+	req.SetPathValue("id", insight.ID)
+	d.handleMarkTargetHit(httptest.NewRecorder(), req)
+
+	// Close without specifying targetIndex — must finalize at T2 (the last
+	// one marked), not default back to T1, so an admin who closes right
+	// after marking a later target doesn't silently understate the return.
+	body = `{"outcome":"target_hit"}`
+	req = httptest.NewRequest(http.MethodPost, "/admin/insights/"+insight.ID+"/close", strings.NewReader(body))
+	req.SetPathValue("id", insight.ID)
+	rec := httptest.NewRecorder()
+	d.handleCloseInsight(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body)
+	}
+	got := store.insights[insight.ID]
+	if got.TradeStatus != "closed" {
+		t.Fatalf("TradeStatus = %q, want closed", got.TradeStatus)
+	}
+	if got.TargetHitIndex == nil || *got.TargetHitIndex != 1 {
+		t.Fatalf("TargetHitIndex = %v, want 1 (the last-marked target)", got.TargetHitIndex)
 	}
 }
 

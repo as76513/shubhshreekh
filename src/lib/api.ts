@@ -309,6 +309,29 @@ export async function archiveInsight(token: string, id: string): Promise<void> {
   if (!res.ok) throw new Error(await parseError(res));
 }
 
+/**
+ * Records that a scaled F&O target was reached WITHOUT closing the trade —
+ * a multi-target call can hit T1, stay open, and later hit T2 and/or T3
+ * too. Call this as many times as targets are actually reached; closeInsight
+ * (a separate, terminal action) finalizes using whichever target was last
+ * marked here if it isn't given its own targetIndex.
+ */
+export async function markTargetHit(
+  token: string,
+  id: string,
+  targetIndex: number
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/admin/insights/${encodeURIComponent(id)}/mark-target-hit`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ targetIndex }),
+    }
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
 export async function closeInsight(
   token: string,
   id: string,

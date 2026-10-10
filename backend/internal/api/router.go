@@ -85,6 +85,7 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("POST /admin/insights/{id}/publish", mw(writer(http.HandlerFunc(deps.handlePublishInsight))))
 	mux.Handle("POST /admin/insights/{id}/archive", mw(writer(http.HandlerFunc(deps.handleArchiveInsight))))
 	mux.Handle("POST /admin/insights/{id}/close", mw(writer(http.HandlerFunc(deps.handleCloseInsight))))
+	mux.Handle("POST /admin/insights/{id}/mark-target-hit", mw(writer(http.HandlerFunc(deps.handleMarkTargetHit))))
 	mux.Handle("PATCH /admin/pricing", mw(writer(http.HandlerFunc(deps.handleUpdatePricing))))
 	mux.Handle("POST /admin/overview", mw(writer(http.HandlerFunc(deps.handleCreateOverview))))
 	mux.Handle("PATCH /admin/weekly-pdf", mw(writer(http.HandlerFunc(deps.handleSetWeeklyPDF))))

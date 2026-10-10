@@ -8,6 +8,7 @@ import {
   publishInsight,
   archiveInsight,
   closeInsight,
+  markTargetHit,
   getPricing,
   updatePricing,
   listOverviews,
@@ -242,8 +243,8 @@ export default function Admin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.stock.trim() || !form.symbol.trim() || !form.rationale.trim()) {
-      setError("Stock, symbol, and rationale are required");
+    if (!form.stock.trim() || !form.symbol.trim()) {
+      setError("Stock and symbol are required");
       return;
     }
     const targets = form.targets.filter((t) => t > 0);
@@ -304,6 +305,18 @@ export default function Admin() {
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not close trade");
+    }
+  };
+
+  // Non-terminal — a scaled F&O call can hit T1 and keep running, then
+  // later hit T2 and/or T3 too. This just records progress; handleClose is
+  // the separate, final action that actually ends the trade.
+  const handleMarkTargetHit = async (id: string, targetIndex: number) => {
+    try {
+      await withAuth((token) => markTargetHit(token, id, targetIndex));
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not mark target hit");
     }
   };
 
@@ -804,6 +817,14 @@ export default function Admin() {
                           : "SL Hit"}
                       </span>
                     )}
+                    {row.tradeStatus !== "closed" && targets.length > 1 && row.targetHitIndex != null && (
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                        style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                      >
+                        Reached T{row.targetHitIndex + 1} — still running
+                      </span>
+                    )}
                   </div>
                   <p className="font-semibold text-sm truncate" style={{ color: "var(--navy)" }}>
                     {row.stock} <span style={{ color: "var(--muted-text)" }}>· {row.symbol}</span>
@@ -825,16 +846,42 @@ export default function Admin() {
                   {row.status === "published" && row.tradeStatus !== "closed" && (
                     <>
                       {targets.length > 1 ? (
-                        targets.map((_, i) => (
+                        <>
+                          {/* Non-terminal — just records progress. A scaled
+                              F&O call can hit T1 and keep running, so this
+                              never closes the trade by itself; it's the
+                              separate "Close" button below that does. */}
+                          {targets.map((_, i) => {
+                            const reached = row.targetHitIndex === i;
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => handleMarkTargetHit(row.id, i)}
+                                disabled={reached}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                                style={{
+                                  background: reached ? "var(--gain)" : "rgba(11,42,85,0.08)",
+                                  color: reached ? "#ffffff" : "var(--navy)",
+                                }}
+                                title={`Record that T${i + 1} was hit — the trade stays open`}
+                              >
+                                {reached ? "✓" : "Mark"} T{i + 1} Hit
+                              </button>
+                            );
+                          })}
+                          {/* Terminal — finalizes at whichever target was
+                              last marked above (defaults to T1 if none
+                              marked yet), e.g. "only T2 was hit, close now
+                              so a later reversal can't turn it into a loss." */}
                           <button
-                            key={i}
-                            onClick={() => handleClose(row.id, "target_hit", i)}
+                            onClick={() => handleClose(row.id, "target_hit")}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold"
                             style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                            title="Close the trade now at the last target marked hit"
                           >
-                            ✅ T{i + 1} Hit
+                            ✅ Close Trade
                           </button>
-                        ))
+                        </>
                       ) : (
                         <button
                           onClick={() => handleClose(row.id, "target_hit")}
