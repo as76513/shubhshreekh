@@ -3,6 +3,8 @@ export type AppView =
   | "login"
   | "dashboard"
   | "trading"
+  | "past-trade"
+  | "closed-trade"
   | "admin"
   | "courses"
   | "course-detail"

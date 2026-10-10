@@ -31,9 +31,9 @@ const emptyForm: InsightInput = {
   instrumentType: "equity",
   stock: "",
   symbol: "",
-  category: "Large Cap",
   timeframe: "Short Term",
-  entryPrice: 0,
+  entryPriceLow: 0,
+  entryPriceHigh: 0,
   targets: [0],
   stopLoss: 0,
   rationale: "",
@@ -229,10 +229,17 @@ export default function Admin() {
       setError("F&O calls need at least one target");
       return;
     }
+    if (form.entryPriceLow <= 0 || form.entryPriceHigh <= 0 || form.entryPriceLow > form.entryPriceHigh) {
+      setError("Enter a valid entry price range (low ≤ high, both positive)");
+      return;
+    }
     setError("");
     setSubmitting(true);
     try {
-      await withAuth((token) => createInsight(token, { ...form, targets }));
+      // F&O is intraday — timeframe doesn't apply, server force-clears it
+      // too, but don't send a stale value left over from switching types.
+      const timeframe = form.instrumentType === "fno" ? "" : form.timeframe;
+      await withAuth((token) => createInsight(token, { ...form, targets, timeframe }));
       setForm(emptyForm);
       await refresh();
     } catch (err) {
@@ -551,6 +558,9 @@ export default function Admin() {
                     instrumentType === "equity"
                       ? [f.targets[0] ?? 0]
                       : [f.targets[0] ?? 0, f.targets[1] ?? 0, f.targets[2] ?? 0],
+                  // F&O is intraday — no timeframe to pick; switching back
+                  // to equity starts fresh rather than resurrecting a stale value.
+                  timeframe: instrumentType === "fno" ? "" : f.timeframe,
                 }));
               }}
             >
@@ -558,34 +568,35 @@ export default function Admin() {
               <option value="fno">F&amp;O</option>
             </select>,
           )}
+          {form.instrumentType === "equity" &&
+            field(
+              "Timeframe",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={form.timeframe}
+                onChange={(e) => setForm((f) => ({ ...f, timeframe: e.target.value }))}
+                placeholder="Short Term"
+              />,
+            )}
           {field(
-            "Category",
-            <input
-              className={inputClass}
-              style={inputStyle}
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              placeholder="Large Cap"
-            />,
-          )}
-          {field(
-            "Timeframe",
-            <input
-              className={inputClass}
-              style={inputStyle}
-              value={form.timeframe}
-              onChange={(e) => setForm((f) => ({ ...f, timeframe: e.target.value }))}
-              placeholder="Short Term"
-            />,
-          )}
-          {field(
-            "Entry Price (₹)",
+            "Entry Price Low (₹)",
             <input
               type="number"
               className={inputClass}
               style={inputStyle}
-              value={form.entryPrice || ""}
-              onChange={(e) => setForm((f) => ({ ...f, entryPrice: Number(e.target.value) }))}
+              value={form.entryPriceLow || ""}
+              onChange={(e) => setForm((f) => ({ ...f, entryPriceLow: Number(e.target.value) }))}
+            />,
+          )}
+          {field(
+            "Entry Price High (₹)",
+            <input
+              type="number"
+              className={inputClass}
+              style={inputStyle}
+              value={form.entryPriceHigh || ""}
+              onChange={(e) => setForm((f) => ({ ...f, entryPriceHigh: Number(e.target.value) }))}
             />,
           )}
           {form.instrumentType === "equity" ? (
@@ -706,7 +717,14 @@ export default function Admin() {
           </p>
         ) : (
           <div className="space-y-2.5">
-            {rows.map((row) => (
+            {rows.map((row) => {
+              // Defensive: a row with a missing/null `targets` attribute
+              // (e.g. a malformed or pre-migration row backfillLegacy
+              // couldn't fully recover) must never crash the whole admin
+              // list render — found 2026-10-10 via a real "Cannot read
+              // properties of null (reading 'join')" crash in production.
+              const targets = row.targets ?? [];
+              return (
               <div
                 key={row.id}
                 className="flex items-center justify-between gap-3 p-3.5 rounded-xl"
@@ -754,7 +772,7 @@ export default function Admin() {
                         }}
                       >
                         {row.outcome === "target_hit"
-                          ? row.targets.length > 1
+                          ? targets.length > 1
                             ? `Target ${(row.targetHitIndex ?? 0) + 1} Hit`
                             : "Target Hit"
                           : "SL Hit"}
@@ -765,7 +783,7 @@ export default function Admin() {
                     {row.stock} <span style={{ color: "var(--muted-text)" }}>· {row.symbol}</span>
                   </p>
                   <p className="text-xs" style={{ color: "var(--muted-text)" }}>
-                    Entry ₹{row.entryPrice} · Tgt ₹{row.targets.join(" / ")} · SL ₹{row.stopLoss}
+                    Entry ₹{row.entryPriceLow}-{row.entryPriceHigh} · Tgt ₹{targets.join(" / ")} · SL ₹{row.stopLoss}
                   </p>
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-2">
@@ -780,8 +798,8 @@ export default function Admin() {
                   )}
                   {row.status === "published" && row.tradeStatus !== "closed" && (
                     <>
-                      {row.targets.length > 1 ? (
-                        row.targets.map((_, i) => (
+                      {targets.length > 1 ? (
+                        targets.map((_, i) => (
                           <button
                             key={i}
                             onClick={() => handleClose(row.id, "target_hit", i)}
@@ -820,7 +838,8 @@ export default function Admin() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

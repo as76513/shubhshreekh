@@ -7,6 +7,16 @@ import { listInsights, type Insight } from "@/lib/api";
 type ViewKey = 'live' | 'past' | 'closed'
 type InstrumentFilter = 'equity' | 'fno'
 
+// view is fixed per route now — Today's/Past/Closed Trade are separate top-
+// level nav tabs (src/components/Navbar.tsx), not an in-page toggle, so each
+// page wrapper (src/app/trading, /past-trade, /closed-trade) just picks
+// which one this instance renders.
+const pageTitle: Record<ViewKey, string> = {
+  live: "Today's Trade",
+  past: 'Past Trade',
+  closed: 'Closed Trades',
+}
+
 // "Today" per the RA's own spec: a call published today (UTC, matching
 // when the backend stamps publishedAt) and not yet closed is Live; the
 // same call is still Live at 11:59pm and becomes Past the instant the UTC
@@ -31,9 +41,8 @@ const fmtDate = (iso: string) => {
     : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function TradingCalls() {
+export default function TradingCalls({ view }: { view: ViewKey }) {
   const { withAuth } = useAuth();
-  const [view, setView] = useState<ViewKey>('live')
   const [instrument, setInstrument] = useState<InstrumentFilter>('equity')
   const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,7 +74,6 @@ export default function TradingCalls() {
     () => byInstrument.filter(c => c.tradeStatus === 'closed'),
     [byInstrument],
   )
-  const openCalls = useMemo(() => [...liveCalls, ...pastCalls], [liveCalls, pastCalls])
 
   const visible = view === 'live' ? liveCalls : view === 'past' ? pastCalls : closedCalls
   const emptyMessage = view === 'live'
@@ -85,41 +93,11 @@ export default function TradingCalls() {
           className="text-3xl font-bold mb-1.5"
           style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--navy)' }}
         >
-          Market Insights
+          {pageTitle[view]}
         </h1>
         <p className="text-sm" style={{ color: 'var(--muted-text)' }}>
           Research-backed buy/sell calls with clear targets and stop-losses.
         </p>
-
-        {/* Stats row — reflects the Equity/F&O filter below, not the Live/Past/Closed tab, so it doesn't jitter on tab switches */}
-        <div className="grid grid-cols-3 gap-3 mt-6">
-          {[
-            { label: 'Live Today', value: liveCalls.length },
-            { label: 'Target Hit', value: closedCalls.filter(c => c.outcome === 'target_hit').length },
-            {
-              label: 'Avg Target Return',
-              value: openCalls.length
-                ? `+${(openCalls.reduce((a, c) => a + c.returnsPct, 0) / openCalls.length).toFixed(1)}%`
-                : '—',
-            },
-          ].map(s => (
-            <div
-              key={s.label}
-              className="rounded-xl p-4 text-center"
-              style={{ background: 'var(--card-bg)', borderTop: '3px solid var(--blue-accent)' }}
-            >
-              <p
-                className="text-2xl font-bold mb-0.5"
-                style={{ color: 'var(--navy)', fontFamily: 'JetBrains Mono, monospace' }}
-              >
-                {s.value}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
-                {s.label}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Equity / F&O filter — applies across Live, Past, and Closed alike */}
@@ -141,29 +119,6 @@ export default function TradingCalls() {
               }}
             >
               {i.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* View toggle */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
-        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(11,42,85,0.06)', border: '1px solid rgba(29,78,216,0.15)' }}>
-          {([
-            { key: 'live', label: 'Live Trades' },
-            { key: 'past', label: 'Past Trades' },
-            { key: 'closed', label: 'Closed Trades' },
-          ] as const).map(v => (
-            <button
-              key={v.key}
-              onClick={() => setView(v.key)}
-              className="px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all"
-              style={{
-                background: view === v.key ? '#ffffff' : 'transparent',
-                color: view === v.key ? 'var(--navy)' : 'var(--muted-text)',
-              }}
-            >
-              {v.label}
             </button>
           ))}
         </div>
@@ -192,11 +147,12 @@ export default function TradingCalls() {
             const isBuy = call.action === 'BUY'
             const isFno = call.instrumentType === 'fno'
             const targets = call.targets ?? []
-            const primaryTarget = targets[0] ?? call.entryPrice
+            const entryMid = (call.entryPriceLow + call.entryPriceHigh) / 2
+            const primaryTarget = targets[0] ?? entryMid
             const range = Math.abs(primaryTarget - call.stopLoss) || 1
             const progress = Math.min(
               100,
-              Math.max(0, ((call.entryPrice - Math.min(call.stopLoss, primaryTarget)) / range) * 100),
+              Math.max(0, ((entryMid - Math.min(call.stopLoss, primaryTarget)) / range) * 100),
             )
 
             return (
@@ -223,7 +179,7 @@ export default function TradingCalls() {
                         {call.action}
                       </span>
                       <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
-                        {call.category} · {call.timeframe}
+                        {call.timeframe || (isFno ? 'Intraday' : '')}
                       </span>
                     </div>
                     <h3 className="font-bold text-base leading-tight truncate" style={{ color: 'var(--navy)' }}>
@@ -275,7 +231,9 @@ export default function TradingCalls() {
                         className="text-sm font-bold"
                         style={{ color: 'var(--navy)', fontFamily: 'JetBrains Mono, monospace' }}
                       >
-                        {fmt(call.entryPrice)}
+                        {call.entryPriceLow === call.entryPriceHigh
+                          ? fmt(call.entryPriceLow)
+                          : `₹${call.entryPriceLow.toLocaleString('en-IN')}-${call.entryPriceHigh.toLocaleString('en-IN')}`}
                       </p>
                     </div>
                     <div className="text-right">
@@ -344,8 +302,13 @@ export default function TradingCalls() {
             const isBuy = call.action === 'BUY'
             const isTargetHit = call.outcome === 'target_hit'
             const hitIdx = call.targetHitIndex ?? 0
-            const exitPrice = isTargetHit ? (call.targets?.[hitIdx] ?? call.entryPrice) : call.stopLoss
+            const entryMid = (call.entryPriceLow + call.entryPriceHigh) / 2
+            const exitPrice = isTargetHit ? (call.targets?.[hitIdx] ?? entryMid) : call.stopLoss
             const targetLabel = (call.targets?.length ?? 0) > 1 ? `Target ${hitIdx + 1}` : 'Target'
+            const entryLabel =
+              call.entryPriceLow === call.entryPriceHigh
+                ? fmt(call.entryPriceLow)
+                : `₹${call.entryPriceLow.toLocaleString('en-IN')}-${call.entryPriceHigh.toLocaleString('en-IN')}`
 
             return (
               <div
@@ -386,7 +349,7 @@ export default function TradingCalls() {
                       {call.stock}
                     </h3>
                     <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
-                      {call.symbol} · Entry {fmt(call.entryPrice)} → {isTargetHit ? targetLabel : 'SL'} {fmt(exitPrice)}
+                      {call.symbol} · Entry {entryLabel} → {isTargetHit ? targetLabel : 'SL'} {fmt(exitPrice)}
                     </p>
                   </div>
 

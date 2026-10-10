@@ -15,9 +15,9 @@ type insightRequest struct {
 	InstrumentType string    `json:"instrumentType"` // equity | fno
 	Stock          string    `json:"stock"`
 	Symbol         string    `json:"symbol"`
-	Category       string    `json:"category"`
-	Timeframe      string    `json:"timeframe"`
-	EntryPrice     float64   `json:"entryPrice"`
+	Timeframe      string    `json:"timeframe"` // equity only; force-cleared for fno in toInput, see there
+	EntryPriceLow  float64   `json:"entryPriceLow"`
+	EntryPriceHigh float64   `json:"entryPriceHigh"`
 	Targets        []float64 `json:"targets"` // equity: exactly 1; fno: 1-3
 	StopLoss       float64   `json:"stopLoss"`
 	Rationale      string    `json:"rationale"`
@@ -25,7 +25,8 @@ type insightRequest struct {
 
 // validate enforces architecture.md's "never trust the client" at the one
 // place both create and edit funnel through — equity calls carry a single
-// target, F&O calls carry up to 3 scaled booking levels, and the UI's own
+// target, F&O calls carry up to 3 scaled booking levels, entry price is a
+// low-high range (not a single value, since 2026-10-10), and the UI's own
 // form shape is not itself a guarantee the stored data is well-formed.
 func (req insightRequest) validate() error {
 	switch req.InstrumentType {
@@ -45,19 +46,33 @@ func (req insightRequest) validate() error {
 			return errors.New("targets must be positive")
 		}
 	}
+	if req.EntryPriceLow <= 0 || req.EntryPriceHigh <= 0 {
+		return errors.New("entry price range must be positive")
+	}
+	if req.EntryPriceLow > req.EntryPriceHigh {
+		return errors.New("entry price low must not exceed entry price high")
+	}
 	return nil
 }
 
 func (req insightRequest) toInput() db.InsightInput {
+	timeframe := req.Timeframe
+	if req.InstrumentType == "fno" {
+		// F&O is intraday by nature — never held past the same day — so a
+		// timeframe doesn't apply, regardless of what the form happened to
+		// send (e.g. a stale value left over from switching instrument
+		// type mid-edit).
+		timeframe = ""
+	}
 	return db.InsightInput{
 		Tier:           req.Tier,
 		Action:         req.Action,
 		InstrumentType: req.InstrumentType,
 		Stock:          req.Stock,
 		Symbol:         req.Symbol,
-		Category:       req.Category,
-		Timeframe:      req.Timeframe,
-		EntryPrice:     req.EntryPrice,
+		Timeframe:      timeframe,
+		EntryPriceLow:  req.EntryPriceLow,
+		EntryPriceHigh: req.EntryPriceHigh,
 		Targets:        req.Targets,
 		StopLoss:       req.StopLoss,
 		Rationale:      req.Rationale,
@@ -188,10 +203,10 @@ type customerInsight struct {
 	Symbol         string    `json:"symbol"`
 	Action         string    `json:"action"`
 	InstrumentType string    `json:"instrumentType"`
-	Category       string    `json:"category"`
-	Timeframe      string    `json:"timeframe"`
+	Timeframe      string    `json:"timeframe,omitempty"`
 	Tier           string    `json:"tier"`
-	EntryPrice     float64   `json:"entryPrice"`
+	EntryPriceLow  float64   `json:"entryPriceLow"`
+	EntryPriceHigh float64   `json:"entryPriceHigh"`
 	Targets        []float64 `json:"targets"`
 	StopLoss       float64   `json:"stopLoss"`
 	ReturnsPct     float64   `json:"returnsPct"`
@@ -223,10 +238,10 @@ func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
 			Symbol:         in.Symbol,
 			Action:         in.Action,
 			InstrumentType: in.InstrumentType,
-			Category:       in.Category,
 			Timeframe:      in.Timeframe,
 			Tier:           in.Tier,
-			EntryPrice:     in.EntryPrice,
+			EntryPriceLow:  in.EntryPriceLow,
+			EntryPriceHigh: in.EntryPriceHigh,
 			Targets:        in.Targets,
 			StopLoss:       in.StopLoss,
 			ReturnsPct:     in.ReturnsPct,

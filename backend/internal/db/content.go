@@ -38,17 +38,23 @@ type Insight struct {
 	GSI1PK string `dynamodbav:"gsi1pk,omitempty" json:"-"`
 	GSI1SK string `dynamodbav:"gsi1sk,omitempty" json:"-"`
 
-	ID             string    `dynamodbav:"id" json:"id"`
-	Status         string    `dynamodbav:"status" json:"status"`                 // draft | published | archived
-	Tier           string    `dynamodbav:"tier" json:"tier"`                     // free | pro
-	Action         string    `dynamodbav:"action" json:"action"`                 // BUY | SELL
-	InstrumentType string    `dynamodbav:"instrumentType" json:"instrumentType"` // equity | fno
-	Stock          string    `dynamodbav:"stock" json:"stock"`
-	Symbol         string    `dynamodbav:"symbol" json:"symbol"`
-	Category       string    `dynamodbav:"category" json:"category"`
-	Timeframe      string    `dynamodbav:"timeframe" json:"timeframe"`
-	EntryPrice     float64   `dynamodbav:"entryPrice" json:"entryPrice"` // was "CMP" — renamed 2026-10-06 (TD-052), RA's term is "price to enter at"
-	Targets        []float64 `dynamodbav:"targets" json:"targets"`      // 1 for equity, 1-3 for F&O (scaled booking levels)
+	ID             string `dynamodbav:"id" json:"id"`
+	Status         string `dynamodbav:"status" json:"status"`                 // draft | published | archived
+	Tier           string `dynamodbav:"tier" json:"tier"`                     // free | pro
+	Action         string `dynamodbav:"action" json:"action"`                 // BUY | SELL
+	InstrumentType string `dynamodbav:"instrumentType" json:"instrumentType"` // equity | fno
+	Stock          string `dynamodbav:"stock" json:"stock"`
+	Symbol         string `dynamodbav:"symbol" json:"symbol"`
+	// Timeframe only applies to equity (e.g. "Short Term") — F&O calls are
+	// intraday by nature (never held past same day), so the RA isn't asked
+	// for one and it's force-cleared server-side for fno regardless of
+	// what's sent (see insights.go's toInput). Category (Large Cap/Mid Cap/
+	// etc.) was dropped entirely 2026-10-10 per RA feedback — removed, not
+	// just hidden, so there's no dead field lingering in new rows.
+	Timeframe      string    `dynamodbav:"timeframe,omitempty" json:"timeframe,omitempty"`
+	EntryPriceLow  float64   `dynamodbav:"entryPriceLow" json:"entryPriceLow"`
+	EntryPriceHigh float64   `dynamodbav:"entryPriceHigh" json:"entryPriceHigh"`
+	Targets        []float64 `dynamodbav:"targets" json:"targets"` // 1 for equity, 1-3 for F&O (scaled booking levels)
 	StopLoss       float64   `dynamodbav:"stopLoss" json:"stopLoss"`
 	ReturnsPct     float64   `dynamodbav:"returnsPct" json:"returnsPct"`
 	Rationale      string    `dynamodbav:"rationale" json:"rationale"`
@@ -62,7 +68,7 @@ type Insight struct {
 	// hit automatically (see architecture.md's deferred Pipe A). ClosedAt is
 	// separate from UpdatedAt so "when did this actually resolve" survives
 	// any later unrelated edit.
-	TradeStatus string `dynamodbav:"tradeStatus" json:"tradeStatus"`       // open | closed
+	TradeStatus string `dynamodbav:"tradeStatus" json:"tradeStatus"`             // open | closed
 	Outcome     string `dynamodbav:"outcome,omitempty" json:"outcome,omitempty"` // "" | target_hit | sl_hit
 	ClosedAt    string `dynamodbav:"closedAt,omitempty" json:"closedAt,omitempty"`
 
@@ -74,11 +80,13 @@ type Insight struct {
 	// sl_hit closes and for every still-open row.
 	TargetHitIndex *int `dynamodbav:"targetHitIndex,omitempty" json:"targetHitIndex,omitempty"`
 
-	// LegacyTarget/LegacyCMP read rows written before Targets/EntryPrice
-	// existed — never set on write. See backfillLegacy below; drop once all
-	// dev data has been re-saved through the current admin form.
-	LegacyTarget float64 `dynamodbav:"target,omitempty" json:"-"`
-	LegacyCMP    float64 `dynamodbav:"cmp,omitempty" json:"-"`
+	// LegacyTarget/LegacyCMP/LegacyEntryPrice read rows written before
+	// Targets/EntryPriceLow+High existed — never set on write. See
+	// backfillLegacy below; drop once all dev data has been re-saved
+	// through the current admin form.
+	LegacyTarget     float64 `dynamodbav:"target,omitempty" json:"-"`
+	LegacyCMP        float64 `dynamodbav:"cmp,omitempty" json:"-"`
+	LegacyEntryPrice float64 `dynamodbav:"entryPrice,omitempty" json:"-"` // single-value field, pre-2026-10-10 range migration
 }
 
 // backfillLegacy upgrades a row read from before this change (single
@@ -90,8 +98,25 @@ func backfillLegacy(i *Insight) {
 	if len(i.Targets) == 0 && i.LegacyTarget != 0 {
 		i.Targets = []float64{i.LegacyTarget}
 	}
-	if i.EntryPrice == 0 && i.LegacyCMP != 0 {
-		i.EntryPrice = i.LegacyCMP
+	// A nil Targets marshals to JSON `null`, not `[]` — found 2026-10-10 via
+	// a real crash: the admin UI unconditionally calls `.targets.join(...)`
+	// and `.map(...)` on every row, so a malformed row with neither a
+	// targets list nor a legacy single target (nothing for the branch
+	// above to backfill) took down the whole admin list render, not just
+	// its own row. Every row leaving this function must have a real
+	// (possibly empty) array, never null.
+	if i.Targets == nil {
+		i.Targets = []float64{}
+	}
+	if i.EntryPriceLow == 0 && i.EntryPriceHigh == 0 {
+		legacySingle := i.LegacyEntryPrice
+		if legacySingle == 0 {
+			legacySingle = i.LegacyCMP
+		}
+		if legacySingle != 0 {
+			i.EntryPriceLow = legacySingle
+			i.EntryPriceHigh = legacySingle
+		}
 	}
 	if i.InstrumentType == "" {
 		i.InstrumentType = "equity"
@@ -99,6 +124,24 @@ func backfillLegacy(i *Insight) {
 	if i.TradeStatus == "" {
 		i.TradeStatus = "open"
 	}
+}
+
+// ContentStore is what backend/internal/api's handlers depend on for the RA
+// content platform (insights + daily overview) — *ContentTable satisfies it
+// for production (DynamoDB-backed); tests inject an in-memory fake instead
+// so the admin/customer content handlers are testable without real AWS
+// access, the same pattern as db.UsersStore (see users.go).
+type ContentStore interface {
+	CreateInsight(ctx context.Context, in InsightInput) (*Insight, error)
+	UpdateInsight(ctx context.Context, id string, in InsightInput) error
+	PublishInsight(ctx context.Context, id, publishedBy string) error
+	ArchiveInsight(ctx context.Context, id string) error
+	CloseInsight(ctx context.Context, id, outcome string, targetIndex *int) error
+	GetInsight(ctx context.Context, id string) (*Insight, error)
+	ListAll(ctx context.Context) ([]Insight, error)
+	ListPublished(ctx context.Context) ([]Insight, error)
+	CreateOverview(ctx context.Context, text string, photoURLs []string, publishedBy string) (*Overview, error)
+	ListOverviews(ctx context.Context) ([]Overview, error)
 }
 
 type ContentTable struct {
@@ -116,9 +159,9 @@ type InsightInput struct {
 	InstrumentType string // equity | fno
 	Stock          string
 	Symbol         string
-	Category       string
-	Timeframe      string
-	EntryPrice     float64
+	Timeframe      string // equity only — force-cleared for fno, see insights.go's toInput
+	EntryPriceLow  float64
+	EntryPriceHigh float64
 	Targets        []float64 // 1 for equity, 1-3 for F&O
 	StopLoss       float64
 	Rationale      string
@@ -132,6 +175,13 @@ func primaryTarget(targets []float64) float64 {
 		return 0
 	}
 	return targets[0]
+}
+
+// entryMidpoint is the single representative price used for the
+// returnsPct headline figure now that entry is a low-high range rather
+// than one value.
+func entryMidpoint(low, high float64) float64 {
+	return (low + high) / 2
 }
 
 // CreateInsight writes a new draft — no GSI1 keys yet, so it's invisible to
@@ -149,12 +199,12 @@ func (t *ContentTable) CreateInsight(ctx context.Context, in InsightInput) (*Ins
 		InstrumentType: in.InstrumentType,
 		Stock:          in.Stock,
 		Symbol:         in.Symbol,
-		Category:       in.Category,
 		Timeframe:      in.Timeframe,
-		EntryPrice:     in.EntryPrice,
+		EntryPriceLow:  in.EntryPriceLow,
+		EntryPriceHigh: in.EntryPriceHigh,
 		Targets:        in.Targets,
 		StopLoss:       in.StopLoss,
-		ReturnsPct:     computeReturnsPct(in.Action, in.EntryPrice, primaryTarget(in.Targets)),
+		ReturnsPct:     computeReturnsPct(in.Action, entryMidpoint(in.EntryPriceLow, in.EntryPriceHigh), primaryTarget(in.Targets)),
 		Rationale:      in.Rationale,
 		TradeStatus:    "open",
 		CreatedAt:      now,
@@ -184,24 +234,44 @@ func (t *ContentTable) UpdateInsight(ctx context.Context, id string, in InsightI
 		"instrumentType": &types.AttributeValueMemberS{Value: in.InstrumentType},
 		"stock":          &types.AttributeValueMemberS{Value: in.Stock},
 		"symbol":         &types.AttributeValueMemberS{Value: in.Symbol},
-		"category":       &types.AttributeValueMemberS{Value: in.Category},
 		"timeframe":      &types.AttributeValueMemberS{Value: in.Timeframe},
-		"entryPrice":     &types.AttributeValueMemberN{Value: formatFloat(in.EntryPrice)},
+		"entryPriceLow":  &types.AttributeValueMemberN{Value: formatFloat(in.EntryPriceLow)},
+		"entryPriceHigh": &types.AttributeValueMemberN{Value: formatFloat(in.EntryPriceHigh)},
 		"targets":        &types.AttributeValueMemberL{Value: targetAVs},
 		"stopLoss":       &types.AttributeValueMemberN{Value: formatFloat(in.StopLoss)},
-		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(in.Action, in.EntryPrice, primaryTarget(in.Targets)))},
+		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(in.Action, entryMidpoint(in.EntryPriceLow, in.EntryPriceHigh), primaryTarget(in.Targets)))},
 		"rationale":      &types.AttributeValueMemberS{Value: in.Rationale},
 		"updatedAt":      &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
 	}
-	// Drop the pre-migration singular attributes once a row is re-saved
-	// through the current form, so they don't linger alongside the renamed ones.
-	return t.updateItem(ctx, id, set, []string{"target", "cmp"})
+	// Drop the pre-migration singular/dropped attributes once a row is
+	// re-saved through the current form, so they don't linger alongside
+	// the renamed/removed ones.
+	return t.updateItem(ctx, id, set, []string{"target", "cmp", "entryPrice", "category"})
 }
 
 // ErrTargetIndexOutOfRange means a target_hit close named a target index
 // that doesn't exist on this insight's own Targets array — caught here
 // (against server-held data), not trusted from the client's own count.
 var ErrTargetIndexOutOfRange = errors.New("target index out of range for this insight's targets")
+
+// ResolveTargetHitIndex is the pure bounds-check behind CloseInsight's
+// "target_hit" path, pulled out (exported) so it's unit-testable without a
+// real DynamoDB round trip, and so a fake ContentStore used in api package
+// tests can reuse the real rule instead of reimplementing it (same
+// pure-function/DB-glue split as devices.go's CheckDevice). nil
+// targetIndex defaults to 0 (T1) — the only valid index for an equity
+// call's single target; any index must fall within this insight's own
+// Targets array, never trusted from the client's own count.
+func ResolveTargetHitIndex(targets []float64, targetIndex *int) (int, error) {
+	idx := 0
+	if targetIndex != nil {
+		idx = *targetIndex
+	}
+	if idx < 0 || idx >= len(targets) {
+		return 0, ErrTargetIndexOutOfRange
+	}
+	return idx, nil
+}
 
 // CloseInsight marks a trade resolved — the RA does this by hand (TD-053),
 // since there's no live price feed to detect a target/SL hit automatically.
@@ -229,17 +299,14 @@ func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string, tar
 		"updatedAt":   &types.AttributeValueMemberS{Value: now},
 	}
 	if outcome == "target_hit" {
-		idx := 0
-		if targetIndex != nil {
-			idx = *targetIndex
-		}
-		if idx < 0 || idx >= len(insight.Targets) {
-			return ErrTargetIndexOutOfRange
+		idx, err := ResolveTargetHitIndex(insight.Targets, targetIndex)
+		if err != nil {
+			return err
 		}
 		set["targetHitIndex"] = &types.AttributeValueMemberN{Value: strconv.Itoa(idx)}
-		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, insight.EntryPrice, insight.Targets[idx]))}
+		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.Targets[idx]))}
 	} else {
-		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, insight.EntryPrice, insight.StopLoss))}
+		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.StopLoss))}
 	}
 	return t.updateItem(ctx, id, set, nil)
 }

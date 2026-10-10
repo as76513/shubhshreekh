@@ -25,6 +25,17 @@ type PricingSettings struct {
 	UpdatedBy       string  `dynamodbav:"updatedBy,omitempty" json:"updatedBy,omitempty"`
 }
 
+// SettingsStore is what backend/internal/api's handlers depend on for the
+// admin-configurable settings (pricing discount, weekly PDF) — *SettingsTable
+// satisfies it for production; tests inject an in-memory fake instead, same
+// pattern as db.UsersStore/db.ContentStore.
+type SettingsStore interface {
+	GetPricing(ctx context.Context) (*PricingSettings, error)
+	SetDiscountPercent(ctx context.Context, pct float64, updatedBy string) error
+	GetWeeklyPDF(ctx context.Context) (*WeeklyPDF, error)
+	SetWeeklyPDF(ctx context.Context, title, summary, pdfURL, updatedBy string) error
+}
+
 type SettingsTable struct {
 	client *dynamodb.Client
 	name   string

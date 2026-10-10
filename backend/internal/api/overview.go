@@ -13,6 +13,19 @@ type createOverviewRequest struct {
 	PhotoURLs []string `json:"photoUrls"`
 }
 
+// isHTTPSURL rejects anything that isn't a plain https:// URL — admin-form
+// input is still client input (architecture.md's "never trust the client...
+// not just customers'" principle applies to the RA's own browser too), and
+// PhotoURLs/PdfURL end up rendered back to every customer on the Dashboard
+// and Blogs page. Without this check a non-https scheme (e.g. a
+// "javascript:" URI) typed or pasted into the admin form would be stored
+// and handed back verbatim to the frontend. The real upload flow
+// (handleMediaUploadURL) only ever returns https S3 URLs, so this never
+// rejects a legitimate upload.
+func isHTTPSURL(u string) bool {
+	return strings.HasPrefix(u, "https://")
+}
+
 // handleCreateOverview: POST /admin/overview — analyst/admin only. Posts
 // immediately, no draft stage (see db.Overview's doc comment).
 func (d Deps) handleCreateOverview(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +38,12 @@ func (d Deps) handleCreateOverview(w http.ResponseWriter, r *http.Request) {
 	if text == "" {
 		writeError(w, http.StatusBadRequest, "text is required")
 		return
+	}
+	for _, photoURL := range req.PhotoURLs {
+		if !isHTTPSURL(photoURL) {
+			writeError(w, http.StatusBadRequest, "photoUrls must be https URLs")
+			return
+		}
 	}
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
@@ -81,6 +100,10 @@ func (d Deps) handleSetWeeklyPDF(w http.ResponseWriter, r *http.Request) {
 	title, pdfURL := strings.TrimSpace(req.Title), strings.TrimSpace(req.PdfURL)
 	if title == "" || pdfURL == "" {
 		writeError(w, http.StatusBadRequest, "title and pdfUrl are required")
+		return
+	}
+	if !isHTTPSURL(pdfURL) {
+		writeError(w, http.StatusBadRequest, "pdfUrl must be an https URL")
 		return
 	}
 	claims, ok := auth.FromContext(r.Context())

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import TradingCalls from "@/components/pages/TradingCalls";
 
-export default function TradingPage() {
+export default function ClosedTradePage() {
   const { user, authReady } = useAuth();
   const router = useRouter();
 
@@ -15,5 +15,5 @@ export default function TradingPage() {
   }, [user, authReady, router]);
 
   if (!user) return null;
-  return <TradingCalls view="live" />;
+  return <TradingCalls view="closed" />;
 }

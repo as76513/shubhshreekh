@@ -59,6 +59,8 @@ function pathToView(pathname: string): AppView {
   if (pathname.startsWith("/login")) return "login";
   if (pathname.startsWith("/dashboard")) return "dashboard";
   if (pathname.startsWith("/trading")) return "trading";
+  if (pathname.startsWith("/past-trade")) return "past-trade";
+  if (pathname.startsWith("/closed-trade")) return "closed-trade";
   if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/courses/")) return "course-detail";
   if (pathname.startsWith("/courses")) return "courses";
@@ -77,6 +79,10 @@ function viewToPath(view: AppView, courseId?: number): string {
       return "/dashboard";
     case "trading":
       return "/trading";
+    case "past-trade":
+      return "/past-trade";
+    case "closed-trade":
+      return "/closed-trade";
     case "admin":
       return "/admin";
     case "courses":
@@ -135,6 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (view, courseId) => {
       const needsLogin =
         view === "trading" ||
+        view === "past-trade" ||
+        view === "closed-trade" ||
         view === "dashboard" ||
         view === "admin" ||
         view === "courses" ||

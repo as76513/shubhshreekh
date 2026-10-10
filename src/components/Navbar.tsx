@@ -6,10 +6,12 @@ import { useAuth } from "@/lib/auth-context";
 import Logo from "@/components/Logo";
 
 const navLinks: { label: string; view: AppView }[] = [
-  { label: 'Insights', view: 'trading' },
+  { label: "Today's Trade", view: 'trading' },
+  { label: 'Past Trade', view: 'past-trade' },
+  { label: 'Closed Trades', view: 'closed-trade' },
   { label: 'Blogs', view: 'blogs' },
-  { label: 'Courses', view: 'courses' },
   { label: 'Videos', view: 'videos' },
+  { label: 'Courses', view: 'courses' },
 ]
 
 export default function Navbar() {

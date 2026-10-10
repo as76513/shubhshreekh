@@ -16,8 +16,8 @@ import (
 type Deps struct {
 	SigningSecret     []byte
 	Users             db.UsersStore
-	Content           *db.ContentTable
-	Settings          *db.SettingsTable
+	Content           db.ContentStore
+	Settings          db.SettingsStore
 	OTP               otp.Provider
 	RateLimit         RateLimiter
 	WebAuthn          *webauthn.WebAuthn

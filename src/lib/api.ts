@@ -202,10 +202,11 @@ export type Insight = {
   symbol: string;
   action: string;
   instrumentType: InstrumentType;
-  category: string;
-  timeframe: string;
+  /** Equity only — F&O is intraday, so this is empty/absent there. */
+  timeframe?: string;
   tier: string;
-  entryPrice: number;
+  entryPriceLow: number;
+  entryPriceHigh: number;
   targets: number[];
   stopLoss: number;
   returnsPct: number;
@@ -227,9 +228,9 @@ export type AdminInsight = {
   instrumentType: InstrumentType;
   stock: string;
   symbol: string;
-  category: string;
-  timeframe: string;
-  entryPrice: number;
+  timeframe?: string;
+  entryPriceLow: number;
+  entryPriceHigh: number;
   targets: number[];
   stopLoss: number;
   returnsPct: number;
@@ -249,9 +250,9 @@ export type InsightInput = {
   instrumentType: InstrumentType;
   stock: string;
   symbol: string;
-  category: string;
   timeframe: string;
-  entryPrice: number;
+  entryPriceLow: number;
+  entryPriceHigh: number;
   targets: number[];
   stopLoss: number;
   rationale: string;
