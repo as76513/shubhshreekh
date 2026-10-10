@@ -39,9 +39,35 @@ const emptyForm: InsightInput = {
   rationale: "",
 };
 
+// Lets the RA type the range the way they actually think of it ("320-330")
+// in one box, instead of two separate Low/High number inputs — parsed into
+// the entryPriceLow/entryPriceHigh the backend still stores and validates
+// as two numbers (needed for the low<=high check and the returnsPct
+// midpoint calculation). A bare single number ("320") is also accepted,
+// treated as a zero-width range (low === high).
+function parseEntryPriceRange(text: string): { low: number; high: number } | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const rangeMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/);
+  if (rangeMatch) {
+    const low = Number(rangeMatch[1]);
+    const high = Number(rangeMatch[2]);
+    return low > 0 && high > 0 && low <= high ? { low, high } : null;
+  }
+  const singleMatch = trimmed.match(/^(\d+(?:\.\d+)?)$/);
+  if (singleMatch) {
+    const value = Number(singleMatch[1]);
+    return value > 0 ? { low: value, high: value } : null;
+  }
+  return null;
+}
+
 export default function Admin() {
   const { withAuth } = useAuth();
   const [form, setForm] = useState<InsightInput>(emptyForm);
+  // What the RA actually types ("320-330"); form.entryPriceLow/High are
+  // kept in sync via parseEntryPriceRange and are what's actually submitted.
+  const [entryPriceRangeInput, setEntryPriceRangeInput] = useState("");
   const [rows, setRows] = useState<AdminInsight[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -230,7 +256,7 @@ export default function Admin() {
       return;
     }
     if (form.entryPriceLow <= 0 || form.entryPriceHigh <= 0 || form.entryPriceLow > form.entryPriceHigh) {
-      setError("Enter a valid entry price range (low ≤ high, both positive)");
+      setError("Enter a valid entry price, e.g. 320-330 (or a single value like 320)");
       return;
     }
     setError("");
@@ -241,6 +267,7 @@ export default function Admin() {
       const timeframe = form.instrumentType === "fno" ? "" : form.timeframe;
       await withAuth((token) => createInsight(token, { ...form, targets, timeframe }));
       setForm(emptyForm);
+      setEntryPriceRangeInput("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create draft");
@@ -580,23 +607,22 @@ export default function Admin() {
               />,
             )}
           {field(
-            "Entry Price Low (₹)",
+            "Entry Price (₹) — e.g. 320-330",
             <input
-              type="number"
               className={inputClass}
               style={inputStyle}
-              value={form.entryPriceLow || ""}
-              onChange={(e) => setForm((f) => ({ ...f, entryPriceLow: Number(e.target.value) }))}
-            />,
-          )}
-          {field(
-            "Entry Price High (₹)",
-            <input
-              type="number"
-              className={inputClass}
-              style={inputStyle}
-              value={form.entryPriceHigh || ""}
-              onChange={(e) => setForm((f) => ({ ...f, entryPriceHigh: Number(e.target.value) }))}
+              value={entryPriceRangeInput}
+              placeholder="320-330"
+              onChange={(e) => {
+                const text = e.target.value;
+                setEntryPriceRangeInput(text);
+                const parsed = parseEntryPriceRange(text);
+                setForm((f) => ({
+                  ...f,
+                  entryPriceLow: parsed?.low ?? 0,
+                  entryPriceHigh: parsed?.high ?? 0,
+                }));
+              }}
             />,
           )}
           {form.instrumentType === "equity" ? (
