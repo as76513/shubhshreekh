@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 
 const PACKAGE_NAME = "com.shubhshreekh.app";
 
+// Without this, Next.js can statically pre-render this route at build time
+// (no cookies/headers/searchParams used, so nothing else forces dynamic
+// rendering) and Amplify's build cache can then serve a stale baked-in
+// process.env.TWA_SHA256_FINGERPRINT across builds even after the env var
+// changes — found 2026-10-10 when two full rebuilds in a row still served
+// an empty assetlinks.json after setting the fingerprint.
+export const dynamic = "force-dynamic";
+
 export function GET() {
   const fingerprint = process.env.TWA_SHA256_FINGERPRINT?.trim();
 

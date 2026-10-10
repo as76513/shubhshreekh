@@ -237,6 +237,7 @@ resource "aws_amplify_app" "site" {
   # silently hits the frontend's own domain instead of the backend (404).
   environment_variables = {
     NEXT_PUBLIC_API_BASE_URL = var.api_base_url
+    TWA_SHA256_FINGERPRINT   = var.twa_sha256_fingerprint
   }
 
   # access_token isn't returned by AWS's read API, so it always diffs

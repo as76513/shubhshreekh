@@ -57,6 +57,22 @@ variable "api_base_url" {
   default     = "https://c630c7v98g.execute-api.ap-south-1.amazonaws.com"
 }
 
+variable "twa_sha256_fingerprint" {
+  description = <<-EOT
+    SHA-256 fingerprint of the Android TWA's signing certificate, served by
+    src/app/.well-known/assetlinks.json/route.ts so Android can verify the
+    TWA and grant it a fully trusted (not Custom-Tab-fallback) browsing
+    context — WebAuthn's platform authenticator ceremony needs that trusted
+    context to work, so without this set, biometric/PIN session refresh
+    silently fails and every login falls back to full OTP (see TECH_DEBT.md
+    TD-012 and PLAYSTORE.md). Default matches the self-signed upload key
+    currently in android/android.keystore; update if the signing key
+    changes (e.g. once Play App Signing re-signs the app for distribution).
+  EOT
+  type        = string
+  default     = "D9:EC:76:DE:F8:F1:9A:B2:EF:47:EA:67:76:CC:53:9E:A4:01:10:0A:88:A9:50:28:8D:CD:90:B4:58:D1:B5:43"
+}
+
 variable "github_access_token" {
   description = <<-EOT
     GitHub personal access token used once to connect the Amplify app to
