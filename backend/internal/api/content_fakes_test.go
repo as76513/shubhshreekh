@@ -188,12 +188,18 @@ func (f *fakeContentStore) ListOverviews(ctx context.Context) ([]db.Overview, er
 type fakeSettingsStore struct {
 	discountPercent float64
 	weeklyPDF       db.WeeklyPDF
+	siteStats       db.SiteStats
+	testimonials    []db.Testimonial
 	setDiscountErr  error
 	setWeeklyPDFErr error
 }
 
 func newFakeSettingsStore() *fakeSettingsStore {
-	return &fakeSettingsStore{discountPercent: db.DefaultDiscountPercent}
+	return &fakeSettingsStore{
+		discountPercent: db.DefaultDiscountPercent,
+		siteStats:       db.DefaultSiteStats,
+		testimonials:    db.DefaultTestimonials,
+	}
 }
 
 func (f *fakeSettingsStore) GetPricing(ctx context.Context) (*db.PricingSettings, error) {
@@ -217,5 +223,25 @@ func (f *fakeSettingsStore) SetWeeklyPDF(ctx context.Context, title, summary, pd
 		return f.setWeeklyPDFErr
 	}
 	f.weeklyPDF = db.WeeklyPDF{Title: title, Summary: summary, PdfURL: pdfURL, UpdatedBy: updatedBy}
+	return nil
+}
+
+func (f *fakeSettingsStore) GetSiteStats(ctx context.Context) (*db.SiteStats, error) {
+	stats := f.siteStats
+	return &stats, nil
+}
+
+func (f *fakeSettingsStore) SetSiteStats(ctx context.Context, stats db.SiteStats, updatedBy string) error {
+	stats.UpdatedBy = updatedBy
+	f.siteStats = stats
+	return nil
+}
+
+func (f *fakeSettingsStore) GetTestimonials(ctx context.Context) ([]db.Testimonial, error) {
+	return f.testimonials, nil
+}
+
+func (f *fakeSettingsStore) SetTestimonials(ctx context.Context, testimonials []db.Testimonial, updatedBy string) error {
+	f.testimonials = testimonials
 	return nil
 }

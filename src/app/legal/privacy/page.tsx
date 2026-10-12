@@ -53,7 +53,7 @@ export default function PrivacyPage() {
 
         <h2 className="text-lg font-semibold">Contact</h2>
         <p>
-          Privacy questions: email support@shubhshree.in, or see the{" "}
+          Privacy questions: email contact@shubhshreeknowledgehub.com, or see the{" "}
           <a href="/legal/grievance" style={{ color: "var(--primary)" }}>
             grievance
           </a>{" "}

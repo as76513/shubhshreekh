@@ -16,11 +16,17 @@ import {
   getWeeklyPDF,
   setWeeklyPDF,
   uploadMedia,
+  getSiteStats,
+  updateSiteStats,
+  getTestimonials,
+  updateTestimonials,
   type AdminInsight,
   type InsightInput,
   type Pricing,
   type Overview,
   type WeeklyPDF,
+  type SiteStats,
+  type Testimonial,
 } from "@/lib/api";
 
 // No Free tier left to choose (TD-054) — every logged-in user is "pro," so
@@ -95,6 +101,22 @@ export default function Admin() {
   const [pdfSaving, setPdfSaving] = useState(false);
   const [pdfError, setPdfError] = useState("");
 
+  // Site stats (Achievement strip) + testimonials — admin-configurable,
+  // no-deploy landing page content.
+  const [siteStatsInputs, setSiteStatsInputs] = useState<SiteStats>({
+    learners: "",
+    ideasShared: "",
+    courses: "",
+    avgRating: "",
+  });
+  const [siteStatsSaving, setSiteStatsSaving] = useState(false);
+  const [siteStatsError, setSiteStatsError] = useState("");
+
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [testimonialsSaving, setTestimonialsSaving] = useState(false);
+  const [testimonialsError, setTestimonialsError] = useState("");
+  const [newTestimonial, setNewTestimonial] = useState({ name: "", city: "", text: "", returns: "" });
+
   const refresh = async () => {
     setLoading(true);
     try {
@@ -138,11 +160,31 @@ export default function Admin() {
     }
   };
 
+  const refreshSiteStats = async () => {
+    try {
+      const data = await getSiteStats();
+      setSiteStatsInputs(data);
+    } catch (err) {
+      setSiteStatsError(err instanceof Error ? err.message : "Could not load site stats");
+    }
+  };
+
+  const refreshTestimonials = async () => {
+    try {
+      const data = await getTestimonials();
+      setTestimonials(data);
+    } catch (err) {
+      setTestimonialsError(err instanceof Error ? err.message : "Could not load testimonials");
+    }
+  };
+
   useEffect(() => {
     refresh();
     refreshPricing();
     refreshOverviews();
     refreshWeeklyPdf();
+    refreshSiteStats();
+    refreshTestimonials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -239,6 +281,57 @@ export default function Admin() {
     } finally {
       setPdfSaving(false);
     }
+  };
+
+  const handleSaveSiteStats = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { learners, ideasShared, courses, avgRating } = siteStatsInputs;
+    if (!learners.trim() || !ideasShared.trim() || !courses.trim() || !avgRating.trim()) {
+      setSiteStatsError("All four stats are required");
+      return;
+    }
+    setSiteStatsError("");
+    setSiteStatsSaving(true);
+    try {
+      await withAuth((token) => updateSiteStats(token, siteStatsInputs));
+      await refreshSiteStats();
+    } catch (err) {
+      setSiteStatsError(err instanceof Error ? err.message : "Could not save site stats");
+    } finally {
+      setSiteStatsSaving(false);
+    }
+  };
+
+  // Always sends the full replacement list — matches PATCH /admin/testimonials'
+  // whole-list-replace semantics, not a merge/append on the backend.
+  const saveTestimonials = async (next: Testimonial[]) => {
+    setTestimonialsError("");
+    setTestimonialsSaving(true);
+    try {
+      await withAuth((token) => updateTestimonials(token, next));
+      setTestimonials(next);
+    } catch (err) {
+      setTestimonialsError(err instanceof Error ? err.message : "Could not save testimonials");
+    } finally {
+      setTestimonialsSaving(false);
+    }
+  };
+
+  const handleAddTestimonial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTestimonial.name.trim() || !newTestimonial.city.trim() || !newTestimonial.text.trim()) {
+      setTestimonialsError("Name, city, and text are required");
+      return;
+    }
+    // Initials are server-derived (never trust the client, even the admin's
+    // own browser) — sent blank here, backend fills the real value.
+    await saveTestimonials([...testimonials, { ...newTestimonial, initials: "" }]);
+    setNewTestimonial({ name: "", city: "", text: "", returns: "" });
+    await refreshTestimonials();
+  };
+
+  const handleDeleteTestimonial = async (index: number) => {
+    await saveTestimonials(testimonials.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -915,6 +1008,178 @@ export default function Admin() {
             })}
           </div>
         )}
+
+        {/* Site content — stats strip + testimonials (admin-configurable, no deploy) */}
+        <div
+          className="rounded-2xl p-5 mb-8 mt-8"
+          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+        >
+          <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+            Landing page stats
+          </h2>
+          <p className="text-xs mb-4" style={{ color: "var(--muted-text)" }}>
+            The Learners / Ideas shared / Courses / Avg rating strip on the landing page (and the Courses page&apos;s learner count).
+          </p>
+          <form onSubmit={handleSaveSiteStats} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {field(
+              "Learners",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={siteStatsInputs.learners}
+                onChange={(e) => setSiteStatsInputs((s) => ({ ...s, learners: e.target.value }))}
+                placeholder="50,000+"
+              />,
+            )}
+            {field(
+              "Ideas shared",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={siteStatsInputs.ideasShared}
+                onChange={(e) => setSiteStatsInputs((s) => ({ ...s, ideasShared: e.target.value }))}
+                placeholder="2,400+"
+              />,
+            )}
+            {field(
+              "Courses",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={siteStatsInputs.courses}
+                onChange={(e) => setSiteStatsInputs((s) => ({ ...s, courses: e.target.value }))}
+                placeholder="45+"
+              />,
+            )}
+            {field(
+              "Avg rating",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={siteStatsInputs.avgRating}
+                onChange={(e) => setSiteStatsInputs((s) => ({ ...s, avgRating: e.target.value }))}
+                placeholder="4.8★"
+              />,
+            )}
+            <div className="col-span-2 sm:col-span-4 flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={siteStatsSaving}
+                className="btn-action px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+              >
+                {siteStatsSaving ? "Saving…" : "Save"}
+              </button>
+              {siteStatsError && (
+                <p className="text-xs" style={{ color: "var(--loss)" }}>
+                  {siteStatsError}
+                </p>
+              )}
+            </div>
+          </form>
+        </div>
+
+        <div
+          className="rounded-2xl p-5 mb-8"
+          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+        >
+          <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+            Testimonials
+          </h2>
+          <p className="text-xs mb-4" style={{ color: "var(--muted-text)" }}>
+            Shown in &quot;What investors say&quot; on the landing page. Initials are generated
+            automatically from the name.
+          </p>
+
+          {testimonials.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {testimonials.map((t, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 rounded-xl p-3"
+                  style={{ background: "rgba(11,42,85,0.06)" }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold" style={{ color: "var(--navy)" }}>
+                      {t.name} · {t.city}{" "}
+                      {t.returns && <span style={{ color: "var(--gain)" }}>({t.returns})</span>}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--muted-text)" }}>
+                      {t.text}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteTestimonial(i)}
+                    disabled={testimonialsSaving}
+                    className="flex-shrink-0 px-2 py-1 rounded-lg text-xs font-semibold disabled:opacity-50"
+                    style={{ background: "var(--loss-bg)", color: "var(--loss)" }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleAddTestimonial} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {field(
+              "Name",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={newTestimonial.name}
+                onChange={(e) => setNewTestimonial((t) => ({ ...t, name: e.target.value }))}
+                placeholder="Arjun Patel"
+              />,
+            )}
+            {field(
+              "City",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={newTestimonial.city}
+                onChange={(e) => setNewTestimonial((t) => ({ ...t, city: e.target.value }))}
+                placeholder="Mumbai"
+              />,
+            )}
+            {field(
+              "Returns (optional)",
+              <input
+                className={inputClass}
+                style={inputStyle}
+                value={newTestimonial.returns}
+                onChange={(e) => setNewTestimonial((t) => ({ ...t, returns: e.target.value }))}
+                placeholder="+32%"
+              />,
+            )}
+            <div />
+            <div className="col-span-2 sm:col-span-4">
+              {field(
+                "Testimonial text",
+                <textarea
+                  className={inputClass}
+                  style={{ ...inputStyle, minHeight: "70px" }}
+                  value={newTestimonial.text}
+                  onChange={(e) => setNewTestimonial((t) => ({ ...t, text: e.target.value }))}
+                  placeholder="The research notes have completely transformed my portfolio..."
+                />,
+              )}
+            </div>
+            <div className="col-span-2 sm:col-span-4 flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={testimonialsSaving}
+                className="btn-action px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+              >
+                {testimonialsSaving ? "Saving…" : "+ Add testimonial"}
+              </button>
+              {testimonialsError && (
+                <p className="text-xs" style={{ color: "var(--loss)" }}>
+                  {testimonialsError}
+                </p>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

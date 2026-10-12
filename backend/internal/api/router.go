@@ -57,6 +57,8 @@ func NewRouter(deps Deps) http.Handler {
 	// Pricing (TD-055) — public read (landing/upgrade pages, logged out or
 	// in), admin-only write.
 	mux.HandleFunc("GET /pricing", deps.handleGetPricing)
+	mux.HandleFunc("GET /site-stats", deps.handleGetSiteStats)
+	mux.HandleFunc("GET /testimonials", deps.handleGetTestimonials)
 
 	// Registration requires a just-issued access token (the user already
 	// completed OTP). Refresh deliberately does NOT — a possibly-expired
@@ -87,6 +89,8 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("POST /admin/insights/{id}/close", mw(writer(http.HandlerFunc(deps.handleCloseInsight))))
 	mux.Handle("POST /admin/insights/{id}/mark-target-hit", mw(writer(http.HandlerFunc(deps.handleMarkTargetHit))))
 	mux.Handle("PATCH /admin/pricing", mw(writer(http.HandlerFunc(deps.handleUpdatePricing))))
+	mux.Handle("PATCH /admin/site-stats", mw(writer(http.HandlerFunc(deps.handleUpdateSiteStats))))
+	mux.Handle("PATCH /admin/testimonials", mw(writer(http.HandlerFunc(deps.handleUpdateTestimonials))))
 	mux.Handle("POST /admin/overview", mw(writer(http.HandlerFunc(deps.handleCreateOverview))))
 	mux.Handle("PATCH /admin/weekly-pdf", mw(writer(http.HandlerFunc(deps.handleSetWeeklyPDF))))
 	mux.Handle("POST /admin/media/upload-url", mw(writer(http.HandlerFunc(deps.handleMediaUploadURL))))

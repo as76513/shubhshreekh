@@ -22,7 +22,7 @@ export default function GrievancePage() {
       <section className="space-y-3 text-sm leading-relaxed">
         <h2 className="text-lg font-semibold">How to raise a complaint</h2>
         <p>
-          Email support@shubhshree.in with your registered mobile number, a
+          Email contact@shubhshreeknowledgehub.com with your registered mobile number, a
           short description of the issue, and any screenshots. We aim to
           acknowledge within a few business days.
         </p>

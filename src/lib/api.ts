@@ -380,6 +380,58 @@ export async function updatePricing(token: string, discountPercent: number): Pro
   if (!res.ok) throw new Error(await parseError(res));
 }
 
+// --- Site stats + testimonials (admin-configurable landing content) ----
+
+export type SiteStats = {
+  learners: string;
+  ideasShared: string;
+  courses: string;
+  avgRating: string;
+};
+
+export type Testimonial = {
+  name: string;
+  city: string;
+  text: string;
+  returns: string;
+  initials: string;
+};
+
+/** Public — no auth required, same as a logged-out visitor viewing the landing page. */
+export async function getSiteStats(): Promise<SiteStats> {
+  const res = await fetch(`${API_BASE_URL}/site-stats`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateSiteStats(token: string, stats: SiteStats): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/admin/site-stats`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(stats),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+/** Public — no auth required, same as a logged-out visitor viewing the landing page. */
+export async function getTestimonials(): Promise<Testimonial[]> {
+  const res = await fetch(`${API_BASE_URL}/testimonials`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateTestimonials(
+  token: string,
+  testimonials: { name: string; city: string; text: string; returns: string }[]
+): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/admin/testimonials`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ testimonials }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
 // --- Daily Market Overview + weekly PDF (TD-057/058) --------------------
 
 export type Overview = {

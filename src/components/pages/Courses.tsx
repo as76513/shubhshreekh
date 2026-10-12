@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { courses } from "@/lib/data"
 import CourseSlider from "@/components/CourseSlider";
 import { useAuth } from "@/lib/auth-context"
+import { getSiteStats } from "@/lib/api"
 
 const levels = ['All', 'Beginner', 'Intermediate', 'Advanced']
 const cats = ['All', 'Technical Analysis', 'Mutual Funds', 'Derivatives', 'Personal Finance']
@@ -13,6 +14,11 @@ export default function Courses() {
   const isPro = user?.subscription === 'pro'
   const [level, setLevel] = useState('All')
   const [cat, setCat] = useState('All')
+  const [learners, setLearners] = useState('50,000+')
+
+  useEffect(() => {
+    getSiteStats().then(s => setLearners(s.learners)).catch(() => {});
+  }, []);
 
   const filtered = courses.filter(c => {
     if (level !== 'All' && c.level !== level) return false
@@ -52,7 +58,7 @@ export default function Courses() {
         <div className="grid grid-cols-3 gap-3 mt-6">
           {[
             { label: 'Total Courses', value: courses.length + '+' },
-            { label: 'Total Learners', value: '70K+' },
+            { label: 'Total Learners', value: learners },
             { label: 'Free Courses', value: courses.filter(c => !c.isPro).length },
           ].map(s => (
             <div

@@ -91,20 +91,20 @@ export default function Footer() {
               <li className="flex items-start gap-2.5">
                 <span className="text-base mt-0.5">📧</span>
                 <span className="text-sm" style={{ color: 'var(--secondary-foreground)' }}>
-                  support@shubhshree.in
+                  contact@shubhshreeknowledgehub.com
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="text-base mt-0.5">📞</span>
                 <span className="text-sm" style={{ color: 'var(--secondary-foreground)' }}>
-                  +91 98765 43210
+                  +91 82080 49965
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="text-base mt-0.5">🏢</span>
                 <span className="text-sm" style={{ color: 'var(--secondary-foreground)' }}>
-                  Shubhshree Knowledge Hub Pvt. Ltd.<br />
-                  Mumbai, Maharashtra – 400001
+                  Unit No 206, S.No 28.2428.22, Capella, Nr Chintaman,<br />
+                  Ambegaon BK, Haveli, Pune – 411046, Maharashtra
                 </span>
               </li>
             </ul>

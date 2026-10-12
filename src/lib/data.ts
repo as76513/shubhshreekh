@@ -509,40 +509,9 @@ export const videos = [
   },
 ]
 
-export const testimonials = [
-  {
-    name: 'Arjun Patel',
-    city: 'Mumbai',
-    text: "The market insights are clearly explained. The course structure helped me study setups with more confidence.",
-    returns: '+70%',
-    initials: 'AP',
-    color: 'var(--primary)',
-  },
-  {
-    name: 'Meera Krishnan',
-    city: 'Chennai',
-    text: "The research notes have completely transformed my portfolio. I now know exactly when to invest and when to wait. Absolutely worth every rupee.",
-    returns: '+32%',
-    initials: 'MK',
-    color: '#0ECB81',
-  },
-  {
-    name: 'Rohit Agarwal',
-    city: 'Delhi',
-    text: "Priya's Technical Analysis Masterclass is better than any paid course I've taken elsewhere. The content quality is exceptional.",
-    returns: '+48%',
-    initials: 'RA',
-    color: '#6366F1',
-  },
-  {
-    name: 'Nisha Verma',
-    city: 'Bangalore',
-    text: "Started as a complete beginner. Within 3 months of using Shubhshree, I can read Indian market charts with much more clarity.",
-    returns: '+25%',
-    initials: 'NV',
-    color: '#EC4899',
-  },
-]
+// Testimonials moved to GET /testimonials (admin-configurable, see
+// backend/internal/db/settings.go) — Landing.tsx keeps its own default
+// fallback matching db.DefaultTestimonials for the pre-fetch render.
 
 // One product, "Pro (7-day free trial)" — the Free tier was removed
 // 2026-10-06 (TD-054). Pricing itself (anchor/discounted price, discount %)

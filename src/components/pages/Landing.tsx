@@ -1,20 +1,43 @@
 "use client";
 
-import { videos, testimonials } from "@/lib/data";
+import { useEffect, useState } from "react";
+import { videos } from "@/lib/data";
 import ServiceSlider from "@/components/ServiceSlider";
 import CourseSlider from "@/components/CourseSlider";
 import PlanSlider from "@/components/PlanSlider";
 import { useAuth } from "@/lib/auth-context";
+import { getSiteStats, getTestimonials, type SiteStats, type Testimonial } from "@/lib/api";
 
-const stats = [
-  { value: '50,000+', label: 'Learners' },
-  { value: '2,400+', label: 'Ideas shared' },
-  { value: '45+', label: 'Courses' },
-  { value: '4.8★', label: 'Avg rating' },
+const defaultStats: SiteStats = {
+  learners: '50,000+',
+  ideasShared: '2,400+',
+  courses: '45+',
+  avgRating: '4.8★',
+}
+
+const defaultTestimonials: Testimonial[] = [
+  { name: "Arjun Patel", city: "Mumbai", text: "The market insights are clearly explained. The course structure helped me study setups with more confidence.", returns: "+70%", initials: "AP" },
+  { name: "Meera Krishnan", city: "Chennai", text: "The research notes have completely transformed my portfolio. I now know exactly when to invest and when to wait. Absolutely worth every rupee.", returns: "+32%", initials: "MK" },
+  { name: "Rohit Agarwal", city: "Delhi", text: "Priya's Technical Analysis Masterclass is better than any paid course I've taken elsewhere. The content quality is exceptional.", returns: "+48%", initials: "RA" },
+  { name: "Nisha Verma", city: "Bangalore", text: "Started as a complete beginner. Within 3 months of using Shubhshree, I can read Indian market charts with much more clarity.", returns: "+25%", initials: "NV" },
 ]
 
 export default function Landing() {
   const { navigate } = useAuth();
+  const [siteStats, setSiteStats] = useState<SiteStats>(defaultStats);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
+
+  useEffect(() => {
+    getSiteStats().then(setSiteStats).catch(() => {});
+    getTestimonials().then(setTestimonials).catch(() => {});
+  }, []);
+
+  const stats = [
+    { value: siteStats.learners, label: 'Learners' },
+    { value: siteStats.ideasShared, label: 'Ideas shared' },
+    { value: siteStats.courses, label: 'Courses' },
+    { value: siteStats.avgRating, label: 'Avg rating' },
+  ]
 
   return (
     <div>
