@@ -69,14 +69,21 @@ export default function Footer() {
               Legal
             </p>
             <ul className="space-y-2.5">
-              {['Terms of Service', 'Privacy Policy', 'Refund Policy', 'Disclaimer', 'SEBI Registration'].map(item => (
-                <li key={item}>
-                  <span
-                    className="text-sm cursor-pointer transition-colors hover:text-primary"
+              {[
+                { label: 'Terms of Service', href: '/legal/terms' },
+                { label: 'Privacy Policy', href: '/legal/privacy' },
+                { label: 'Refund Policy', href: '/legal/refund' },
+                { label: 'Disclaimer', href: '/legal/disclaimer' },
+                { label: 'SEBI Registration', href: '/legal/sebi-registration' },
+              ].map(item => (
+                <li key={item.label}>
+                  <a
+                    href={item.href}
+                    className="text-sm transition-colors hover:text-primary"
                     style={{ color: 'var(--secondary-foreground)' }}
                   >
-                    {item}
-                  </span>
+                    {item.label}
+                  </a>
                 </li>
               ))}
             </ul>

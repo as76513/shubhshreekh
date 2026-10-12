@@ -17,11 +17,20 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
             ShubhShreekh
           </Link>
           <nav className="flex flex-wrap gap-3 text-xs sm:text-sm">
+            <Link href="/legal/terms" style={{ color: "var(--primary)" }}>
+              Terms
+            </Link>
             <Link href="/legal/privacy" style={{ color: "var(--primary)" }}>
               Privacy
             </Link>
-            <Link href="/legal/terms" style={{ color: "var(--primary)" }}>
-              Terms
+            <Link href="/legal/refund" style={{ color: "var(--primary)" }}>
+              Refund
+            </Link>
+            <Link href="/legal/disclaimer" style={{ color: "var(--primary)" }}>
+              Disclaimer
+            </Link>
+            <Link href="/legal/sebi-registration" style={{ color: "var(--primary)" }}>
+              SEBI Registration
             </Link>
             <Link href="/legal/grievance" style={{ color: "var(--primary)" }}>
               Grievance
