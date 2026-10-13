@@ -42,9 +42,15 @@ type Insight struct {
 	Status         string `dynamodbav:"status" json:"status"`                 // draft | published | archived
 	Tier           string `dynamodbav:"tier" json:"tier"`                     // free | pro
 	Action         string `dynamodbav:"action" json:"action"`                 // BUY | SELL
-	InstrumentType string `dynamodbav:"instrumentType" json:"instrumentType"` // equity | fno
+	InstrumentType string `dynamodbav:"instrumentType" json:"instrumentType"` // equity | fno | scalping
 	Stock          string `dynamodbav:"stock" json:"stock"`
 	Symbol         string `dynamodbav:"symbol" json:"symbol"`
+	// Scalping calls (index options) carry these instead of a stock symbol,
+	// a target ladder, and a stop. Entry is still stored as the low/high
+	// range (both ends equal) so returnsPct keeps one code path.
+	Index       string  `dynamodbav:"index,omitempty" json:"index,omitempty"` // nifty | banknifty | sensex
+	StrikePrice float64 `dynamodbav:"strikePrice,omitempty" json:"strikePrice,omitempty"`
+	ExitPrice   float64 `dynamodbav:"exitPrice,omitempty" json:"exitPrice,omitempty"`
 	// Timeframe only applies to equity (e.g. "Short Term") — F&O calls are
 	// intraday by nature (never held past same day), so the RA isn't asked
 	// for one and it's force-cleared server-side for fno regardless of
@@ -77,8 +83,15 @@ type Insight struct {
 	// booking level — a RA closing a 3-target call might see T1, T2, or T3
 	// hit, not always the first. Pointer so index 0 (T1) is distinguishable
 	// from "not set"; only meaningful when Outcome == "target_hit". nil for
-	// sl_hit closes and for every still-open row.
+	// sl_hit closes and for every still-open row that has not marked a hit.
 	TargetHitIndex *int `dynamodbav:"targetHitIndex,omitempty" json:"targetHitIndex,omitempty"`
+
+	// TargetHitAt is parallel to Targets: index i is the UTC RFC3339 time
+	// that booking level was marked hit, or "" if it has not been hit.
+	// Marking T2 must not erase T1's time — a scaled call often reaches
+	// more than one level, and each level's clock is what the customer
+	// cards show under the trade.
+	TargetHitAt []string `dynamodbav:"targetHitAt,omitempty" json:"targetHitAt,omitempty"`
 
 	// LegacyTarget/LegacyCMP/LegacyEntryPrice read rows written before
 	// Targets/EntryPriceLow+High existed — never set on write. See
@@ -124,6 +137,9 @@ func backfillLegacy(i *Insight) {
 	if i.TradeStatus == "" {
 		i.TradeStatus = "open"
 	}
+	if i.TargetHitAt == nil {
+		i.TargetHitAt = []string{}
+	}
 }
 
 // ContentStore is what backend/internal/api's handlers depend on for the RA
@@ -157,15 +173,18 @@ func NewContentTable(client *dynamodb.Client, tableName string) *ContentTable {
 type InsightInput struct {
 	Tier           string
 	Action         string
-	InstrumentType string // equity | fno
+	InstrumentType string // equity | fno | scalping
 	Stock          string
 	Symbol         string
 	Timeframe      string // equity only — force-cleared for fno, see insights.go's toInput
 	EntryPriceLow  float64
 	EntryPriceHigh float64
-	Targets        []float64 // 1 for equity, 1-3 for F&O
+	Targets        []float64 // 1 for equity, 1-3 for F&O, [exit] for scalping
 	StopLoss       float64
 	Rationale      string
+	Index          string  // scalping only
+	StrikePrice    float64 // scalping only
+	ExitPrice      float64 // scalping only
 }
 
 // primaryTarget is the nearest/first booking level — used for the
@@ -207,6 +226,9 @@ func (t *ContentTable) CreateInsight(ctx context.Context, in InsightInput) (*Ins
 		StopLoss:       in.StopLoss,
 		ReturnsPct:     computeReturnsPct(in.Action, entryMidpoint(in.EntryPriceLow, in.EntryPriceHigh), primaryTarget(in.Targets)),
 		Rationale:      in.Rationale,
+		Index:          in.Index,
+		StrikePrice:    in.StrikePrice,
+		ExitPrice:      in.ExitPrice,
 		TradeStatus:    "open",
 		CreatedAt:      now,
 		UpdatedAt:      now,
@@ -242,6 +264,9 @@ func (t *ContentTable) UpdateInsight(ctx context.Context, id string, in InsightI
 		"stopLoss":       &types.AttributeValueMemberN{Value: formatFloat(in.StopLoss)},
 		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(in.Action, entryMidpoint(in.EntryPriceLow, in.EntryPriceHigh), primaryTarget(in.Targets)))},
 		"rationale":      &types.AttributeValueMemberS{Value: in.Rationale},
+		"index":          &types.AttributeValueMemberS{Value: in.Index},
+		"strikePrice":    &types.AttributeValueMemberN{Value: formatFloat(in.StrikePrice)},
+		"exitPrice":      &types.AttributeValueMemberN{Value: formatFloat(in.ExitPrice)},
 		"updatedAt":      &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
 	}
 	// Drop the pre-migration singular/dropped attributes once a row is
@@ -274,6 +299,40 @@ func ResolveTargetHitIndex(targets []float64, targetIndex *int) (int, error) {
 	return idx, nil
 }
 
+// StampTargetHit records when targets[idx] was reached. The returned slice
+// is always targetCount long and lines up with Targets: a "" slot has not
+// been hit. An existing timestamp is kept, so marking a later level cannot
+// wipe an earlier one's clock.
+func StampTargetHit(existing []string, targetCount, idx int, at string) []string {
+	times := make([]string, targetCount)
+	copy(times, existing)
+	if idx >= 0 && idx < len(times) && times[idx] == "" {
+		times[idx] = at
+	}
+	return times
+}
+
+// HighestHitIndex is the furthest booking level with a timestamp, so a
+// close that doesn't name its own target uses the best level reached
+// rather than whichever button was clicked last.
+func HighestHitIndex(times []string, fallback int) int {
+	best := fallback
+	for i, at := range times {
+		if at != "" {
+			best = i
+		}
+	}
+	return best
+}
+
+func stringListAV(values []string) types.AttributeValue {
+	items := make([]types.AttributeValue, len(values))
+	for i, v := range values {
+		items[i] = &types.AttributeValueMemberS{Value: v}
+	}
+	return &types.AttributeValueMemberL{Value: items}
+}
+
 // MarkTargetHit records progress toward a scaled F&O call's targets
 // *without* closing the trade — a real multi-target F&O call often reaches
 // more than one booking level over its life (T1, then later T2, then later
@@ -295,10 +354,14 @@ func (t *ContentTable) MarkTargetHit(ctx context.Context, id string, targetIndex
 	if err != nil {
 		return err
 	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	times := StampTargetHit(insight.TargetHitAt, len(insight.Targets), idx, now)
+	best := HighestHitIndex(times, idx)
 	set := map[string]types.AttributeValue{
-		"targetHitIndex": &types.AttributeValueMemberN{Value: strconv.Itoa(idx)},
-		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.Targets[idx]))},
-		"updatedAt":      &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+		"targetHitIndex": &types.AttributeValueMemberN{Value: strconv.Itoa(best)},
+		"targetHitAt":    stringListAV(times),
+		"returnsPct":     &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.Targets[best]))},
+		"updatedAt":      &types.AttributeValueMemberS{Value: now},
 	}
 	return t.updateItem(ctx, id, set, nil)
 }
@@ -339,7 +402,11 @@ func (t *ContentTable) CloseInsight(ctx context.Context, id, outcome string, tar
 		if err != nil {
 			return err
 		}
+		// Same `now` as closedAt, so a target closed in this same action
+		// doesn't show a second, identical clock under the trade.
+		times := StampTargetHit(insight.TargetHitAt, len(insight.Targets), idx, now)
 		set["targetHitIndex"] = &types.AttributeValueMemberN{Value: strconv.Itoa(idx)}
+		set["targetHitAt"] = stringListAV(times)
 		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.Targets[idx]))}
 	} else {
 		set["returnsPct"] = &types.AttributeValueMemberN{Value: formatFloat(computeReturnsPct(insight.Action, entryMidpoint(insight.EntryPriceLow, insight.EntryPriceHigh), insight.StopLoss))}

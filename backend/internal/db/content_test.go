@@ -46,3 +46,21 @@ func TestResolveTargetHitIndex(t *testing.T) {
 		})
 	}
 }
+
+func TestStampTargetHitKeepsEarlierLevels(t *testing.T) {
+	first := StampTargetHit(nil, 3, 0, "2026-10-13T09:15:00Z")
+	if len(first) != 3 || first[0] == "" || first[1] != "" || first[2] != "" {
+		t.Fatalf("after T1 = %#v", first)
+	}
+	second := StampTargetHit(first, 3, 1, "2026-10-13T10:40:00Z")
+	if second[0] != first[0] || second[1] == "" || second[2] != "" {
+		t.Fatalf("after T2 = %#v, T1 clock must survive", second)
+	}
+	again := StampTargetHit(second, 3, 0, "2026-10-13T11:00:00Z")
+	if again[0] != first[0] {
+		t.Fatalf("re-marking T1 overwrote %q with %q", first[0], again[0])
+	}
+	if HighestHitIndex(again, 0) != 1 {
+		t.Fatalf("highest = %d, want 1", HighestHitIndex(again, 0))
+	}
+}

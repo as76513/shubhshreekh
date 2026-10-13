@@ -59,6 +59,13 @@ func TestInsightRequestValidate(t *testing.T) {
 		{"SELL stop loss above entry high accepted", insightRequest{Action: "SELL", InstrumentType: "equity", Targets: []float64{2800}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2950}, false},
 		{"SELL stop loss below entry high rejected", insightRequest{Action: "SELL", InstrumentType: "equity", Targets: []float64{2800}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2910}, true},
 		{"unknown action rejected", insightRequest{Action: "HOLD", InstrumentType: "equity", Targets: []float64{3200}, EntryPriceLow: 2900, EntryPriceHigh: 2920, StopLoss: 2780}, true},
+		{"scalping nifty", insightRequest{InstrumentType: "scalping", Index: "nifty", StrikePrice: 24500, EntryPrice: 120, ExitPrice: 150}, false},
+		{"scalping banknifty", insightRequest{InstrumentType: "scalping", Index: "banknifty", StrikePrice: 52000, EntryPrice: 300, ExitPrice: 340}, false},
+		{"scalping sensex", insightRequest{InstrumentType: "scalping", Index: "sensex", StrikePrice: 80000, EntryPrice: 200, ExitPrice: 240}, false},
+		{"scalping unknown index rejected", insightRequest{InstrumentType: "scalping", Index: "finnifty", StrikePrice: 24500, EntryPrice: 120, ExitPrice: 150}, true},
+		{"scalping zero strike rejected", insightRequest{InstrumentType: "scalping", Index: "nifty", StrikePrice: 0, EntryPrice: 120, ExitPrice: 150}, true},
+		{"scalping zero entry rejected", insightRequest{InstrumentType: "scalping", Index: "nifty", StrikePrice: 24500, EntryPrice: 0, ExitPrice: 150}, true},
+		{"scalping zero exit rejected", insightRequest{InstrumentType: "scalping", Index: "nifty", StrikePrice: 24500, EntryPrice: 120, ExitPrice: 0}, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -103,6 +110,36 @@ func TestHandleCreateInsight_InvalidTargets(t *testing.T) {
 	}
 	if len(store.insights) != 0 {
 		t.Fatalf("an invalid request must never reach the store")
+	}
+}
+
+func TestHandleCreateInsight_Scalping(t *testing.T) {
+	store := newFakeContentStore()
+	d := Deps{SigningSecret: testSigningSecret, Content: store}
+
+	body := `{"instrumentType":"scalping","index":"banknifty","strikePrice":52000,"entryPrice":300,"exitPrice":340}`
+	req := httptest.NewRequest(http.MethodPost, "/admin/insights", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	d.handleCreateInsight(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body = %s", rec.Code, rec.Body)
+	}
+	var got *db.Insight
+	for _, in := range store.insights {
+		got = in
+	}
+	if got == nil {
+		t.Fatal("expected one insight created")
+	}
+	if got.Stock != "Bank Nifty" || got.Symbol != "BANKNIFTY" || got.Index != "banknifty" {
+		t.Fatalf("index mapping = %s / %s / %s", got.Stock, got.Symbol, got.Index)
+	}
+	if got.StrikePrice != 52000 || got.EntryPriceLow != 300 || got.EntryPriceHigh != 300 || got.ExitPrice != 340 {
+		t.Fatalf("prices = strike %v entry %v-%v exit %v", got.StrikePrice, got.EntryPriceLow, got.EntryPriceHigh, got.ExitPrice)
+	}
+	if len(got.Targets) != 1 || got.Targets[0] != 340 {
+		t.Fatalf("targets = %v, want [340] so close/returns reuse the exit", got.Targets)
 	}
 }
 
@@ -260,6 +297,9 @@ func TestHandleMarkTargetHit_KeepsTradeOpen(t *testing.T) {
 	}
 	if got.TargetHitIndex == nil || *got.TargetHitIndex != 1 {
 		t.Fatalf("TargetHitIndex = %v, want 1", got.TargetHitIndex)
+	}
+	if len(got.TargetHitAt) != 3 || got.TargetHitAt[0] == "" || got.TargetHitAt[1] == "" || got.TargetHitAt[2] != "" {
+		t.Fatalf("TargetHitAt = %#v, want T1 and T2 stamped and T3 still empty", got.TargetHitAt)
 	}
 }
 

@@ -189,8 +189,10 @@ export async function refreshFinish(
 
 // --- RA content platform (Pipe B) — thin insights CMS --------------------
 
-/** "equity" calls carry exactly one target; "fno" calls carry 1-3 scaled booking levels. */
-export type InstrumentType = "equity" | "fno";
+/** "equity" calls carry exactly one target; "fno" calls carry 1-3 scaled booking levels; "scalping" is an index option with strike, entry, and exit. */
+export type InstrumentType = "equity" | "fno" | "scalping";
+
+export type ScalpingIndex = "nifty" | "banknifty" | "sensex";
 
 /** "open" until the RA marks it resolved by hand (TD-053) — no live price feed to detect this automatically. */
 export type TradeStatus = "open" | "closed";
@@ -217,6 +219,12 @@ export type Insight = {
   closedAt?: string;
   /** Which `targets[]` element was hit, for a "target_hit" close on a F&O call with more than one booking level. Undefined means T1 (index 0). */
   targetHitIndex?: number;
+  /** Parallel to `targets`: RFC3339 time that level was marked hit, or "" if not yet. */
+  targetHitAt?: string[];
+  /** Scalping only. */
+  index?: ScalpingIndex;
+  strikePrice?: number;
+  exitPrice?: number;
 };
 
 /** Every row ever created (draft/published/archived) — analyst's own admin list. */
@@ -242,6 +250,10 @@ export type AdminInsight = {
   outcome?: TradeOutcome;
   closedAt?: string;
   targetHitIndex?: number;
+  targetHitAt?: string[];
+  index?: ScalpingIndex;
+  strikePrice?: number;
+  exitPrice?: number;
 };
 
 export type InsightInput = {
@@ -256,6 +268,11 @@ export type InsightInput = {
   targets: number[];
   stopLoss: number;
   rationale: string;
+  /** Scalping only — the server derives stock, symbol, and the exit-as-target from these. */
+  index?: ScalpingIndex;
+  strikePrice?: number;
+  entryPrice?: number;
+  exitPrice?: number;
 };
 
 export async function listInsights(token: string): Promise<Insight[]> {

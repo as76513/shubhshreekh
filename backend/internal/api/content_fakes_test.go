@@ -46,6 +46,9 @@ func (f *fakeContentStore) CreateInsight(ctx context.Context, in db.InsightInput
 		Targets:        in.Targets,
 		StopLoss:       in.StopLoss,
 		Rationale:      in.Rationale,
+		Index:          in.Index,
+		StrikePrice:    in.StrikePrice,
+		ExitPrice:      in.ExitPrice,
 		TradeStatus:    "open",
 		CreatedAt:      now,
 		UpdatedAt:      now,
@@ -70,6 +73,9 @@ func (f *fakeContentStore) UpdateInsight(ctx context.Context, id string, in db.I
 	existing.Targets = in.Targets
 	existing.StopLoss = in.StopLoss
 	existing.Rationale = in.Rationale
+	existing.Index = in.Index
+	existing.StrikePrice = in.StrikePrice
+	existing.ExitPrice = in.ExitPrice
 	return nil
 }
 
@@ -117,10 +123,14 @@ func (f *fakeContentStore) CloseInsight(ctx context.Context, id, outcome string,
 		}
 		idx = &resolved
 	}
+	now := time.Now().UTC().Format(time.RFC3339)
 	existing.TradeStatus = "closed"
 	existing.Outcome = outcome
-	existing.ClosedAt = time.Now().UTC().Format(time.RFC3339)
+	existing.ClosedAt = now
 	existing.TargetHitIndex = idx
+	if idx != nil {
+		existing.TargetHitAt = db.StampTargetHit(existing.TargetHitAt, len(existing.Targets), *idx, now)
+	}
 	return nil
 }
 
@@ -135,7 +145,10 @@ func (f *fakeContentStore) MarkTargetHit(ctx context.Context, id string, targetI
 	if err != nil {
 		return err
 	}
-	existing.TargetHitIndex = &idx
+	now := time.Now().UTC().Format(time.RFC3339)
+	existing.TargetHitAt = db.StampTargetHit(existing.TargetHitAt, len(existing.Targets), idx, now)
+	best := db.HighestHitIndex(existing.TargetHitAt, idx)
+	existing.TargetHitIndex = &best
 	return nil
 }
 

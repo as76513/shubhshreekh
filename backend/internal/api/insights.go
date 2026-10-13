@@ -12,15 +12,21 @@ import (
 type insightRequest struct {
 	Tier           string    `json:"tier"`
 	Action         string    `json:"action"`
-	InstrumentType string    `json:"instrumentType"` // equity | fno
+	InstrumentType string    `json:"instrumentType"` // equity | fno | scalping
 	Stock          string    `json:"stock"`
 	Symbol         string    `json:"symbol"`
 	Timeframe      string    `json:"timeframe"` // equity only; force-cleared for fno in toInput, see there
 	EntryPriceLow  float64   `json:"entryPriceLow"`
 	EntryPriceHigh float64   `json:"entryPriceHigh"`
-	Targets        []float64 `json:"targets"` // equity: exactly 1; fno: 1-3
+	Targets        []float64 `json:"targets"` // equity: exactly 1; fno: 1-3; scalping derives [exitPrice]
 	StopLoss       float64   `json:"stopLoss"`
 	Rationale      string    `json:"rationale"`
+	// Scalping-only. Entry is a single price (not the equity/F&O range);
+	// toInput copies it onto both ends of the stored range.
+	Index       string  `json:"index"`
+	StrikePrice float64 `json:"strikePrice"`
+	EntryPrice  float64 `json:"entryPrice"`
+	ExitPrice   float64 `json:"exitPrice"`
 }
 
 // validate enforces architecture.md's "never trust the client" at the one
@@ -29,6 +35,9 @@ type insightRequest struct {
 // low-high range (not a single value, since 2026-10-10), and the UI's own
 // form shape is not itself a guarantee the stored data is well-formed.
 func (req insightRequest) validate() error {
+	if req.InstrumentType == "scalping" {
+		return req.validateScalping()
+	}
 	switch req.InstrumentType {
 	case "equity":
 		if len(req.Targets) != 1 {
@@ -76,7 +85,52 @@ func (req insightRequest) validate() error {
 	return nil
 }
 
+func (req insightRequest) validateScalping() error {
+	switch req.Index {
+	case "nifty", "banknifty", "sensex":
+	default:
+		return errors.New(`index must be "nifty", "banknifty", or "sensex"`)
+	}
+	if req.StrikePrice <= 0 {
+		return errors.New("strike price must be positive")
+	}
+	if req.EntryPrice <= 0 {
+		return errors.New("entry price must be positive")
+	}
+	if req.ExitPrice <= 0 {
+		return errors.New("exit price must be positive")
+	}
+	return nil
+}
+
+func scalpingIndexNames(index string) (stock, symbol string) {
+	switch index {
+	case "banknifty":
+		return "Bank Nifty", "BANKNIFTY"
+	case "sensex":
+		return "Sensex", "SENSEX"
+	default:
+		return "Nifty", "NIFTY"
+	}
+}
+
 func (req insightRequest) toInput() db.InsightInput {
+	if req.InstrumentType == "scalping" {
+		stock, symbol := scalpingIndexNames(req.Index)
+		return db.InsightInput{
+			Tier:           "pro",
+			Action:         "BUY",
+			InstrumentType: "scalping",
+			Stock:          stock,
+			Symbol:         symbol,
+			Index:          req.Index,
+			StrikePrice:    req.StrikePrice,
+			ExitPrice:      req.ExitPrice,
+			EntryPriceLow:  req.EntryPrice,
+			EntryPriceHigh: req.EntryPrice,
+			Targets:        []float64{req.ExitPrice},
+		}
+	}
 	timeframe := req.Timeframe
 	if req.InstrumentType == "fno" {
 		// F&O is intraday by nature — never held past the same day — so a
@@ -267,6 +321,10 @@ type customerInsight struct {
 	Outcome        string    `json:"outcome,omitempty"`
 	ClosedAt       string    `json:"closedAt,omitempty"`
 	TargetHitIndex *int      `json:"targetHitIndex,omitempty"`
+	TargetHitAt    []string  `json:"targetHitAt"`
+	Index          string    `json:"index,omitempty"`
+	StrikePrice    float64   `json:"strikePrice,omitempty"`
+	ExitPrice      float64   `json:"exitPrice,omitempty"`
 }
 
 // handleListInsights: GET /insights — published insights.
@@ -302,7 +360,18 @@ func (d Deps) handleListInsights(w http.ResponseWriter, r *http.Request) {
 			Outcome:        in.Outcome,
 			ClosedAt:       in.ClosedAt,
 			TargetHitIndex: in.TargetHitIndex,
+			TargetHitAt:    hitAtOrEmpty(in.TargetHitAt),
+			Index:          in.Index,
+			StrikePrice:    in.StrikePrice,
+			ExitPrice:      in.ExitPrice,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func hitAtOrEmpty(times []string) []string {
+	if times == nil {
+		return []string{}
+	}
+	return times
 }

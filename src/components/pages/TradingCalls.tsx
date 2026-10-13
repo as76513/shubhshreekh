@@ -34,11 +34,110 @@ function isTodayUTC(iso: string): boolean {
 }
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
-const fmtDate = (iso: string) => {
+const fmtDateTime = (iso: string) => {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? iso
-    : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : d.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata',
+      })
+}
+
+const INDEX_LABEL: Record<string, string> = {
+  nifty: 'Nifty',
+  banknifty: 'Bank Nifty',
+  sensex: 'Sensex',
+}
+
+function TradeTimes({ call }: { call: Insight }) {
+  const hits = call.targetHitAt ?? []
+  const multi = (call.targets?.length ?? 0) > 1
+  const lines: { key: string; text: string }[] = []
+  if (call.date) lines.push({ key: 'published', text: `Published ${fmtDateTime(call.date)}` })
+  hits.forEach((at, i) => {
+    if (!at || at === call.closedAt) return
+    lines.push({
+      key: `hit-${i}`,
+      text: `${multi ? `T${i + 1} hit` : 'Target hit'} ${fmtDateTime(at)}`,
+    })
+  })
+  if (call.tradeStatus === 'closed' && call.closedAt) {
+    const label = call.outcome === 'sl_hit' ? 'SL hit' : 'Closed'
+    lines.push({ key: 'closed', text: `${label} ${fmtDateTime(call.closedAt)}` })
+  }
+  if (lines.length === 0) return null
+  return (
+    <div className="mt-3 pt-2.5 space-y-0.5" style={{ borderTop: '1px dashed rgba(29,78,216,0.15)' }}>
+      {lines.map(line => (
+        <p key={line.key} className="text-[11px]" style={{ color: 'var(--muted-text)' }}>
+          {line.text}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function ScalpCard({ call }: { call: Insight }) {
+  const exit = call.exitPrice || call.targets?.[0] || 0
+  const closed = call.tradeStatus === 'closed'
+  const positive = call.returnsPct >= 0
+  return (
+    <div
+      className="relative rounded-2xl p-4 sm:p-5 transition-all"
+      style={{
+        background: 'linear-gradient(150deg, #eef3fb, #e3ebf8)',
+        border: '1px solid rgba(29,78,216,0.2)',
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span
+              className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md"
+              style={{ background: 'var(--navy)', color: '#ffffff', fontFamily: 'JetBrains Mono, monospace' }}
+            >
+              {INDEX_LABEL[call.index ?? ''] ?? call.stock}
+            </span>
+            {closed && (
+              <span
+                className="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                style={{ background: 'var(--gain-bg)', color: 'var(--gain)' }}
+              >
+                Target Hit
+              </span>
+            )}
+          </div>
+          <h3 className="font-bold text-base leading-tight" style={{ color: 'var(--navy)' }}>
+            Strike {fmt(call.strikePrice ?? 0)}
+          </h3>
+          <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
+            Entry {fmt(call.entryPriceLow)} → Exit {fmt(exit)}
+          </p>
+        </div>
+        <div
+          className="flex-shrink-0 text-right px-3 py-2 rounded-xl"
+          style={{ background: positive ? 'var(--gain-bg)' : 'var(--loss-bg)' }}
+        >
+          <p
+            className="text-lg font-bold leading-none"
+            style={{ color: positive ? 'var(--gain)' : 'var(--loss)', fontFamily: 'JetBrains Mono, monospace' }}
+          >
+            {call.returnsPct > 0 ? '+' : ''}{call.returnsPct}%
+          </p>
+          <p className="text-[10px] mt-1" style={{ color: positive ? 'var(--gain)' : 'var(--loss)', opacity: 0.75 }}>
+            {closed ? 'realised' : 'expected'}
+          </p>
+        </div>
+      </div>
+      <TradeTimes call={call} />
+    </div>
+  )
 }
 
 export default function TradingCalls({ view }: { view: ViewKey }) {
@@ -62,20 +161,19 @@ export default function TradingCalls({ view }: { view: ViewKey }) {
     () => insights.filter(c => c.instrumentType === instrument),
     [insights, instrument],
   )
-  const liveCalls = useMemo(
-    () => byInstrument.filter(c => c.tradeStatus === 'open' && isTodayUTC(c.date)),
-    [byInstrument],
+  const scalpInsights = useMemo(
+    () => insights.filter(c => c.instrumentType === 'scalping'),
+    [insights],
   )
-  const pastCalls = useMemo(
-    () => byInstrument.filter(c => c.tradeStatus === 'open' && !isTodayUTC(c.date)),
-    [byInstrument],
-  )
-  const closedCalls = useMemo(
-    () => byInstrument.filter(c => c.tradeStatus === 'closed'),
-    [byInstrument],
-  )
+  const inView = (calls: Insight[]) =>
+    view === 'closed'
+      ? calls.filter(c => c.tradeStatus === 'closed')
+      : view === 'live'
+        ? calls.filter(c => c.tradeStatus === 'open' && isTodayUTC(c.date))
+        : calls.filter(c => c.tradeStatus === 'open' && !isTodayUTC(c.date))
 
-  const visible = view === 'live' ? liveCalls : view === 'past' ? pastCalls : closedCalls
+  const visible = useMemo(() => inView(byInstrument), [byInstrument, view])
+  const scalpVisible = useMemo(() => inView(scalpInsights), [scalpInsights, view])
   const emptyMessage = view === 'live'
     ? "No live trades published today — check back soon."
     : view === 'past'
@@ -100,7 +198,7 @@ export default function TradingCalls({ view }: { view: ViewKey }) {
         </p>
       </div>
 
-      {/* Equity / F&O filter — applies across Live, Past, and Closed alike */}
+      {/* Equity / F&O filter — scalping is its own section below this list */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(11,42,85,0.06)', border: '1px solid rgba(29,78,216,0.15)' }} role="radiogroup" aria-label="Instrument type">
           {([
@@ -186,7 +284,7 @@ export default function TradingCalls({ view }: { view: ViewKey }) {
                       {call.stock}
                     </h3>
                     <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted-text)' }}>
-                      {call.symbol} · {fmtDate(call.date)}
+                      {call.symbol}
                     </p>
                   </div>
 
@@ -289,6 +387,7 @@ export default function TradingCalls({ view }: { view: ViewKey }) {
                     </div>
                   )}
                 </div>
+                <TradeTimes call={call} />
               </div>
             )
           })}
@@ -341,9 +440,6 @@ export default function TradingCalls({ view }: { view: ViewKey }) {
                       >
                         {isTargetHit ? `${targetLabel} Hit` : 'SL Hit'}
                       </span>
-                      <span className="text-[10px]" style={{ color: 'var(--muted-text)' }}>
-                        Published {fmtDate(call.date)}{call.closedAt && ` · Closed ${fmtDate(call.closedAt)}`}
-                      </span>
                     </div>
                     <h3 className="font-bold text-base leading-tight truncate" style={{ color: 'var(--navy)' }}>
                       {call.stock}
@@ -368,10 +464,40 @@ export default function TradingCalls({ view }: { view: ViewKey }) {
                     </p>
                   </div>
                 </div>
+                <TradeTimes call={call} />
               </div>
             )
           })}
         </div>
+      )}
+
+      {!loading && !error && (
+        <section className="mt-10">
+          <h2
+            className="text-xl font-bold mb-1"
+            style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--navy)' }}
+          >
+            Scalping Trade
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--muted-text)' }}>
+            Index scalps, published separately from Equity and F&amp;O.
+          </p>
+          {scalpVisible.length === 0 ? (
+            <p className="text-sm py-4" style={{ color: 'var(--muted-text)' }}>
+              {view === 'live'
+                ? 'No live scalping trades published today.'
+                : view === 'past'
+                  ? 'No past open scalping trades.'
+                  : 'No closed scalping trades yet.'}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {scalpVisible.map(call => (
+                <ScalpCard key={call.id} call={call} />
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </div>
   )

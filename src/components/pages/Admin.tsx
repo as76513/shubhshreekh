@@ -23,6 +23,7 @@ import {
   type AdminInsight,
   type InsightInput,
   type Pricing,
+  type ScalpingIndex,
   type Overview,
   type WeeklyPDF,
   type SiteStats,
@@ -69,6 +70,42 @@ function parseEntryPriceRange(text: string): { low: number; high: number } | nul
   return null;
 }
 
+const INDEX_LABEL: Record<ScalpingIndex, string> = {
+  nifty: "Nifty",
+  banknifty: "Bank Nifty",
+  sensex: "Sensex",
+};
+
+function fmtDateTime(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+function tradeTimeLines(row: AdminInsight): string[] {
+  const lines: string[] = [];
+  if (row.publishedAt) lines.push(`Published ${fmtDateTime(row.publishedAt)}`);
+  const hits = row.targetHitAt ?? [];
+  const multi = (row.targets?.length ?? 0) > 1;
+  hits.forEach((at, i) => {
+    if (!at || at === row.closedAt) return;
+    lines.push(`${multi ? `T${i + 1} hit` : "Target hit"} ${fmtDateTime(at)}`);
+  });
+  if (row.tradeStatus === "closed" && row.closedAt) {
+    lines.push(`${row.outcome === "sl_hit" ? "SL hit" : "Closed"} ${fmtDateTime(row.closedAt)}`);
+  }
+  return lines;
+}
+
 export default function Admin() {
   const { withAuth } = useAuth();
   const [form, setForm] = useState<InsightInput>(emptyForm);
@@ -76,6 +113,14 @@ export default function Admin() {
   // kept in sync via parseEntryPriceRange and are what's actually submitted.
   const [entryPriceRangeInput, setEntryPriceRangeInput] = useState("");
   const [rows, setRows] = useState<AdminInsight[]>([]);
+  const [scalp, setScalp] = useState<{
+    index: ScalpingIndex;
+    strikePrice: number;
+    entryPrice: number;
+    exitPrice: number;
+  }>({ index: "nifty", strikePrice: 0, entryPrice: 0, exitPrice: 0 });
+  const [scalpSubmitting, setScalpSubmitting] = useState(false);
+  const [scalpError, setScalpError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -367,6 +412,43 @@ export default function Admin() {
       setError(err instanceof Error ? err.message : "Could not create draft");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleScalpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (scalp.strikePrice <= 0 || scalp.entryPrice <= 0 || scalp.exitPrice <= 0) {
+      setScalpError("Strike, entry, and exit must all be greater than zero");
+      return;
+    }
+    setScalpError("");
+    setScalpSubmitting(true);
+    try {
+      await withAuth((token) =>
+        createInsight(token, {
+          tier: "pro",
+          action: "BUY",
+          instrumentType: "scalping",
+          stock: INDEX_LABEL[scalp.index],
+          symbol: scalp.index.toUpperCase(),
+          timeframe: "",
+          entryPriceLow: scalp.entryPrice,
+          entryPriceHigh: scalp.entryPrice,
+          targets: [scalp.exitPrice],
+          stopLoss: 0,
+          rationale: "",
+          index: scalp.index,
+          strikePrice: scalp.strikePrice,
+          entryPrice: scalp.entryPrice,
+          exitPrice: scalp.exitPrice,
+        }),
+      );
+      setScalp({ index: "nifty", strikePrice: 0, entryPrice: 0, exitPrice: 0 });
+      await refresh();
+    } catch (err) {
+      setScalpError(err instanceof Error ? err.message : "Could not create scalping draft");
+    } finally {
+      setScalpSubmitting(false);
     }
   };
 
@@ -835,6 +917,188 @@ export default function Admin() {
           </div>
         </form>
 
+        <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+          Scalping Trade
+        </h2>
+        <p className="text-sm mb-6" style={{ color: "var(--muted-text)" }}>
+          Same as an insight: save a draft, then Publish. A published scalp shows on Today&apos;s Trade, in its own section under Equity and F&amp;O. One Target Hit closes it.
+        </p>
+        <form
+          onSubmit={handleScalpSubmit}
+          className="rounded-2xl p-5 mb-8 grid grid-cols-2 sm:grid-cols-4 gap-4"
+          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+        >
+          {field(
+            "Index",
+            <select
+              className={inputClass}
+              style={inputStyle}
+              value={scalp.index}
+              onChange={(e) => setScalp((s) => ({ ...s, index: e.target.value as ScalpingIndex }))}
+            >
+              <option value="nifty">Nifty</option>
+              <option value="banknifty">Bank Nifty</option>
+              <option value="sensex">Sensex</option>
+            </select>,
+          )}
+          {field(
+            "Strike price",
+            <input
+              type="number"
+              className={inputClass}
+              style={inputStyle}
+              value={scalp.strikePrice || ""}
+              onChange={(e) => setScalp((s) => ({ ...s, strikePrice: Number(e.target.value) }))}
+              placeholder="24500"
+            />,
+          )}
+          {field(
+            "Entry price",
+            <input
+              type="number"
+              className={inputClass}
+              style={inputStyle}
+              value={scalp.entryPrice || ""}
+              onChange={(e) => setScalp((s) => ({ ...s, entryPrice: Number(e.target.value) }))}
+              placeholder="120"
+            />,
+          )}
+          {field(
+            "Exit price",
+            <input
+              type="number"
+              className={inputClass}
+              style={inputStyle}
+              value={scalp.exitPrice || ""}
+              onChange={(e) => setScalp((s) => ({ ...s, exitPrice: Number(e.target.value) }))}
+              placeholder="150"
+            />,
+          )}
+          {scalpError && (
+            <p className="col-span-2 sm:col-span-4 text-xs" style={{ color: "var(--loss)" }}>
+              {scalpError}
+            </p>
+          )}
+          <div className="col-span-2 sm:col-span-4">
+            <button
+              type="submit"
+              disabled={scalpSubmitting}
+              className="btn-action px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+            >
+              {scalpSubmitting ? "Saving…" : "Save as draft"}
+            </button>
+          </div>
+        </form>
+
+        {loading ? (
+          <p className="text-sm mb-8" style={{ color: "var(--muted-text)" }}>
+            Loading…
+          </p>
+        ) : rows.filter((r) => r.instrumentType === "scalping").length === 0 ? (
+          <p className="text-sm mb-8" style={{ color: "var(--muted-text)" }}>
+            No scalping trades yet.
+          </p>
+        ) : (
+          <div className="space-y-2.5 mb-8">
+            {rows
+              .filter((r) => r.instrumentType === "scalping")
+              .map((row) => {
+                const times = tradeTimeLines(row);
+                const exit = row.exitPrice || row.targets?.[0] || 0;
+                return (
+                  <div
+                    key={row.id}
+                    className="flex items-center justify-between gap-3 p-3.5 rounded-xl"
+                    style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md"
+                          style={{ background: "var(--navy)", color: "#ffffff" }}
+                        >
+                          {INDEX_LABEL[row.index ?? "nifty"] ?? row.symbol}
+                        </span>
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                          style={{
+                            background:
+                              row.status === "published"
+                                ? "var(--gain-bg)"
+                                : row.status === "archived"
+                                  ? "rgba(11,42,85,0.1)"
+                                  : "color-mix(in srgb, var(--navy-gold-soft) 16%, transparent)",
+                            color:
+                              row.status === "published"
+                                ? "var(--gain)"
+                                : row.status === "archived"
+                                  ? "var(--muted-text)"
+                                  : "var(--navy-gold-text)",
+                          }}
+                        >
+                          {row.status}
+                        </span>
+                        {row.tradeStatus === "closed" && (
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                            style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                          >
+                            Target Hit
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-semibold text-sm" style={{ color: "var(--navy)" }}>
+                        Strike ₹{row.strikePrice?.toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+                        Entry ₹{row.entryPriceLow} · Exit ₹{exit}
+                      </p>
+                      {times.length > 0 && (
+                        <div className="mt-1.5 space-y-0.5">
+                          {times.map((line) => (
+                            <p key={line} className="text-[11px]" style={{ color: "var(--muted-text)" }}>
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      {row.status !== "published" && (
+                        <button
+                          onClick={() => handlePublish(row.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: "var(--buy-badge)", color: "#ffffff" }}
+                        >
+                          Publish
+                        </button>
+                      )}
+                      {row.status === "published" && row.tradeStatus !== "closed" && (
+                        <button
+                          onClick={() => handleClose(row.id, "target_hit")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                        >
+                          ✅ Target Hit
+                        </button>
+                      )}
+                      {row.status === "published" && (
+                        <button
+                          onClick={() => handleArchive(row.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: "rgba(11,42,85,0.08)", color: "var(--navy)" }}
+                        >
+                          Archive
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+
+
         <h2 className="font-semibold text-base mb-3" style={{ color: "var(--navy)" }}>
           All insights
         </h2>
@@ -843,19 +1107,24 @@ export default function Admin() {
           <p className="text-sm" style={{ color: "var(--muted-text)" }}>
             Loading…
           </p>
-        ) : rows.length === 0 ? (
+        ) : rows.filter((r) => r.instrumentType !== "scalping").length === 0 ? (
           <p className="text-sm" style={{ color: "var(--muted-text)" }}>
             Nothing yet — create a draft above.
           </p>
         ) : (
           <div className="space-y-2.5">
-            {rows.map((row) => {
+            {rows
+              .filter((r) => r.instrumentType !== "scalping")
+              .map((row) => {
               // Defensive: a row with a missing/null `targets` attribute
               // (e.g. a malformed or pre-migration row backfillLegacy
               // couldn't fully recover) must never crash the whole admin
               // list render — found 2026-10-10 via a real "Cannot read
               // properties of null (reading 'join')" crash in production.
               const targets = row.targets ?? [];
+              const hitAt = row.targetHitAt ?? [];
+              const highestHit = hitAt.reduce((best, at, i) => (at ? i : best), -1);
+              const times = tradeTimeLines(row);
               return (
               <div
                 key={row.id}
@@ -910,12 +1179,12 @@ export default function Admin() {
                           : "SL Hit"}
                       </span>
                     )}
-                    {row.tradeStatus !== "closed" && targets.length > 1 && row.targetHitIndex != null && (
+                    {row.tradeStatus !== "closed" && targets.length > 1 && highestHit >= 0 && (
                       <span
                         className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
                         style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
                       >
-                        Reached T{row.targetHitIndex + 1} — still running
+                        Reached T{highestHit + 1} — still running
                       </span>
                     )}
                   </div>
@@ -925,6 +1194,15 @@ export default function Admin() {
                   <p className="text-xs" style={{ color: "var(--muted-text)" }}>
                     Entry ₹{row.entryPriceLow}-{row.entryPriceHigh} · Tgt ₹{targets.join(" / ")} · SL ₹{row.stopLoss}
                   </p>
+                  {times.length > 0 && (
+                    <div className="mt-1.5 space-y-0.5">
+                      {times.map((line) => (
+                        <p key={line} className="text-[11px]" style={{ color: "var(--muted-text)" }}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-2">
                   {row.status !== "published" && (
@@ -945,7 +1223,7 @@ export default function Admin() {
                               never closes the trade by itself; it's the
                               separate "Close" button below that does. */}
                           {targets.map((_, i) => {
-                            const reached = row.targetHitIndex === i;
+                            const reached = Boolean(hitAt[i]);
                             return (
                               <button
                                 key={i}

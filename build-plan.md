@@ -47,6 +47,7 @@ Minimal Pipe B — **insights / trading calls only**:
 | Wire Insights UI to API | `content_audit` v1 can be stubbed |
 
 No SQS/webhooks — RA submits a form; customers see formatted cards on next fetch.
+Scalping trades (2026-10-13) are their own admin form directly under Publish an insight: index, strike, entry, and exit, draft then publish. Customers see published scalps on Today's Trade as a separate section below Equity/F&O. One Target Hit closes the trade.
 
 ### In scope / out of scope
 

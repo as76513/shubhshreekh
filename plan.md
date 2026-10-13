@@ -129,6 +129,10 @@ app-open popup for the latest live trade.
 a **thin insights CMS**
 only — `/admin` form + DynamoDB insight rows + `GET /insights`. Courses
 and videos stay on static `data.ts` until after launch. No queues/webhooks.
+Scalping trades (2026-10-13) are a second section on that same `/admin`
+page — index, strike, entry, exit — stored as insight rows. Published
+scalps show on Today's Trade in a section under Equity and F&O. One
+Target Hit closes the trade. See architecture.md.
 
 ### Roles (JWT claims)
 

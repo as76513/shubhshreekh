@@ -180,6 +180,22 @@ server-side in `backend/internal/api/insights.go`'s `validate()` — never
 trust the admin form's shape alone (the "never trust the client" principle
 applies to the RA's own browser too, not just customers').
 
+**Scalping** (`instrumentType: "scalping"`, added 2026-10-13) is its own
+admin section under the insight form. The RA enters an index (`nifty` |
+`banknifty` | `sensex`), a strike, an entry price, and an exit price. The
+server derives the display name, stores entry as a zero-width range, and
+stores the exit as the single target so close and `returnsPct` stay on the
+same path. A published scalp appears on Today's Trade in its own
+section under the Equity/F&O list. One Target Hit closes it
+(`outcome: "target_hit"`); it then shows in that same section on Closed
+Trades.
+
+**`targetHitAt`:** one UTC RFC3339 string per `targets[]` slot, empty until
+that level is marked. `MarkTargetHit` stamps the level and keeps earlier
+stamps. `CloseInsight` stamps the level it closes at with the same clock as
+`closedAt`. Live, past, and closed cards show published time, each target-hit
+time, and close time in IST under the trade.
+
 **Not to be confused with the Dashboard's "F&O Desk" card** — that's a
 separate, still-static teaser (`foCalls` in `src/lib/data.ts`: options
 premium/expiry/lot-size, no CMP/target/stop-loss at all) gating Pro access
