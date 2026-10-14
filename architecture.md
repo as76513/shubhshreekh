@@ -455,8 +455,16 @@ The components and the single standard request/response path.
    └─────────┘
    (market vendor cache deferred)
 
- Frontend hosting: S3 (private) + CloudFront — see infra/README.md
- Cross-cutting: SSM Parameter Store · CloudWatch · Route 53
+ Frontend hosting: S3 (private) + CloudFront — see infra/README.md.
+ Live path today: push to `main` runs `.github/workflows/deploy.yml`, which
+ updates the API Lambda and releases the Amplify site. AWS login is GitHub
+ OIDC (`infra/backend/github_oidc.tf`), not a key stored in the repo.
+ `main` requires a pull request before it can be updated.
+ Session signing secret and MSG91 auth key live in SSM Parameter Store
+ (SecureString). Lambda application logs expire after 14 days. Management
+ events go to CloudTrail. DynamoDB `users`, `subscriptions`, `orders`, and
+ `content` have point-in-time recovery and deletion protection.
+ Cross-cutting: SSM Parameter Store · CloudWatch · CloudTrail · Route 53
  Domain: app.shubhshreeknowledgehub.com (frontend, live via Amplify) ·
          api.shubhshreeknowledgehub.com (backend, incl. /auth/send-otp +
          /auth/verify-otp — no separate auth subdomain needed) — see plan.md

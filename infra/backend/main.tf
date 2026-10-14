@@ -45,7 +45,8 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  function_name = "shubhshreekh-api-${var.environment}"
+  function_name  = "shubhshreekh-api-${var.environment}"
+  cloudtrail_arn = "arn:aws:cloudtrail:${var.aws_region}:${data.aws_caller_identity.current.account_id}:trail/shubhshreekh-management"
   table_arns = [
     aws_dynamodb_table.users.arn,
     aws_dynamodb_table.subscriptions.arn,

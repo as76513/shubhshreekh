@@ -104,8 +104,9 @@ OTP_TEST_CODE=123456
 ```
 
 - Phones: 10-digit Indian or `91…` / `+91…` (comma-separated).
-- Send OTP to a whitelist number → **no SMS**; enter `OTP_TEST_CODE`.
-- Put the same phone + code in Play Console **App access** for reviewers.
+- Send OTP to a whitelist number → **no SMS** only when `OTP_TEST_CODE` is set; enter that code.
+- An empty `OTP_TEST_CODE` disables the bypass. There is no `123456` fallback. The live Lambda does not set `OTP_TEST_CODE`, so whitelist phones take the real MSG91 path.
+- Put the same phone + code in Play Console **App access** for reviewers only on a build that still has a code configured.
 - **Clear TD-001** when DLT is live: remove test phones from production env.
 
 Local without MSG91 and without test phones → existing **Mock** (codes in server logs).

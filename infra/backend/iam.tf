@@ -70,3 +70,22 @@ resource "aws_iam_role_policy" "logs" {
     }]
   })
 }
+
+# Read-only on the two production secrets. The deploy role does not get this,
+# so a GitHub Actions run cannot read the signing secret or the MSG91 key.
+resource "aws_iam_role_policy" "ssm_secrets" {
+  name = "ssm-secrets"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["ssm:GetParameter", "ssm:GetParameters"]
+      Resource = [
+        aws_ssm_parameter.session_token_signing_secret.arn,
+        aws_ssm_parameter.msg91_auth_key.arn,
+      ]
+    }]
+  })
+}

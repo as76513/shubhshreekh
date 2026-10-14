@@ -8,9 +8,11 @@ import (
 // ProviderFromEnv builds the OTP stack used by cmd/server and cmd/lambda.
 //
 // Env:
-//   MSG91_AUTH_KEY, MSG91_TEMPLATE_ID — real SMS when set
-//   OTP_TEST_PHONES — comma-separated 10-digit or 91… numbers (Play/QA whitelist)
-//   OTP_TEST_CODE — fixed OTP for whitelist (default 123456 if phones set)
+//
+//	MSG91_AUTH_KEY, MSG91_TEMPLATE_ID — real SMS when set
+//	OTP_TEST_PHONES — comma-separated 10-digit or 91… numbers (Play/QA whitelist)
+//	OTP_TEST_CODE — fixed OTP for whitelist. Empty disables the bypass
+//	(no default code). Local .env may still set one; the live Lambda does not.
 //
 // Modes: "msg91", "msg91+test-phones", "test-phones-only", "mock".
 func ProviderFromEnv() (provider Provider, mode string) {
@@ -21,11 +23,12 @@ func ProviderFromEnv() (provider Provider, mode string) {
 
 	phones := strings.TrimSpace(os.Getenv("OTP_TEST_PHONES"))
 	code := strings.TrimSpace(os.Getenv("OTP_TEST_CODE"))
+	bypass := phones != "" && code != ""
 
 	switch {
-	case phones != "" && inner != nil:
+	case bypass && inner != nil:
 		return NewGate(inner, phones, code), "msg91+test-phones"
-	case phones != "":
+	case bypass:
 		return NewGate(nil, phones, code), "test-phones-only"
 	case inner != nil:
 		return inner, "msg91"

@@ -30,8 +30,10 @@ func NewGate(inner Provider, phonesCSV, testCode string) Provider {
 	}
 	code := strings.TrimSpace(testCode)
 	if code == "" {
-		code = "123456"
-		log.Println("[otp:gate] OTP_TEST_CODE unset — defaulting to 123456 for whitelist phones")
+		// An empty code must not fall back to a well-known OTP. The live
+		// function leaves OTP_TEST_CODE unset so whitelist phones use real SMS.
+		log.Println("[otp:gate] OTP_TEST_CODE unset — test-phone bypass disabled")
+		return inner
 	}
 	log.Printf("[otp:gate] test OTP enabled for %d phone(s) (fixed code; no SMS)", len(phones))
 	return &Gate{Inner: inner, Phones: phones, TestCode: code}

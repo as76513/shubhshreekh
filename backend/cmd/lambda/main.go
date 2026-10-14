@@ -15,12 +15,17 @@ import (
 	"github.com/as76513/shubhshreekh/backend/internal/api"
 	"github.com/as76513/shubhshreekh/backend/internal/db"
 	"github.com/as76513/shubhshreekh/backend/internal/otp"
+	"github.com/as76513/shubhshreekh/backend/internal/secrets"
 )
 
 var adapter *httpadapter.HandlerAdapterV2
 
 func init() {
 	ctx := context.Background()
+
+	if err := secrets.Load(ctx); err != nil {
+		log.Fatalf("secrets: %v", err)
+	}
 
 	client, err := db.NewClient(ctx)
 	if err != nil {

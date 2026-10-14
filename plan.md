@@ -347,7 +347,7 @@ free vector-DB tier.
 
 ### Cost-control guardrails (do these on day one)
 1. **AWS Budget alert at ₹500/month** — serverless is cheap, not zero; a runaway Lambda can surprise you.
-2. **Use SSM Parameter Store** over Secrets Manager early (free vs ~₹35/secret).
+2. **Use SSM Parameter Store** over Secrets Manager early (free vs ~₹35/secret). The session signing secret and the MSG91 auth key are SecureString parameters (`/shubhshreekh/<env>/…`). Lambda reads them at cold start. They are not function environment variables. The live function does not carry `OTP_TEST_CODE`.
 3. **Avoid NAT Gateway** (~₹2,000/mo silent charge) — keep Lambda out of a VPC or use VPC endpoints.
 4. **HTTP API** over REST API Gateway (71% cheaper).
 5. **Reserved Instances / Savings Plans** — only once you have a *fixed* always-on component (Stage 3+); up to ~69% off with commitment.

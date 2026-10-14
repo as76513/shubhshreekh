@@ -35,15 +35,20 @@ resource "aws_lambda_function" "api" {
       DYNAMODB_RATELIMIT_TABLE     = aws_dynamodb_table.otp_ratelimit.name
       DYNAMODB_SETTINGS_TABLE      = aws_dynamodb_table.settings.name
       CONTENT_MEDIA_BUCKET         = aws_s3_bucket.content_media.id
-      SESSION_TOKEN_SIGNING_SECRET = var.session_token_signing_secret
       CORS_ALLOWED_ORIGINS         = join(",", var.cors_allowed_origins)
-      MSG91_AUTH_KEY               = var.msg91_auth_key
       MSG91_TEMPLATE_ID            = var.msg91_template_id
       OTP_TEST_PHONES              = var.otp_test_phones
-      OTP_TEST_CODE                = var.otp_test_code
-      ANALYST_PHONES               = var.analyst_phones
-      WEBAUTHN_RP_ID               = var.webauthn_rp_id
-      WEBAUTHN_RP_ORIGINS          = join(",", var.webauthn_rp_origins)
+      # OTP_TEST_CODE is intentionally absent. An empty code disables the
+      # fixed-OTP bypass (see backend/internal/otp). Do not put it back here.
+      ANALYST_PHONES                     = var.analyst_phones
+      WEBAUTHN_RP_ID                     = var.webauthn_rp_id
+      WEBAUTHN_RP_ORIGINS                = join(",", var.webauthn_rp_origins)
+      SESSION_TOKEN_SIGNING_SECRET_PARAM = aws_ssm_parameter.session_token_signing_secret.name
+      MSG91_AUTH_KEY_PARAM               = aws_ssm_parameter.msg91_auth_key.name
     }
   }
+
+  # The new binary reads SSM on cold start, so the read permission has to
+  # exist before this update or the first invoke fails closed.
+  depends_on = [aws_iam_role_policy.ssm_secrets]
 }

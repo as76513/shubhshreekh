@@ -14,6 +14,12 @@ resource "aws_dynamodb_table" "users" {
     name = "user_id"
     type = "S"
   }
+
+  deletion_protection_enabled = true
+
+  point_in_time_recovery {
+    enabled = true
+  }
 }
 
 resource "aws_dynamodb_table" "subscriptions" {
@@ -25,6 +31,12 @@ resource "aws_dynamodb_table" "subscriptions" {
     name = "user_id"
     type = "S"
   }
+
+  deletion_protection_enabled = true
+
+  point_in_time_recovery {
+    enabled = true
+  }
 }
 
 resource "aws_dynamodb_table" "orders" {
@@ -35,6 +47,12 @@ resource "aws_dynamodb_table" "orders" {
   attribute {
     name = "order_id"
     type = "S"
+  }
+
+  deletion_protection_enabled = true
+
+  point_in_time_recovery {
+    enabled = true
   }
 }
 
@@ -74,6 +92,12 @@ resource "aws_dynamodb_table" "content" {
     hash_key        = "gsi1pk"
     range_key       = "gsi1sk"
     projection_type = "ALL"
+  }
+
+  deletion_protection_enabled = true
+
+  point_in_time_recovery {
+    enabled = true
   }
 }
 

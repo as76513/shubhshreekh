@@ -42,9 +42,9 @@ variable "otp_test_phones" {
 }
 
 variable "otp_test_code" {
-  description = "Fixed OTP for otp_test_phones whitelist."
+  description = "Fixed OTP for otp_test_phones. Local backend/.env only. Not passed to Lambda — an empty code disables the bypass, and the live function must not carry a well-known OTP."
   type        = string
-  default     = "123456"
+  default     = ""
   sensitive   = true
 }
 

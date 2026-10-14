@@ -70,6 +70,25 @@ func TestGateDelegatesToInner(t *testing.T) {
 	}
 }
 
+func TestProviderFromEnvEmptyCodeSkipsBypass(t *testing.T) {
+	t.Setenv("MSG91_AUTH_KEY", "test-key")
+	t.Setenv("MSG91_TEMPLATE_ID", "test-template")
+	t.Setenv("OTP_TEST_PHONES", "9876543210")
+	t.Setenv("OTP_TEST_CODE", "")
+	_, mode := ProviderFromEnv()
+	if mode != "msg91" {
+		t.Fatalf("mode = %q, want msg91", mode)
+	}
+}
+
+func TestNewGateEmptyCodeDisablesBypass(t *testing.T) {
+	stub := &stubProvider{verify: true}
+	p := NewGate(stub, "9876543210", "  ")
+	if p != stub {
+		t.Fatal("empty test code must not enable the fixed-OTP bypass")
+	}
+}
+
 func TestNewGateEmptyPhonesReturnsInner(t *testing.T) {
 	stub := &stubProvider{}
 	p := NewGate(stub, "", "123456")
