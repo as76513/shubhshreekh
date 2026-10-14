@@ -37,18 +37,17 @@ type Device struct {
 }
 
 // HasActiveEntitlement is TD-054's replacement for a stored free/pro flag:
-// true while the trial clock hasn't run out, or if Subscription=="pro" (a
-// manually/paid-set override — the path a future PayU integration writes
-// through). A blank TrialEndsAt means this row predates the trial model
-// entirely (created before 2026-10-06, back when "free" meant "logged in
-// with limited access," not "no access") — grandfathered in unconditionally
-// rather than retroactively locked out, since there's no Free tier left for
-// such an account to fall back into under the new model.
+// true while the trial clock hasn't run out, if Subscription=="pro" (the
+// paid grant a future Razorpay checkout writes), or if ComplimentaryAccess
+// was set by the post-trial Upgrade action (no charge). A blank TrialEndsAt
+// means this row predates the trial model entirely (created before
+// 2026-10-06) — grandfathered in unconditionally rather than retroactively
+// locked out.
 func HasActiveEntitlement(user *User, now time.Time) bool {
 	if user.TrialEndsAt == "" {
 		return true
 	}
-	if user.Subscription == "pro" {
+	if user.Subscription == "pro" || user.ComplimentaryAccess {
 		return true
 	}
 	trialEnd, err := time.Parse(time.RFC3339, user.TrialEndsAt)

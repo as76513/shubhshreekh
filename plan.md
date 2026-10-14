@@ -16,7 +16,7 @@ see [architecture.md](architecture.md); for *when things get built* see
 | Backend | Go API | **Go API** (unchanged) | — |
 | Primary DB | DynamoDB | **DynamoDB** (unchanged) | Key-based access patterns fit |
 | Auth | Cognito | **MSG91 phone-OTP (SendOTP), SMS channel** — decided, see below | Phone-OTP + Indian SMS/DLT fit; own the backend |
-| Payments | Stripe / Razorpay | **PayU** (web) + **Google Play Billing** (Play TWA) | PayU for browser; Play policy requires Play Billing (or billing choice) inside Play-distributed app — see Oct 18 sprint |
+| Payments | Stripe / Razorpay | **Razorpay** (web) + **Google Play Billing** (Play TWA) | Web checkout to build is Razorpay. Until it exists, post-trial Upgrade grants complimentary access with no charge. Play policy still requires Play Billing (or billing choice) inside the Play-distributed app |
 | Hosting | Serverless | **Lambda + API Gateway** (unchanged) | Scales to zero |
 
 ## Decided: identity provider — MSG91 (SendOTP, SMS channel)
@@ -76,9 +76,7 @@ TD-052–059). Supersedes the earlier assumed free/pro split:
   was "Pro" is now the only paid product, marketed as **"Pro (7-day free
   trial)"** — every new signup gets 7 days of full access automatically,
   not a separate lower tier to fall back to.
-- **Hard revoke on trial expiry.** If the client hasn't paid by day 7,
-  access is revoked entirely — there is no reduced/free fallback state to
-  land in, unlike the old free tier.
+- **Hard revoke on trial expiry, with a no-charge continue.** If the client hasn't paid by day 7, the next login is refused. **Updated 2026-10-14:** that screen's **Upgrade to Pro** button grants complimentary access with no charge, saved on the account (`complimentary_access`), so they can keep using the app until Razorpay checkout exists. It is not a payment. Paid access is still `subscription = pro`, which Razorpay will write later. Web checkout is **Razorpay**, not PayU.
 - **Anti-piracy device limit, not session-kicking.** Each account may have
   at most **2 registered/identified devices** (the brief: "one mobile, one
   laptop"). A 3rd, unrecognized device is **rejected at login** — existing

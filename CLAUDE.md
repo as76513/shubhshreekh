@@ -21,7 +21,7 @@ sprint.
 routes planned (thin insights in sprint). **Frontend:** Next.js in `src/` —
 Insights still on `data.ts` until `GET /insights` is wired; ticker stays static.
 
-**Decided:** MSG91 SendOTP for auth; **PayU** for web payments (see plan.md).
+**Decided:** MSG91 SendOTP for auth; **Razorpay** for web payments when checkout is built (see plan.md). Until then, post-trial Upgrade grants complimentary access with no charge.
 **Decided:** no live market-data vendor for MVP. **Play Store:** Organization
 account + Play Billing (or billing choice) required for public listing.
 **Decided:** thin insights CMS in Oct 18 scope (not full Pipe B).

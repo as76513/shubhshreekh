@@ -24,6 +24,13 @@ import (
 const deviceSwapRole = "device_swap"
 const deviceSwapTokenTTL = 10 * time.Minute
 
+// trialContinueRole marks a short-lived token minted only after OTP has
+// succeeded and the trial is over. It can call POST /auth/trial/continue
+// and nothing else. That call records complimentary access (no charge)
+// and finishes the login.
+const trialContinueRole = "trial_continue"
+const trialContinueTokenTTL = 10 * time.Minute
+
 // maxDeviceFieldLen bounds the client-supplied deviceId/deviceLabel —
 // nothing exploitable today, but without a cap a pathologically large
 // value would bloat the devices list item stored on the user row (TD-064).
@@ -37,6 +44,10 @@ const maxDeviceFieldLen = 128
 var phoneRe = regexp.MustCompile(`^[6-9]\d{9}$`)
 
 var otpRe = regexp.MustCompile(`^\d{4,6}$`)
+
+// emailRe matches the signup form: something @ something . something.
+// New accounts must have one. A returning login does not send email.
+var emailRe = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 
 // roleForPhone derives the role claim live from ANALYST_PHONES (same CSV
 // format/parser as OTP_TEST_PHONES — see TECH_DEBT.md TD-013) rather than
@@ -232,8 +243,22 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	name := strings.TrimSpace(strings.TrimSpace(req.FirstName) + " " + strings.TrimSpace(req.LastName))
-	user, err := d.Users.GetOrCreateByPhone(r.Context(), fullPhone, name, strings.TrimSpace(req.Email))
+	firstName := strings.TrimSpace(req.FirstName)
+	lastName := strings.TrimSpace(req.LastName)
+	email := strings.TrimSpace(req.Email)
+	// A returning login omits profile fields. A new phone has no row yet,
+	// and that is the only moment name and email are stored.
+	existing, err := d.Users.Get(r.Context(), fullPhone)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not create user")
+		return
+	}
+	if existing == nil && (firstName == "" || lastName == "" || !emailRe.MatchString(email)) {
+		writeError(w, http.StatusBadRequest, "first name, last name and a valid email are required")
+		return
+	}
+	name := strings.TrimSpace(firstName + " " + lastName)
+	user, err := d.Users.GetOrCreateByPhone(r.Context(), fullPhone, name, email)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create user")
 		return
@@ -244,7 +269,15 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 	// GetOrCreateByPhone above, so this only actually rejects a returning
 	// user whose trial has lapsed with no paid subscription.
 	if !db.HasActiveEntitlement(user, time.Now()) {
-		writeError(w, http.StatusForbidden, "trial_expired")
+		continueToken, err := auth.IssueToken(d.SigningSecret, user.UserID, "", trialContinueRole, trialContinueTokenTTL)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not issue session")
+			return
+		}
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"error":         "trial_expired",
+			"continueToken": continueToken,
+		})
 		return
 	}
 
@@ -288,6 +321,74 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp, err := d.issueSession(r.Context(), user)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not issue session")
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+type continueAfterTrialRequest struct {
+	DeviceID    string `json:"deviceId"`
+	DeviceLabel string `json:"deviceLabel"`
+}
+
+// handleContinueAfterTrial: POST /auth/trial/continue — the post-trial
+// Upgrade action. OTP already matched; this records complimentary access
+// (no payment) and finishes the same login. The token is trialContinueRole,
+// not a session token.
+func (d Deps) handleContinueAfterTrial(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok || claims.Role != trialContinueRole {
+		writeError(w, http.StatusForbidden, "invalid token for this action")
+		return
+	}
+	var req continueAfterTrialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.DeviceID == "" {
+		writeError(w, http.StatusBadRequest, "device id required")
+		return
+	}
+	if len(req.DeviceID) > maxDeviceFieldLen || len(req.DeviceLabel) > maxDeviceFieldLen {
+		writeError(w, http.StatusBadRequest, "device id or label too long")
+		return
+	}
+	if err := d.Users.SetComplimentaryAccess(r.Context(), claims.Subject); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not continue access")
+		return
+	}
+	user, err := d.Users.Get(r.Context(), claims.Subject)
+	if err != nil || user == nil {
+		writeError(w, http.StatusInternalServerError, "could not issue session")
+		return
+	}
+
+	maxDevices := db.MaxDevices
+	if roleForPhone(user.UserID) != "customer" {
+		maxDevices = 0
+	}
+	deviceAllowed, devices, err := d.Users.RegisterDevice(r.Context(), user.UserID, req.DeviceID, req.DeviceLabel, maxDevices)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not issue session")
+		return
+	}
+	if !deviceAllowed {
+		swapToken, err := auth.IssueToken(d.SigningSecret, user.UserID, "", deviceSwapRole, deviceSwapTokenTTL)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not issue session")
+			return
+		}
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"error":                 "device_limit_reached",
+			"devices":               devices,
+			"deviceManagementToken": swapToken,
+		})
+		return
+	}
 	resp, err := d.issueSession(r.Context(), user)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue session")

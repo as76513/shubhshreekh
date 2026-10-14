@@ -46,6 +46,7 @@ func NewRouter(deps Deps) http.Handler {
 	mux.HandleFunc("POST /auth/send-otp", deps.handleSendOTP)
 	mux.HandleFunc("POST /auth/check-phone", deps.handleCheckPhone)
 	mux.HandleFunc("POST /auth/verify-otp", deps.handleVerifyOTP)
+	mux.Handle("POST /auth/trial/continue", mw(http.HandlerFunc(deps.handleContinueAfterTrial)))
 
 	// Device swap (TD-054) — requires the short-lived deviceManagementToken
 	// verify-otp returns on a device_limit_reached rejection, not a normal
