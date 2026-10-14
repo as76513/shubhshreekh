@@ -4,10 +4,10 @@
 # Trust is limited to pushes of this repo's main branch.
 ##############################################################################
 
-variable "github_repository" {
-  description = "GitHub repo allowed to assume the deploy role, owner/name."
+variable "github_oidc_subject_prefix" {
+  description = "GitHub Actions OIDC subject up to the ref. GitHub's default includes the immutable owner and repository IDs (use_immutable_subject), so the name-only form repo:owner/name is rejected."
   type        = string
-  default     = "as76513/shubhshreekh"
+  default     = "repo:as76513@28624322/shubhshreekh@1323913379"
 }
 
 variable "amplify_app_id" {
@@ -34,7 +34,7 @@ resource "aws_iam_role" "github_deploy" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = "${var.github_oidc_subject_prefix}:ref:refs/heads/main"
         }
       }
     }]
