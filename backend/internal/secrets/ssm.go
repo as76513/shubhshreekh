@@ -15,8 +15,8 @@ import (
 )
 
 // paramEnv binds a process env var to the env var that holds its SSM name.
-// OTP_TEST_CODE is intentionally absent: the live function must not have a
-// fixed OTP.
+// OTP_TEST_CODE is not loaded here. It stays on the Lambda environment so
+// whitelist phones, including the analyst admin number, keep the fixed code.
 var paramEnv = []struct {
 	value string
 	name  string
