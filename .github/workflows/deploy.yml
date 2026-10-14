@@ -1,0 +1,79 @@
+# Push to main deploys the API and the site.
+# AWS auth is GitHub OIDC (infra/backend/github_oidc.tf). No access keys.
+# The site job skips if Amplify's GitHub connection already started a
+# release for this commit, so the two triggers do not build the site twice.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  LAMBDA_FUNCTION_NAME: shubhshreekh-api-dev
+  AMPLIFY_APP_ID: d2epzyuzlmxrlg
+  AMPLIFY_BRANCH: main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build API
+        working-directory: backend
+        run: |
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -trimpath -ldflags="-s -w" -o bootstrap ./cmd/lambda
+          zip -j lambda.zip bootstrap
+
+      - name: Deploy API
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --zip-file fileb://backend/lambda.zip \
+            --region "$AWS_REGION"
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --region "$AWS_REGION"
+
+      - name: Deploy site
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          jobs=$(aws amplify list-jobs \
+            --app-id "$AMPLIFY_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --region "$AWS_REGION" \
+            --max-items 8 \
+            --output json)
+          if echo "$jobs" | jq -e --arg sha "$SHA" \
+            '.jobSummaries[] | select(.commitId == $sha and (.status == "PENDING" or .status == "RUNNING" or .status == "SUCCEED"))' \
+            >/dev/null; then
+            echo "Amplify already has a release for $SHA"
+            exit 0
+          fi
+          aws amplify start-job \
+            --app-id "$AMPLIFY_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --job-type RELEASE \
+            --region "$AWS_REGION"
