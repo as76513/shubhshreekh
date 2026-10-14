@@ -143,6 +143,24 @@ func TestAdminRoutes_AllowWriterRoles(t *testing.T) {
 // TD-054's deviceSwapRole token is scoped to /auth/devices/swap only — the
 // customer-facing TD-057/058 reads must reject it too, same bug class
 // auth_test.go already covers for /me and /insights.
+func TestTrialContinueToken_RejectedByMe(t *testing.T) {
+	router, _, _ := newTestRouter(t)
+	token, err := auth.IssueToken(testSigningSecret, "919876543210", "", trialContinueRole, trialContinueTokenTTL)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — a trial-continue token must not open the app; body = %s", rec.Code, rec.Body)
+	}
+}
+
+// TD-054's deviceSwapRole token is scoped to /auth/devices/swap only — the
+// customer-facing TD-057/058 reads must reject it too, same bug class
+// auth_test.go already covers for /me and /insights.
 func TestDeviceSwapToken_RejectedByOverviewAndWeeklyPDF(t *testing.T) {
 	router, _, _ := newTestRouter(t)
 	swapToken, err := auth.IssueToken(testSigningSecret, "919876543210", "", deviceSwapRole, deviceSwapTokenTTL)

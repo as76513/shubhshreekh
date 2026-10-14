@@ -6,9 +6,11 @@ import { useAuth } from "@/lib/auth-context";
 import {
   checkPhoneExists,
   confirmOtp,
+  continueAfterTrial,
   requestOtp,
   swapDevice,
   DeviceLimitError,
+  TrialExpiredError,
   type DeviceInfo,
 } from "@/lib/api";
 import { isPlatformAuthenticatorAvailable, registerPasskey } from "@/lib/webauthn";
@@ -18,7 +20,7 @@ const OTP_LEN = 6;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Auth() {
-  const { login: onLogin, navigate, setShowUpgradeModal } = useAuth();
+  const { login: onLogin, navigate } = useAuth();
   const [step, setStep] = useState<"phone" | "signup" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [phoneNotFound, setPhoneNotFound] = useState(false);
@@ -29,7 +31,9 @@ export default function Auth() {
   const [otp, setOtp] = useState<string[]>(() => Array(OTP_LEN).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showRequiredPopup, setShowRequiredPopup] = useState(false);
   const [trialExpired, setTrialExpired] = useState(false);
+  const [continueToken, setContinueToken] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   // TD-054: set only when verify-otp rejects with device_limit_reached —
   // renders a "which device to log out" screen instead of the OTP form.
@@ -73,16 +77,12 @@ export default function Auth() {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      setError("Please enter your first and last name");
-      return;
-    }
-    if (phone.length !== 10) {
-      setError("Please enter a valid 10-digit mobile number");
-      return;
-    }
-    if (!EMAIL_RE.test(email.trim())) {
-      setError("Please enter a valid email address");
+    const firstOk = firstName.trim().length > 0;
+    const lastOk = lastName.trim().length > 0;
+    const phoneOk = phone.length === 10;
+    const emailOk = EMAIL_RE.test(email.trim());
+    if (!firstOk || !lastOk || !phoneOk || !emailOk) {
+      setShowRequiredPopup(true);
       return;
     }
     setError("");
@@ -137,6 +137,7 @@ export default function Auth() {
     }
     setError("");
     setTrialExpired(false);
+    setContinueToken("");
     setLoading(true);
     try {
       const { token, subscription, name, userId, role } = await confirmOtp(
@@ -162,10 +163,54 @@ export default function Auth() {
     } catch (err) {
       if (err instanceof DeviceLimitError) {
         setDeviceChoice({ devices: err.devices, managementToken: err.deviceManagementToken });
-      } else if (err instanceof Error && err.message === "trial_expired") {
+      } else if (err instanceof TrialExpiredError) {
         setTrialExpired(true);
+        setContinueToken(err.continueToken);
       } else {
         setError(err instanceof Error ? err.message : "Incorrect or expired OTP");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finishLogin = (
+    token: string,
+    subscription: string,
+    name: string | undefined,
+    userId: string | undefined,
+    role: string | undefined,
+  ) => {
+    onLogin("+91 " + phone, {
+      token,
+      subscription: subscription === "pro" ? "pro" : "free",
+      name,
+      userId,
+      role,
+    });
+    if (userId && token) {
+      void isPlatformAuthenticatorAvailable().then((ok) => {
+        if (ok) void registerPasskey(token);
+      });
+    }
+  };
+
+  const handleContinueFree = async () => {
+    if (!continueToken) return;
+    setError("");
+    setLoading(true);
+    try {
+      const { token, subscription, name, userId, role } = await continueAfterTrial(continueToken, {
+        deviceId: getDeviceId(),
+        deviceLabel: getDeviceLabel(),
+      });
+      finishLogin(token, subscription, name, userId, role);
+    } catch (err) {
+      if (err instanceof DeviceLimitError) {
+        setTrialExpired(false);
+        setDeviceChoice({ devices: err.devices, managementToken: err.deviceManagementToken });
+      } else {
+        setError(err instanceof Error ? err.message : "Could not continue");
       }
     } finally {
       setLoading(false);
@@ -545,6 +590,7 @@ export default function Auth() {
                     style={{ color: "var(--foreground)" }}
                   >
                     First Name
+                    <span aria-hidden="true" style={{ color: "#f87171" }}> *</span>
                   </label>
                   <input
                     type="text"
@@ -566,6 +612,7 @@ export default function Auth() {
                     style={{ color: "var(--foreground)" }}
                   >
                     Last Name
+                    <span aria-hidden="true" style={{ color: "#f87171" }}> *</span>
                   </label>
                   <input
                     type="text"
@@ -588,6 +635,7 @@ export default function Auth() {
                   style={{ color: "var(--foreground)" }}
                 >
                   Mobile Number
+                  <span aria-hidden="true" style={{ color: "#f87171" }}> *</span>
                 </label>
                 <div
                   className="flex items-center gap-0 rounded-xl overflow-hidden transition-all"
@@ -629,6 +677,7 @@ export default function Auth() {
                   style={{ color: "var(--foreground)" }}
                 >
                   Email Address
+                  <span aria-hidden="true" style={{ color: "#f87171" }}> *</span>
                 </label>
                 <input
                   type="email"
@@ -756,14 +805,23 @@ export default function Auth() {
                     <p className="text-xs" style={{ color: "#f87171" }}>
                       Your 7-day free trial has ended.
                     </p>
+                    <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
+                      Upgrade to Pro keeps you in, at no charge, until payments are connected.
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setShowUpgradeModal(true)}
-                      className="text-xs font-medium hover:underline"
+                      disabled={loading || !continueToken}
+                      onClick={handleContinueFree}
+                      className="text-xs font-medium hover:underline disabled:opacity-50"
                       style={{ color: "var(--primary)" }}
                     >
-                      Upgrade to keep access →
+                      Upgrade to Pro
                     </button>
+                    {error && (
+                      <p className="text-xs mt-1.5" style={{ color: "#f87171" }}>
+                        {error}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   error && (
@@ -810,6 +868,41 @@ export default function Auth() {
           )}
         </div>
       </div>
+      {showRequiredPopup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(11,42,85,0.45)" }}
+          role="presentation"
+          onClick={() => setShowRequiredPopup(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signup-required-title"
+            className="w-full max-w-sm rounded-2xl p-6"
+            style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="signup-required-title"
+              className="text-lg font-semibold mb-2"
+              style={{ color: "var(--foreground)" }}
+            >
+              Required fields
+            </h2>
+            <p className="text-sm mb-5" style={{ color: "var(--muted-foreground)" }}>
+              First name, last name, mobile number and email are mandatory.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowRequiredPopup(false)}
+              className="btn-action w-full py-3 rounded-xl font-semibold text-sm"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

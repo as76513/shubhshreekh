@@ -47,6 +47,11 @@ type User struct {
 	// treating a blank timestamp as "expired" (see that function's comment).
 	TrialEndsAt string `dynamodbav:"trial_ends_at,omitempty"`
 
+	// ComplimentaryAccess is set when the trial has ended and the person
+	// chooses Upgrade. It is not a payment. Subscription == "pro" remains
+	// the paid grant a future Razorpay checkout will write.
+	ComplimentaryAccess bool `dynamodbav:"complimentary_access,omitempty"`
+
 	// Devices (TD-054): at most MaxDevices entries — anti-piracy, not
 	// session-kicking. A login from an unrecognized device beyond the cap
 	// is rejected (see devices.go), never silently evicting an existing one.
@@ -80,6 +85,7 @@ type UsersStore interface {
 	SetWebAuthnCredential(ctx context.Context, userID, credentialJSON string) error
 	ClearWebAuthnCredential(ctx context.Context, userID string) error
 	SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error
+	SetComplimentaryAccess(ctx context.Context, userID string) error
 	RegisterDevice(ctx context.Context, userID, deviceID, label string, maxDevices int) (allowed bool, devices []Device, err error)
 	SwapDevice(ctx context.Context, userID, removeDeviceID, newDeviceID, newLabel string) (ok bool, retryAfter time.Duration, err error)
 }
@@ -334,4 +340,12 @@ func (t *UsersTable) ClearWebAuthnCredential(ctx context.Context, userID string)
 // access tokens without another OTP — see User.VerifiedUntil.
 func (t *UsersTable) SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error {
 	return t.update(ctx, userID, map[string]string{"verified_until": until.UTC().Format(time.RFC3339)}, nil)
+}
+
+// SetComplimentaryAccess records that this account chose to keep using the
+// app after the trial, with no charge, until Razorpay checkout exists.
+func (t *UsersTable) SetComplimentaryAccess(ctx context.Context, userID string) error {
+	return t.updateAV(ctx, userID, map[string]types.AttributeValue{
+		"complimentary_access": &types.AttributeValueMemberBOOL{Value: true},
+	}, nil)
 }

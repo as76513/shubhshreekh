@@ -122,6 +122,14 @@ func (f *fakeUsersStore) SetWebAuthnCredential(ctx context.Context, userID, cred
 func (f *fakeUsersStore) SetVerifiedUntil(ctx context.Context, userID string, until time.Time) error {
 	return nil
 }
+func (f *fakeUsersStore) SetComplimentaryAccess(ctx context.Context, userID string) error {
+	u, ok := f.users[userID]
+	if !ok {
+		return nil
+	}
+	u.ComplimentaryAccess = true
+	return nil
+}
 
 // RegisterDevice/SwapDevice reuse the real pure functions from
 // internal/db/devices.go — only the storage (an in-memory map here instead
@@ -265,7 +273,7 @@ func TestHandleVerifyOTP_HappyPath(t *testing.T) {
 	users := newFakeUsersStore()
 	d := testDeps(otpProvider, limiter, users)
 
-	body := `{"phone":"9876543210","otp":"223344","first_name":"Amol","last_name":"Shinde","deviceId":"device-1","deviceLabel":"Chrome on Windows"}`
+	body := `{"phone":"9876543210","otp":"223344","first_name":"Amol","last_name":"Shinde","email":"amol@example.com","deviceId":"device-1","deviceLabel":"Chrome on Windows"}`
 	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	d.handleVerifyOTP(rec, req)
@@ -293,6 +301,9 @@ func TestHandleVerifyOTP_HappyPath(t *testing.T) {
 	}
 	if users.users["919876543210"] == nil {
 		t.Fatalf("expected a user row to be created for a first-time verify")
+	}
+	if users.users["919876543210"].Email != "amol@example.com" {
+		t.Fatalf("email = %q", users.users["919876543210"].Email)
 	}
 }
 
@@ -346,7 +357,7 @@ func TestHandleVerifyOTP_TestPhoneBypassesLockout(t *testing.T) {
 	limiter.allowVerify = false // would reject if consulted
 	d := testDeps(otpProvider, limiter, newFakeUsersStore())
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(`{"phone":"9999900000","otp":"223344","deviceId":"device-1"}`))
+	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(`{"phone":"9999900000","otp":"223344","first_name":"Test","last_name":"Phone","email":"test@example.com","deviceId":"device-1"}`))
 	rec := httptest.NewRecorder()
 	d.handleVerifyOTP(rec, req)
 
@@ -380,12 +391,40 @@ func TestHandleVerifyOTP_MissingDeviceID(t *testing.T) {
 	limiter := newFakeRateLimiter()
 	d := testDeps(otpProvider, limiter, newFakeUsersStore())
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(`{"phone":"9876543210","otp":"223344"}`))
+	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(`{"phone":"9876543210","otp":"223344","first_name":"Amol","last_name":"Shinde","email":"amol@example.com"}`))
 	rec := httptest.NewRecorder()
 	d.handleVerifyOTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body)
+	}
+}
+
+func TestHandleVerifyOTP_NewSignupRequiresName(t *testing.T) {
+	otpProvider := &fakeOTPProvider{verifyOK: true}
+	limiter := newFakeRateLimiter()
+	users := newFakeUsersStore()
+	d := testDeps(otpProvider, limiter, users)
+
+	cases := []string{
+		`{"phone":"9876543210","otp":"223344","deviceId":"device-1"}`,
+		`{"phone":"9876543210","otp":"223344","first_name":"Amol","deviceId":"device-1"}`,
+		`{"phone":"9876543210","otp":"223344","last_name":"Shinde","deviceId":"device-1"}`,
+		`{"phone":"9876543210","otp":"223344","first_name":"  ","last_name":"  ","deviceId":"device-1"}`,
+		`{"phone":"9876543210","otp":"223344","first_name":"Amol","last_name":"Shinde","deviceId":"device-1"}`,
+		`{"phone":"9876543210","otp":"223344","first_name":"Amol","last_name":"Shinde","email":"not-an-email","deviceId":"device-1"}`,
+		`{"phone":"9876543210","otp":"223344","first_name":"Amol","last_name":"Shinde","email":"  ","deviceId":"device-1"}`,
+	}
+	for _, body := range cases {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(body))
+		d.handleVerifyOTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("body %s: status = %d, want 400; body = %s", body, rec.Code, rec.Body)
+		}
+	}
+	if len(users.users) != 0 {
+		t.Fatalf("a nameless signup must not create a user, got %d", len(users.users))
 	}
 }
 
@@ -409,10 +448,45 @@ func TestHandleVerifyOTP_TrialExpired(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403; body = %s", rec.Code, rec.Body)
 	}
-	var resp struct{ Error string }
+	var resp struct {
+		Error         string `json:"error"`
+		ContinueToken string `json:"continueToken"`
+	}
 	decodeJSON(t, rec, &resp)
-	if resp.Error != "trial_expired" {
-		t.Fatalf("error = %q, want trial_expired", resp.Error)
+	if resp.Error != "trial_expired" || resp.ContinueToken == "" {
+		t.Fatalf("response = %+v, want trial_expired and a continue token", resp)
+	}
+	if users.users["919876543210"].ComplimentaryAccess {
+		t.Fatal("trial expiry must not grant access until Upgrade is chosen")
+	}
+}
+
+func TestHandleContinueAfterTrial(t *testing.T) {
+	users := newFakeUsersStore()
+	users.users["919876543210"] = &db.User{
+		UserID:       "919876543210",
+		Subscription: "free",
+		TrialEndsAt:  time.Now().UTC().Add(-time.Hour).Format(time.RFC3339),
+	}
+	d := testDeps(&fakeOTPProvider{}, newFakeRateLimiter(), users)
+	token, err := auth.IssueToken(d.SigningSecret, "919876543210", "", trialContinueRole, trialContinueTokenTTL)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/trial/continue", strings.NewReader(`{"deviceId":"device-1","deviceLabel":"Chrome"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	auth.Middleware(d.SigningSecret)(http.HandlerFunc(d.handleContinueAfterTrial)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body)
+	}
+	if !users.users["919876543210"].ComplimentaryAccess {
+		t.Fatal("Upgrade must record complimentary access")
+	}
+	if !db.HasActiveEntitlement(users.users["919876543210"], time.Now()) {
+		t.Fatal("complimentary access must outlast the trial")
 	}
 }
 

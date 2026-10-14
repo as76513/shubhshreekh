@@ -56,6 +56,15 @@ export class DeviceLimitError extends Error {
   }
 }
 
+/** OTP matched, but the 7-day trial is over. continueToken authorizes Upgrade with no charge. */
+export class TrialExpiredError extends Error {
+  continueToken: string;
+  constructor(continueToken: string) {
+    super("trial_expired");
+    this.continueToken = continueToken;
+  }
+}
+
 /** Optional Bearer token for authenticated API calls. */
 export function authHeaders(token?: string | null): HeadersInit {
   const headers: Record<string, string> = {
@@ -109,6 +118,26 @@ export async function confirmOtp(
         : {}),
       ...(device ? { deviceId: device.deviceId, deviceLabel: device.deviceLabel } : {}),
     }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    if (res.status === 403 && body?.error === "device_limit_reached") {
+      throw new DeviceLimitError(body.devices ?? [], body.deviceManagementToken ?? "");
+    }
+    throw new Error(body?.error ?? "Something went wrong, please try again.");
+  }
+  return res.json();
+}
+
+/** Completes a trial-ended login after the person chooses Upgrade. No charge. */
+export async function continueAfterTrial(
+  continueToken: string,
+  device: { deviceId: string; deviceLabel: string }
+): Promise<{ token: string; subscription: string; name?: string; userId?: string; role?: string }> {
+  const res = await fetch(`${API_BASE_URL}/auth/trial/continue`, {
+    method: "POST",
+    headers: authHeaders(continueToken),
+    body: JSON.stringify({ deviceId: device.deviceId, deviceLabel: device.deviceLabel }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);

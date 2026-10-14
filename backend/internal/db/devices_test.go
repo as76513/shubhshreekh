@@ -16,6 +16,7 @@ func TestHasActiveEntitlement(t *testing.T) {
 		{"trial active", User{TrialEndsAt: now.Add(time.Hour).Format(time.RFC3339)}, true},
 		{"trial expired, no paid sub", User{TrialEndsAt: now.Add(-time.Hour).Format(time.RFC3339), Subscription: "free"}, false},
 		{"trial expired but paid", User{TrialEndsAt: now.Add(-time.Hour).Format(time.RFC3339), Subscription: "pro"}, true},
+		{"trial expired but complimentary", User{TrialEndsAt: now.Add(-time.Hour).Format(time.RFC3339), ComplimentaryAccess: true}, true},
 		{"legacy row (no trial field), not pro", User{Subscription: "free"}, true},
 		{"legacy row (no trial field), pro", User{Subscription: "pro"}, true},
 		{"unparseable trial timestamp", User{TrialEndsAt: "not-a-date"}, false},

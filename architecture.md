@@ -355,6 +355,11 @@ with a cooldown so that path can't itself be used to rotate past the
 
 ## Payment flow (the security-critical part)
 
+Web checkout will be Razorpay. It is not built yet. Until it is, a trial
+that has ended can choose Upgrade to Pro on the login screen. That writes
+`complimentary_access` and lets them back in. It does not take payment and
+it is not `subscription = pro`.
+
 ```
 1. User taps "Choose Premium"        (browser)
 2. Browser asks backend to create an order   → POST /orders {planId:"premium"}
