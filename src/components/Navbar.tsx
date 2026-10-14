@@ -9,7 +9,6 @@ const navLinks: { label: string; view: AppView }[] = [
   { label: "Today's Trade", view: 'trading' },
   { label: 'Past Trade', view: 'past-trade' },
   { label: 'Closed Trades', view: 'closed-trade' },
-  { label: 'Blogs', view: 'blogs' },
   { label: 'Videos', view: 'videos' },
   { label: 'Courses', view: 'courses' },
 ]

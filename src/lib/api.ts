@@ -502,11 +502,12 @@ export async function getLatestOverview(token: string): Promise<Overview | null>
   return data ?? null;
 }
 
-/** Full history, newest first — the Blogs archive page. */
-export async function listOverviews(token: string): Promise<Overview[]> {
-  const res = await fetch(`${API_BASE_URL}/overview`, { headers: authHeaders(token) });
+/** Full history, newest first. Public — shown on the landing page. */
+export async function listOverviews(): Promise<Overview[]> {
+  const res = await fetch(`${API_BASE_URL}/overview`);
   if (!res.ok) throw new ApiError(res.status, await parseError(res));
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 export async function createOverview(token: string, text: string, photoUrls: string[]): Promise<Overview> {

@@ -65,7 +65,6 @@ function pathToView(pathname: string): AppView {
   if (pathname.startsWith("/courses/")) return "course-detail";
   if (pathname.startsWith("/courses")) return "courses";
   if (pathname.startsWith("/videos")) return "videos";
-  if (pathname.startsWith("/blogs")) return "blogs";
   return "landing";
 }
 
@@ -91,8 +90,6 @@ function viewToPath(view: AppView, courseId?: number): string {
       return `/courses/${courseId ?? 2}`;
     case "videos":
       return "/videos";
-    case "blogs":
-      return "/blogs";
   }
 }
 
@@ -146,8 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         view === "dashboard" ||
         view === "admin" ||
         view === "courses" ||
-        view === "course-detail" ||
-        view === "blogs";
+        view === "course-detail";
       const target = !user && needsLogin ? "login" : view;
       router.push(viewToPath(target, courseId));
       window.scrollTo({ top: 0, behavior: "smooth" });

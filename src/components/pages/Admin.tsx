@@ -187,7 +187,7 @@ export default function Admin() {
 
   const refreshOverviews = async () => {
     try {
-      const data = await withAuth((token) => listOverviews(token));
+      const data = await listOverviews();
       setRecentOverviews(data.slice(0, 5));
     } catch {
       // Non-critical preview list — the post form above still works either way.
@@ -582,7 +582,7 @@ export default function Admin() {
             Today&apos;s market overview
           </h2>
           <p className="text-xs mb-4" style={{ color: "var(--muted-text)" }}>
-            Posts immediately — shows on the customer Dashboard and the Blogs archive. No draft step.
+            Posts immediately — shows on the landing page. No draft step.
           </p>
           <form onSubmit={handlePostOverview}>
             {field(

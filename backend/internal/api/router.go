@@ -73,12 +73,11 @@ func NewRouter(deps Deps) http.Handler {
 	// RA content platform (Pipe B) — thin insights CMS, see architecture.md.
 	mux.Handle("GET /insights", mw(customer(http.HandlerFunc(deps.handleListInsights))))
 
-	// Daily Market Overview + weekly PDF (TD-057/058) — customer reads
-	// behind the same login-gated customer role as everything else shown
-	// on the Dashboard; not public like /pricing, which also needs to work
-	// for a logged-out landing-page visitor.
+	// Daily Market Overview. GET /overview is public — the landing page
+	// shows the archive to visitors who are not logged in. The signed-in
+	// app does not show these posts. The weekly PDF stays behind login.
+	mux.HandleFunc("GET /overview", deps.handleListOverviews)
 	mux.Handle("GET /overview/latest", mw(customer(http.HandlerFunc(deps.handleGetLatestOverview))))
-	mux.Handle("GET /overview", mw(customer(http.HandlerFunc(deps.handleListOverviews))))
 	mux.Handle("GET /weekly-pdf", mw(customer(http.HandlerFunc(deps.handleGetWeeklyPDF))))
 
 	writer := requireRole("analyst", "admin")

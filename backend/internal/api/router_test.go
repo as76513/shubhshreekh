@@ -167,7 +167,7 @@ func TestDeviceSwapToken_RejectedByOverviewAndWeeklyPDF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("IssueToken: %v", err)
 	}
-	for _, path := range []string{"/overview/latest", "/overview", "/weekly-pdf"} {
+	for _, path := range []string{"/overview/latest", "/weekly-pdf"} {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			req.Header.Set("Authorization", "Bearer "+swapToken)
