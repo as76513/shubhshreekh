@@ -38,8 +38,10 @@ resource "aws_lambda_function" "api" {
       CORS_ALLOWED_ORIGINS         = join(",", var.cors_allowed_origins)
       MSG91_TEMPLATE_ID            = var.msg91_template_id
       OTP_TEST_PHONES              = var.otp_test_phones
-      # OTP_TEST_CODE is intentionally absent. An empty code disables the
-      # fixed-OTP bypass (see backend/internal/otp). Do not put it back here.
+      # Whitelist phones (including the analyst admin number) log in with
+      # this fixed code and do not get an SMS. An empty value disables that
+      # path, so this must stay set on the live function.
+      OTP_TEST_CODE                      = var.otp_test_code
       ANALYST_PHONES                     = var.analyst_phones
       WEBAUTHN_RP_ID                     = var.webauthn_rp_id
       WEBAUTHN_RP_ORIGINS                = join(",", var.webauthn_rp_origins)

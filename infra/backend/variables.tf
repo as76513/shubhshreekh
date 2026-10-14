@@ -42,9 +42,8 @@ variable "otp_test_phones" {
 }
 
 variable "otp_test_code" {
-  description = "Fixed OTP for otp_test_phones. Local backend/.env only. Not passed to Lambda — an empty code disables the bypass, and the live function must not carry a well-known OTP."
+  description = "Fixed OTP for otp_test_phones. Required on the live function so whitelist numbers, including the analyst admin phone, can log in without SMS. Pass via TF_VAR_otp_test_code. An empty value disables the bypass."
   type        = string
-  default     = ""
   sensitive   = true
 }
 

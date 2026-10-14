@@ -2,7 +2,7 @@
 # Production secrets. SecureString values are written once, then ignored, so
 # a later apply does not need the secret on the command line and cannot
 # blank it. Rotate with `aws ssm put-parameter --overwrite`.
-# OTP_TEST_CODE is not stored: the live function has no fixed OTP.
+# OTP_TEST_CODE stays a Lambda env var so the whitelist bypass keeps working.
 ##############################################################################
 
 resource "aws_ssm_parameter" "session_token_signing_secret" {

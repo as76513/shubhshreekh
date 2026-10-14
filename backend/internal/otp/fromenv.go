@@ -12,7 +12,8 @@ import (
 //	MSG91_AUTH_KEY, MSG91_TEMPLATE_ID — real SMS when set
 //	OTP_TEST_PHONES — comma-separated 10-digit or 91… numbers (Play/QA whitelist)
 //	OTP_TEST_CODE — fixed OTP for whitelist. Empty disables the bypass
-//	(no default code). Local .env may still set one; the live Lambda does not.
+//	(no default code). The live Lambda sets this so analyst and QA phones
+//	keep working.
 //
 // Modes: "msg91", "msg91+test-phones", "test-phones-only", "mock".
 func ProviderFromEnv() (provider Provider, mode string) {
