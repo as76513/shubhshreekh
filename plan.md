@@ -98,10 +98,12 @@ TD-052–059). Supersedes the earlier assumed free/pro split:
 
 **Explicitly deferred past 18 Oct** (same stakeholder round, but no payment
 dependency — see TECH_DEBT.md TD-056–059): a Live/Past/Closed-trades nav
-restructure with an F&O/Equity toggle, a customer-facing "Blogs" tab
-sourced from the admin's daily market-overview posts, admin-uploadable
+restructure with an F&O/Equity toggle, admin-uploadable
 weekly PDF (replacing the static file), and an F&O-specific SMS alert +
-app-open popup for the latest live trade.
+app-open popup for the latest live trade. **Blogs (2026-10-14):** the daily
+overview archive is public on the landing page (`/#blogs`), not a logged-in
+tab. `GET /overview` needs no session. The signed-in app does not show
+these posts.
 
 ---
 
@@ -112,6 +114,7 @@ app-open popup for the latest live trade.
 | Content | Published by | Stored in | Customer sees via |
 |---|---|---|---|
 | Trading insights / calls | Research Analyst | DynamoDB `content` | `GET /insights` |
+| Daily market overviews | Research Analyst | DynamoDB `content` | Public `GET /overview` on the landing page |
 | Courses + chapters | Research Analyst / ops | DynamoDB + S3 video | `GET /courses` |
 | Video tutorials | Research Analyst / ops | DynamoDB + S3 | `GET /videos` |
 | NIFTY / SENSEX ticker | **Static mock** (MVP) | `src/lib/data.ts` | Frontend only — no `/market/*` until a vendor is available |

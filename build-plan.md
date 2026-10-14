@@ -61,7 +61,7 @@ Scalping trades (2026-10-13) are their own admin form directly under Publish an 
 | Store listing + Data safety + Finance declaration | Marketing site beyond legal pages |
 | SEBI RA # + risk disclaimer visible | Compliance multi-step review UI |
 | Entry Price rename (CMP → Entry Price) | Nav restructure (Live/Past/Closed/Blogs tabs) |
-| Trade lifecycle: open/closed + target-hit/SL-hit outcome | Blogs (daily overview as its own customer-facing tab) |
+| Trade lifecycle: open/closed + target-hit/SL-hit outcome | Blogs as a logged-in tab (moved 2026-10-14 to the public landing page) |
 | Pro-only pricing + 7-day trial + 2-device anti-piracy login (TD-052–055) | Weekly Market Outlook PDF admin-upload (stays static for now) |
 | Admin-configurable discount % (no-deploy festive pricing) | F&O SMS alert + live-trade app-open popup |
 

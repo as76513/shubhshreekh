@@ -5,6 +5,7 @@ import { videos } from "@/lib/data";
 import ServiceSlider from "@/components/ServiceSlider";
 import CourseSlider from "@/components/CourseSlider";
 import PlanSlider from "@/components/PlanSlider";
+import Blogs from "@/components/pages/Blogs";
 import { useAuth } from "@/lib/auth-context";
 import { getSiteStats, getTestimonials, type SiteStats, type Testimonial } from "@/lib/api";
 
@@ -122,6 +123,8 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      <Blogs />
 
       {/* Services */}
       <section className="py-8">

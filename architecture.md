@@ -241,6 +241,12 @@ Optional publish-side audit in same table or S3 parquet export for long retentio
 | `GET` | `/courses/:id` | Course + chapters; Pro chapters gated |
 | `GET` | `/videos` | Published videos |
 
+**Public (no login)**
+
+| Method | Path | Returns |
+|---|---|---|
+| `GET` | `/overview` | Daily market overview archive, newest first, on the landing page only. The signed-in app does not show these posts. `GET /weekly-pdf` stays behind login. |
+
 Free-tier responses omit Pro-only fields or return `locked: true` stubs —
 **never** send full Pro content and rely on the UI to hide it.
 

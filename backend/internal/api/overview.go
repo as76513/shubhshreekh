@@ -58,8 +58,8 @@ func (d Deps) handleCreateOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ov)
 }
 
-// handleListOverviews: GET /overview — every post newest-first, for the
-// Blogs archive page.
+// handleListOverviews: GET /overview — every post newest-first. Public:
+// the landing page shows this archive without a login.
 func (d Deps) handleListOverviews(w http.ResponseWriter, r *http.Request) {
 	overviews, err := d.Content.ListOverviews(r.Context())
 	if err != nil {

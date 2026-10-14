@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { todaysUpdate, courses } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
-import { getLatestOverview, getWeeklyPDF, type Overview, type WeeklyPDF } from "@/lib/api";
+import { getWeeklyPDF, type WeeklyPDF } from "@/lib/api";
 
 export default function Dashboard() {
   const { user, navigate, withAuth } = useAuth();
@@ -13,15 +13,11 @@ export default function Dashboard() {
   // content has no reason to see a customer-facing "Pro Member" banner.
   const isCustomer = user?.role === 'customer' || !user?.role
 
-  const [overview, setOverview] = useState<Overview | null>(null)
   const [weeklyPdf, setWeeklyPdf] = useState<WeeklyPDF | null>(null)
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
-    withAuth((token) => getLatestOverview(token))
-      .then((data) => { if (!cancelled) setOverview(data) })
-      .catch(() => { /* no overview posted yet — card just doesn't render */ })
     withAuth((token) => getWeeklyPDF(token))
       .then((data) => { if (!cancelled) setWeeklyPdf(data) })
       .catch(() => { /* falls back to the static placeholder below */ })
@@ -72,28 +68,6 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {overview && (
-          <div
-            className="rounded-2xl p-5 mb-5"
-            style={{ background: 'var(--card-bg)', borderLeft: '4px solid var(--blue-accent)' }}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--blue-accent)' }}>
-              Today&apos;s Market Overview
-            </p>
-            <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--navy)' }}>
-              {overview.text}
-            </p>
-            {overview.photoUrls && overview.photoUrls.length > 0 && (
-              <div className="flex gap-2 mt-2">
-                {overview.photoUrls.map((url) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={url} src={url} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <a
           href={pdfHref}
           target="_blank"
