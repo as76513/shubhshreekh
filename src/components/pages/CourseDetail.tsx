@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { courses } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
+import { hasFullAccess, paymentsEnabled } from "@/lib/payments";
 
 interface Props {
   courseId: number;
@@ -11,7 +12,7 @@ interface Props {
 export default function CourseDetail({ courseId }: Props) {
   const { user, navigate, onUpgrade } = useAuth();
   const course = courses.find(c => c.id === courseId) || courses[0]
-  const isPro = user?.subscription === 'pro'
+  const isPro = hasFullAccess(user?.subscription)
   const canAccess = !course.isPro || isPro
   const [activeChapter, setActiveChapter] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -259,6 +260,7 @@ export default function CourseDetail({ courseId }: Props) {
               </div>
 
               <div className="p-5">
+                {paymentsEnabled && (
                 <div className="mb-5">
                   {course.isPro ? (
                     <p className="text-2xl font-bold" style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -273,6 +275,7 @@ export default function CourseDetail({ courseId }: Props) {
                     {course.isPro ? 'Included in Pro subscription' : 'Available for all users'}
                   </p>
                 </div>
+                )}
 
                 {canAccess ? (
                   <button

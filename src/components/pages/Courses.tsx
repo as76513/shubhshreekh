@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { courses } from "@/lib/data"
 import CourseSlider from "@/components/CourseSlider";
 import { useAuth } from "@/lib/auth-context"
+import { hasFullAccess } from "@/lib/payments"
 import { getSiteStats } from "@/lib/api"
 
 const levels = ['All', 'Beginner', 'Intermediate', 'Advanced']
@@ -11,7 +12,7 @@ const cats = ['All', 'Technical Analysis', 'Mutual Funds', 'Derivatives', 'Perso
 
 export default function Courses() {
   const { user, onUpgrade } = useAuth();
-  const isPro = user?.subscription === 'pro'
+  const isPro = hasFullAccess(user?.subscription)
   const [level, setLevel] = useState('All')
   const [cat, setCat] = useState('All')
   const [learners, setLearners] = useState('50,000+')

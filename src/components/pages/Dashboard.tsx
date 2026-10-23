@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { todaysUpdate, courses } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
 import { getWeeklyPDF, type WeeklyPDF } from "@/lib/api";
+import { hasFullAccess, paymentsEnabled } from "@/lib/payments";
 
 export default function Dashboard() {
   const { user, navigate, withAuth } = useAuth();
   const isPro = user?.subscription === 'pro'
+  const unlocked = hasFullAccess(user?.subscription)
   // RA/admin accounts land on /admin now (see auth-context.tsx's login()),
   // but this still guards direct navigation here — an analyst publishing
   // content has no reason to see a customer-facing "Pro Member" banner.
@@ -49,7 +51,7 @@ export default function Dashboard() {
           >
             Hello {user.name}! 👋
           </h1>
-          {isPro && isCustomer && (
+          {paymentsEnabled && isPro && isCustomer && (
             <p
               className="inline-flex items-center gap-1.5 text-sm font-bold mt-1.5 mb-1.5 px-3 py-1 rounded-full"
               style={{
@@ -179,7 +181,7 @@ export default function Dashboard() {
                     alt={course.title}
                     className="w-full h-full object-cover"
                   />
-                  {course.isPro && !isPro && (
+                  {course.isPro && !unlocked && (
                     <div
                       className="absolute inset-0 flex items-center justify-center"
                       style={{

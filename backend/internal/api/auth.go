@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
+	"github.com/as76513/shubhshreekh/backend/internal/billing"
 	"github.com/as76513/shubhshreekh/backend/internal/db"
 	"github.com/as76513/shubhshreekh/backend/internal/otp"
 )
@@ -268,7 +269,9 @@ func (d Deps) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 	// means "let them in." A fresh signup's trial was just started by
 	// GetOrCreateByPhone above, so this only actually rejects a returning
 	// user whose trial has lapsed with no paid subscription.
-	if !db.HasActiveEntitlement(user, time.Now()) {
+	// billing.PaymentsEnabled is false until January 2027. The check stays
+	// so turning that switch on restores the trial lock without a rewrite.
+	if billing.PaymentsEnabled && !db.HasActiveEntitlement(user, time.Now()) {
 		continueToken, err := auth.IssueToken(d.SigningSecret, user.UserID, "", trialContinueRole, trialContinueTokenTTL)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "could not issue session")

@@ -75,11 +75,13 @@ export default function TermsPage() {
 
         <h2 className="text-lg font-semibold">6. Subscription, trial &amp; billing</h2>
         <p>
-          New accounts get a 7-day free trial with full access. After the
-          trial, continued access requires a paid Monthly, Quarterly, or
-          Annual plan, billed via PayU (web) or Google Play Billing (Android
-          app), at the price shown at checkout. Paid plans may auto-renew at
-          the then-current price unless cancelled before the renewal date;
+          The app is free. No subscription is charged, and access does not
+          expire after a trial. From January 2027, new accounts may get a
+          7-day free trial with full access. After that trial, continued
+          access will require a paid Monthly, Quarterly, or Annual plan,
+          billed via Razorpay (web) or Google Play Billing (Android app), at
+          the price shown at checkout. Paid plans may auto-renew at the
+          then-current price unless cancelled before the renewal date;
           cancelling stops future renewals but does not refund the current
           paid period — see our{" "}
           <a href="/legal/refund" style={{ color: "var(--primary)" }}>

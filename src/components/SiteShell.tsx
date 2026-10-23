@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import UpgradeModal from "@/components/UpgradeModal";
+import { paymentsEnabled } from "@/lib/payments";
 import ProCelebration from "@/components/ProCelebration";
 
 const CREAM_BASE_PATHS = [
@@ -46,8 +47,8 @@ export default function SiteShell({ children }: { children: ReactNode }) {
         {!hideNav && <Navbar />}
         <div className="fade-in">{children}</div>
         {!hideFooter && <Footer />}
-        {showUpgradeModal && <UpgradeModal />}
-        <ProCelebration />
+        {paymentsEnabled && showUpgradeModal && <UpgradeModal />}
+        {paymentsEnabled && <ProCelebration />}
       </div>
     </div>
   );

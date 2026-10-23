@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AppView } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
+import { paymentsEnabled } from "@/lib/payments";
 import Logo from "@/components/Logo";
 
 const navLinks: { label: string; view: AppView }[] = [
@@ -62,7 +63,7 @@ export default function Navbar() {
           <div className="flex items-center gap-2 relative">
             {user ? (
               <>
-                {user.subscription === 'free' && (
+                {paymentsEnabled && user.subscription === 'free' && (
                   <button
                     onClick={onUpgrade}
                     className="hidden sm:flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold btn-pro"
@@ -110,6 +111,7 @@ export default function Navbar() {
                         <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
                           {user.phone}
                         </p>
+                        {paymentsEnabled && (
                         <span
                           className="inline-flex mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
                           style={{
@@ -124,6 +126,7 @@ export default function Navbar() {
                         >
                           {user.subscription === 'pro' ? 'Pro' : 'Free'}
                         </span>
+                        )}
                       </div>
                       {links.map(link => (
                         <button
@@ -142,7 +145,7 @@ export default function Navbar() {
                         className="mt-1 pt-1"
                         style={{ borderTop: '1px solid color-mix(in srgb, #0b2438 10%, transparent)' }}
                       >
-                        {user.subscription === 'free' && (
+                        {paymentsEnabled && user.subscription === 'free' && (
                           <button
                             role="menuitem"
                             onClick={() => { onUpgrade(); close() }}
