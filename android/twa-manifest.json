@@ -20,8 +20,8 @@
     "path": "/work/android.keystore",
     "alias": "android"
   },
-  "appVersionName": "2",
-  "appVersionCode": 2,
+  "appVersionName": "3",
+  "appVersionCode": 3,
   "shortcuts": [],
   "generatorApp": "unknown",
   "webManifestUrl": "https://app.shubhshreeknowledgehub.com/manifest.webmanifest",
