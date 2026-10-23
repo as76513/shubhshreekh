@@ -20,11 +20,18 @@ export default function RefundPage() {
       </p>
 
       <section className="space-y-3 text-sm leading-relaxed">
+        <h2 className="text-lg font-semibold">No charge today</h2>
+        <p>
+          The app is free. No payment is collected, and access does not
+          expire after a trial. The rules below apply once paid plans start
+          in January 2027. Until then, every account has full access.
+        </p>
+
         <h2 className="text-lg font-semibold">Try before you pay</h2>
         <p>
-          Every new account gets a 7-day free trial with full access before
-          any payment is taken, so you can evaluate the service before
-          committing to a paid plan.
+          When paid plans start, every new account gets a 7-day free trial
+          with full access before any payment is taken, so you can evaluate
+          the service before committing to a paid plan.
         </p>
 
         <h2 className="text-lg font-semibold">Subscription charges are generally non-refundable</h2>

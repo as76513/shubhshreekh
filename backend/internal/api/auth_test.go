@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
+	"github.com/as76513/shubhshreekh/backend/internal/billing"
 	"github.com/as76513/shubhshreekh/backend/internal/db"
 )
 
@@ -429,6 +430,9 @@ func TestHandleVerifyOTP_NewSignupRequiresName(t *testing.T) {
 }
 
 func TestHandleVerifyOTP_TrialExpired(t *testing.T) {
+	billing.PaymentsEnabled = true
+	t.Cleanup(func() { billing.PaymentsEnabled = false })
+
 	otpProvider := &fakeOTPProvider{verifyOK: true}
 	limiter := newFakeRateLimiter()
 	users := newFakeUsersStore()
@@ -458,6 +462,27 @@ func TestHandleVerifyOTP_TrialExpired(t *testing.T) {
 	}
 	if users.users["919876543210"].ComplimentaryAccess {
 		t.Fatal("trial expiry must not grant access until Upgrade is chosen")
+	}
+}
+
+func TestHandleVerifyOTP_ExpiredTrialAllowedWhilePaymentsOff(t *testing.T) {
+	if billing.PaymentsEnabled {
+		t.Fatal("this test covers the January 2027 switch in its off position")
+	}
+	users := newFakeUsersStore()
+	users.users["919876543210"] = &db.User{
+		UserID:       "919876543210",
+		Subscription: "free",
+		TrialEndsAt:  time.Now().UTC().Add(-time.Hour).Format(time.RFC3339),
+	}
+	d := testDeps(&fakeOTPProvider{verifyOK: true}, newFakeRateLimiter(), users)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/verify-otp", strings.NewReader(`{"phone":"9876543210","otp":"223344","deviceId":"device-1"}`))
+	rec := httptest.NewRecorder()
+	d.handleVerifyOTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 while payments are off; body = %s", rec.Code, rec.Body)
 	}
 }
 

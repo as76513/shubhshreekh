@@ -125,7 +125,7 @@ Console steps.
 | Step | Status | Depends on |
 |---|---|---|
 | **Org Google Play Developer account + D-U-N-S verification** | **Not started** (TD-014) — biggest schedule risk, since Google's verification has its own turnaround time outside anyone's control | Nothing — start this first |
-| Play Billing (or enrolled "billing choice" with PayU) | **Not built** (TD-004) — Play policy requires it for a TWA sold on Play | Play Console app existing |
+| Play Billing | **Deferred to January 2027** (decided 2026-10-23). This listing is free. Prices, Upgrade, and the trial lock are switched off in the app (`paymentsEnabled` / `PaymentsEnabled`) and turn back on from TECH_DEBT.md TD-011 | Before the app charges |
 | Privacy / Terms / Grievance pages | Drafted, but still has `[PENDING]` placeholders for the real SEBI RA Registration No., BASL Membership No., and Grievance Officer name/email (TD-005) | Compliance advisor supplying those facts |
 | Store listing (screenshots, short/full description, category) | Not started | Play Console app existing |
 | Data safety declaration | Not started | Play Console app existing |

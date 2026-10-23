@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { courses } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
+import { paymentsEnabled } from "@/lib/payments";
 
 interface Props {
   items?: typeof courses;
@@ -83,7 +84,7 @@ export default function CourseSlider({ items }: Props) {
                   <span className="service-card-title">{course.title}</span>
                   <span className="service-card-desc">
                     {course.lessons} lessons · {course.duration} · {course.level}
-                    {course.isPro ? ' · Pro' : ''}
+                    {paymentsEnabled && course.isPro ? ' · Pro' : ''}
                   </span>
                   <span className="service-card-cta">
                     {user ? 'Open course →' : 'Sign in to view →'}

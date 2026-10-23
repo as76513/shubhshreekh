@@ -1,7 +1,8 @@
 "use client";
 
 import type { AppView } from "@/lib/types";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context"
+import { paymentsEnabled } from "@/lib/payments";
 import Logo from "@/components/Logo";
 
 export default function Footer() {
@@ -49,7 +50,7 @@ export default function Footer() {
                 { label: 'Courses', view: 'courses' as AppView },
                 { label: 'Video Tutorials', view: 'videos' as AppView },
                 { label: 'Pro Membership', view: 'landing' as AppView },
-              ].map(item => (
+              ].filter(item => paymentsEnabled || item.label !== 'Pro Membership').map(item => (
                 <li key={item.label}>
                   <button
                     onClick={() => navigate(item.view)}

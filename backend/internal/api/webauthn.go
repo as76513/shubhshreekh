@@ -11,6 +11,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/as76513/shubhshreekh/backend/internal/auth"
+	"github.com/as76513/shubhshreekh/backend/internal/billing"
 	"github.com/as76513/shubhshreekh/backend/internal/db"
 )
 
@@ -259,7 +260,7 @@ func (d Deps) handleRefreshFinish(w http.ResponseWriter, r *http.Request) {
 	// TD-054: a refresh must not outlive the trial/paid entitlement either
 	// — otherwise a device that registered a passkey during an active
 	// trial could keep minting tokens indefinitely after it lapses.
-	if !db.HasActiveEntitlement(user, time.Now()) {
+	if billing.PaymentsEnabled && !db.HasActiveEntitlement(user, time.Now()) {
 		writeError(w, http.StatusForbidden, "trial_expired")
 		return
 	}

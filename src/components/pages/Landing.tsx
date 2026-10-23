@@ -7,6 +7,7 @@ import CourseSlider from "@/components/CourseSlider";
 import PlanSlider from "@/components/PlanSlider";
 import Blogs from "@/components/pages/Blogs";
 import { useAuth } from "@/lib/auth-context";
+import { paymentsEnabled } from "@/lib/payments";
 import { getSiteStats, getTestimonials, type SiteStats, type Testimonial } from "@/lib/api";
 
 const defaultStats: SiteStats = {
@@ -79,8 +80,9 @@ export default function Landing() {
               onClick={() => navigate('login')}
               className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
             >
-              Start free trial
+              {paymentsEnabled ? 'Start free trial' : 'Sign in'}
             </button>
+            {paymentsEnabled && (
             <button
               onClick={() => {
                 document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })
@@ -95,6 +97,7 @@ export default function Landing() {
             >
               See plans
             </button>
+            )}
           </div>
         </div>
       </section>
@@ -142,7 +145,8 @@ export default function Landing() {
         <ServiceSlider />
       </section>
 
-      {/* Pricing */}
+      {/* Pricing — hidden until paymentsEnabled (January 2027). */}
+      {paymentsEnabled && (
       <section id="pricing" className="py-24 scroll-mt-24">
         <div className="max-w-5xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -159,6 +163,7 @@ export default function Landing() {
           <PlanSlider />
         </div>
       </section>
+      )}
 
       {/* Courses */}
       <section className="py-20" style={{ background: 'var(--surface-secondary)' }}>
@@ -308,13 +313,15 @@ export default function Landing() {
             Ready when you are
           </h2>
           <p className="text-base mb-8" style={{ color: '#a8b8cc' }}>
-            Join learners building market knowledge with ShubhShree. 7 days free, no card required.
+            {paymentsEnabled
+              ? 'Join learners building market knowledge with ShubhShree. 7 days free, no card required.'
+              : 'Join learners building market knowledge with ShubhShree.'}
           </p>
           <button
             onClick={() => navigate('login')}
             className="btn-action px-10 py-4 rounded-xl font-semibold text-base"
           >
-            Start free trial
+            {paymentsEnabled ? 'Start free trial' : 'Create your account'}
           </button>
         </div>
       </section>

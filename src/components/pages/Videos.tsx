@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { videos } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context"
+import { hasFullAccess, paymentsEnabled } from "@/lib/payments"
 
 const categories = ['All', 'Technical Analysis', 'Fundamental Analysis', 'Mutual Funds', 'Derivatives', 'Market Analysis', 'Taxation', 'Tools & Research', 'Strategy']
 
 export default function Videos() {
   const { user, navigate, onUpgrade } = useAuth();
-  const isPro = user?.subscription === 'pro'
+  const isPro = hasFullAccess(user?.subscription)
   const [category, setCategory] = useState('All')
   const [activeVideo, setActiveVideo] = useState<number | null>(null)
 
@@ -182,7 +183,7 @@ export default function Videos() {
                 >
                   {v.duration}
                 </div>
-                {v.isPro && (
+                {paymentsEnabled && v.isPro && (
                   <div
                     className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full font-bold"
                     style={{ background: 'linear-gradient(135deg, var(--gold-from), var(--gold-to))', color: '#0b2438' }}
@@ -190,7 +191,7 @@ export default function Videos() {
                     PRO
                   </div>
                 )}
-                {!v.isPro && (
+                {paymentsEnabled && !v.isPro && (
                   <div
                     className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full font-bold"
                     style={{ background: 'rgba(14,203,129,0.2)', color: 'var(--accent)', backdropFilter: 'blur(8px)' }}

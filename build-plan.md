@@ -27,9 +27,9 @@ account only (Personal 12×14 closed test will miss the date).
 ### Definition of done (18 Oct)
 
 End users in India can install from Google Play, sign in with phone OTP,
-subscribe via a **Play-compliant** path (Play Billing in TWA, and/or enrolled
-billing choice with PayU), and see **RA-published daily insights** from the
-API (not only hardcoded `data.ts`). The Research Analyst can add/edit/publish
+and see **RA-published daily insights** from the API (not only hardcoded
+`data.ts`). **Decided 2026-10-23:** this listing is free until January 2027.
+Play Billing and Razorpay wait until then. The Research Analyst can add/edit/publish
 stock calls from `/admin` without a developer deploy. Privacy policy + SEBI
 disclosures live. Web on Amplify stays in sync.
 

@@ -361,8 +361,12 @@ with a cooldown so that path can't itself be used to rotate past the
 
 ## Payment flow (the security-critical part)
 
-Web checkout will be Razorpay. It is not built yet. Until it is, a trial
-that has ended can choose Upgrade to Pro on the login screen. That writes
+Web checkout will be Razorpay, and the Play app will use Play Billing.
+**Decided 2026-10-23:** both wait until January 2027. `PaymentsEnabled` in
+`backend/internal/billing` and `paymentsEnabled` in `src/lib/payments.ts`
+are false, so a finished trial still gets a session and the app does not
+show prices or Upgrade to Pro. Set both true to restore that path. A trial
+that has ended can then choose Upgrade to Pro. That writes
 `complimentary_access` and lets them back in. It does not take payment and
 it is not `subscription = pro`.
 
