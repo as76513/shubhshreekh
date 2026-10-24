@@ -46,7 +46,7 @@ export default function Logo({
             ShubhShree
           </span>
           <span
-            className="text-[10px] sm:text-xs font-medium tracking-wide truncate"
+            className="hidden sm:block text-[10px] sm:text-xs font-medium tracking-wide truncate"
             style={{ color: "var(--muted-foreground)" }}
           >
             Knowledge Hub Pvt Ltd

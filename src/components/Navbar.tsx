@@ -35,7 +35,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => navigate(user ? 'dashboard' : 'landing')}
-            className="flex items-center flex-shrink-0 min-w-0 bg-transparent border-0 p-0 cursor-pointer"
+            className="flex items-center min-w-0 shrink bg-transparent border-0 p-0 cursor-pointer"
             aria-label="ShubhShree Knowledge Hub — home"
           >
             <Logo height={36} withName />
@@ -169,17 +169,23 @@ export default function Navbar() {
                 )}
               </>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => navigate('login')}
-                  className="px-3 py-2 rounded-full text-sm font-medium"
-                  style={{ color: 'var(--muted-foreground)' }}
+                  className="btn-action sm:hidden px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"
                 >
-                  Sign In
+                  Sign in
                 </button>
                 <button
                   onClick={() => navigate('login')}
-                  className="btn-action px-4 py-2 rounded-lg text-sm font-semibold"
+                  className="hidden sm:inline-flex px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap"
+                  style={{ color: 'var(--muted-foreground)' }}
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={() => navigate('login')}
+                  className="hidden sm:inline-flex btn-action px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"
                 >
                   Get started
                 </button>

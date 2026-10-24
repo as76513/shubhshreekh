@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { videos } from "@/lib/data";
+import { todaysUpdate, videos } from "@/lib/data";
 import ServiceSlider from "@/components/ServiceSlider";
 import CourseSlider from "@/components/CourseSlider";
 import PlanSlider from "@/components/PlanSlider";
 import Blogs from "@/components/pages/Blogs";
 import { useAuth } from "@/lib/auth-context";
 import { paymentsEnabled } from "@/lib/payments";
-import { getSiteStats, getTestimonials, type SiteStats, type Testimonial } from "@/lib/api";
+import { getSiteStats, getTestimonials, listOverviews, type Overview, type SiteStats, type Testimonial } from "@/lib/api";
 
 const defaultStats: SiteStats = {
   learners: '50,000+',
@@ -24,15 +24,34 @@ const defaultTestimonials: Testimonial[] = [
   { name: "Nisha Verma", city: "Bangalore", text: "Started as a complete beginner. Within 3 months of using Shubhshree, I can read Indian market charts with much more clarity.", returns: "+25%", initials: "NV" },
 ]
 
+function noteExcerpt(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= 280) return trimmed;
+  const cut = trimmed.slice(0, 280);
+  const stop = cut.lastIndexOf(" ");
+  return `${(stop > 160 ? cut.slice(0, stop) : cut).trim()}…`;
+}
+
 export default function Landing() {
   const { navigate } = useAuth();
   const [siteStats, setSiteStats] = useState<SiteStats>(defaultStats);
   const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
+  const [latestNote, setLatestNote] = useState<Overview | null>(null);
 
   useEffect(() => {
     getSiteStats().then(setSiteStats).catch(() => {});
     getTestimonials().then(setTestimonials).catch(() => {});
+    listOverviews()
+      .then((rows) => setLatestNote(rows[0] ?? null))
+      .catch(() => {});
   }, []);
+
+  const published = latestNote ? new Date(latestNote.publishedAt) : null;
+  const noteDate =
+    published && !Number.isNaN(published.getTime())
+      ? published.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+      : "From the research desk";
+  const noteBody = noteExcerpt(latestNote?.text || todaysUpdate.summary);
 
   const stats = [
     { value: siteStats.learners, label: 'Learners' },
@@ -43,87 +62,89 @@ export default function Landing() {
 
   return (
     <div>
-      {/* Hero — one composition: brand, line, support, CTA */}
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'radial-gradient(ellipse 70% 50% at 70% -10%, var(--primary-08) 0%, transparent 68%)',
-          }}
-        />
-
-        <div className="relative max-w-3xl mx-auto px-6 lg:px-8 pt-24 pb-20 text-center">
-          <p
-            className="motion-settle text-sm font-semibold tracking-[0.14em] uppercase mb-5"
-            style={{ color: 'var(--primary)' }}
-          >
-            ShubhShree Knowledge Hub
-          </p>
-
-          <h1
-            className="motion-settle fade-up-delay-1 text-5xl sm:text-6xl lg:text-[4.25rem] font-bold mb-5 leading-[1.08]"
-            style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
-          >
-            Invest today.<br />
-            <span className="italic hl-grad">Grow tomorrow.</span>
-          </h1>
-
-          <p
-            className="motion-settle fade-up-delay-2 text-lg max-w-xl mx-auto mb-10 leading-relaxed"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
-            Research notes, mutual fund explainers, and market education — built for Indian investors.
-          </p>
-
-          <div className="motion-settle fade-up-delay-3 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={() => navigate('login')}
-              className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
+      {/* Full-bleed offer. The note is the product shot, not a card in empty space. */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background:
+            "radial-gradient(ellipse 55% 80% at 100% 0%, rgba(15,118,110,0.45) 0%, transparent 55%), linear-gradient(160deg, #071a2a 0%, #0b2438 48%, #12352f 100%)",
+        }}
+      >
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-14 lg:py-20 grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-10 lg:gap-16 items-center">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-4" style={{ color: "#5eead4" }}>
+              Research for Indian markets
+            </p>
+            <h1
+              className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.02] mb-5"
+              style={{ fontFamily: "DM Serif Display, serif", color: "#ffffff" }}
             >
-              {paymentsEnabled ? 'Start free trial' : 'Sign in'}
-            </button>
-            {paymentsEnabled && (
-            <button
-              onClick={() => {
-                document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })
-              }}
-              className="pressable px-5 py-3 rounded-xl text-sm font-semibold"
-              style={{
-                color: 'var(--foreground)',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              See plans
-            </button>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Achievement strip — same pattern as dashboard metric tiles */}
-      <section className="py-10">
-        <div className="max-w-4xl mx-auto px-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {stats.map(s => (
-            <div
-              key={s.label}
-              className="surface-card motion-lift rounded-2xl px-4 py-5 text-center"
-              style={{
-                borderTop: '3px solid var(--primary)',
-              }}
-            >
-              <p
-                className="text-2xl font-bold mb-1"
-                style={{ color: 'var(--foreground)', fontFamily: 'JetBrains Mono, monospace' }}
+              Invest today.
+              <br />
+              <span style={{ color: "#fbbf24" }}>Grow tomorrow.</span>
+            </h1>
+            <p className="text-lg max-w-xl mb-8 leading-relaxed" style={{ color: "#d5e2ee" }}>
+              Open the desk for today&apos;s note, equity and F&amp;O levels, and courses that explain the setup. Built for retail investors who want the reason, not just a tip.
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <button
+                onClick={() => navigate("login")}
+                className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
               >
-                {s.value}
-              </p>
-              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--muted-foreground)' }}>
-                {s.label}
-              </p>
+                {paymentsEnabled ? "Start free trial" : "Open your desk"}
+              </button>
+              <button
+                onClick={() => document.getElementById("blogs")?.scrollIntoView({ behavior: "smooth" })}
+                className="px-5 py-3.5 rounded-xl text-sm font-semibold"
+                style={{ color: "#ffffff", border: "1px solid rgba(255,255,255,0.28)" }}
+              >
+                Read today&apos;s note
+              </button>
             </div>
-          ))}
+          </div>
+
+          <article
+            className="min-w-0 rounded-3xl p-6 sm:p-8"
+            style={{
+              background: "linear-gradient(180deg, #fffaf3 0%, #fff4df 100%)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
+            }}
+          >
+            <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-1" style={{ color: "#0f766e" }}>
+              Today&apos;s note
+            </p>
+            <p className="text-xs font-medium mb-4" style={{ color: "#7c5a12" }}>
+              {noteDate}
+            </p>
+            <p
+              className="text-2xl sm:text-3xl leading-snug mb-6 break-words"
+              style={{ fontFamily: "DM Serif Display, serif", color: "#0b2438" }}
+            >
+              {noteBody}
+            </p>
+            <button
+              onClick={() => document.getElementById("blogs")?.scrollIntoView({ behavior: "smooth" })}
+              className="text-sm font-semibold"
+              style={{ color: "#0f766e" }}
+            >
+              Continue reading →
+            </button>
+          </article>
+        </div>
+
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 grid grid-cols-2 lg:grid-cols-4 gap-y-4">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <p className="text-2xl font-bold" style={{ color: "#ffffff", fontFamily: "JetBrains Mono, monospace" }}>
+                  {s.value}
+                </p>
+                <p className="text-xs uppercase tracking-wide mt-1" style={{ color: "#b7c6d6" }}>
+                  {s.label}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -131,15 +152,15 @@ export default function Landing() {
 
       {/* Services */}
       <section className="py-8">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 mb-8 text-center">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 mb-8">
           <h2
             className="text-3xl sm:text-4xl font-bold mb-3"
             style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
           >
-            Insights. Funds. Courses.
+            Three ways to use the desk
           </h2>
-          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            Everything you need to learn markets — in one place.
+          <p className="text-sm max-w-xl" style={{ color: 'var(--muted-foreground)' }}>
+            Read the research, study a course, or watch the setup explained.
           </p>
         </div>
         <ServiceSlider />
