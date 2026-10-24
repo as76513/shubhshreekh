@@ -54,10 +54,10 @@ export default function Landing() {
   const noteBody = noteExcerpt(latestNote?.text || todaysUpdate.summary);
 
   const stats = [
-    { value: siteStats.learners, label: 'Learners' },
-    { value: siteStats.ideasShared, label: 'Ideas shared' },
-    { value: siteStats.courses, label: 'Courses' },
-    { value: siteStats.avgRating, label: 'Avg rating' },
+    { value: siteStats.learners, label: 'People on the desk' },
+    { value: siteStats.ideasShared, label: 'Notes published' },
+    { value: siteStats.courses, label: 'Courses to study' },
+    { value: siteStats.avgRating, label: 'Average course rating' },
   ]
 
   return (
@@ -73,34 +73,35 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-14 lg:py-20 grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-10 lg:gap-16 items-center">
           <div className="min-w-0">
             <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-4" style={{ color: "#5eead4" }}>
-              Research for Indian markets
+              For people who trade Indian markets
             </p>
             <h1
-              className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.02] mb-5"
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] mb-5"
               style={{ fontFamily: "DM Serif Display, serif", color: "#ffffff" }}
             >
-              Invest today.
-              <br />
-              <span style={{ color: "#fbbf24" }}>Grow tomorrow.</span>
+              Read the desk before you place the trade.
             </h1>
             <p className="text-lg max-w-xl mb-8 leading-relaxed" style={{ color: "#d5e2ee" }}>
-              Open the desk for today&apos;s note, equity and F&amp;O levels, and courses that explain the setup. Built for retail investors who want the reason, not just a tip.
+              One note each session, from a SEBI-registered research analyst. What moved, what to watch next, and the equity and F&amp;O levels — with the reason written out.
             </p>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 onClick={() => navigate("login")}
                 className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
               >
-                {paymentsEnabled ? "Start free trial" : "Open your desk"}
+                {paymentsEnabled ? "Start free trial" : "Get today's note"}
               </button>
               <button
                 onClick={() => document.getElementById("blogs")?.scrollIntoView({ behavior: "smooth" })}
                 className="px-5 py-3.5 rounded-xl text-sm font-semibold"
                 style={{ color: "#ffffff", border: "1px solid rgba(255,255,255,0.28)" }}
               >
-                Read today&apos;s note
+                See the latest note
               </button>
             </div>
+            <p className="text-xs mt-4" style={{ color: "#93a4b8" }}>
+              Sign in with your mobile number. Research, not an order to buy or sell.
+            </p>
           </div>
 
           <article
@@ -110,25 +111,34 @@ export default function Landing() {
               boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
             }}
           >
-            <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-1" style={{ color: "#0f766e" }}>
-              Today&apos;s note
+            <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-4" style={{ color: "#0f766e" }}>
+              What you open each morning
             </p>
-            <p className="text-xs font-medium mb-4" style={{ color: "#7c5a12" }}>
-              {noteDate}
-            </p>
-            <p
-              className="text-2xl sm:text-3xl leading-snug mb-6 break-words"
-              style={{ fontFamily: "DM Serif Display, serif", color: "#0b2438" }}
-            >
-              {noteBody}
-            </p>
-            <button
-              onClick={() => document.getElementById("blogs")?.scrollIntoView({ behavior: "smooth" })}
-              className="text-sm font-semibold"
-              style={{ color: "#0f766e" }}
-            >
-              Continue reading →
-            </button>
+            <ol className="space-y-3 mb-6">
+              {[
+                ["01", "The session", "What actually moved, in plain language."],
+                ["02", "What to watch", "The next level that matters today."],
+                ["03", "The levels", "Entry, stop, target, and why."],
+              ].map(([n, title, line]) => (
+                <li key={n} className="flex gap-3 min-w-0">
+                  <span className="text-xs font-bold pt-0.5" style={{ color: "#b45309", fontFamily: "JetBrains Mono, monospace" }}>
+                    {n}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold" style={{ color: "#0b2438" }}>{title}</span>
+                    <span className="block text-sm" style={{ color: "#57534e" }}>{line}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <div className="pt-5" style={{ borderTop: "1px solid rgba(120,80,20,0.18)" }}>
+              <p className="text-[11px] font-bold tracking-[0.14em] uppercase mb-2" style={{ color: "#0f766e" }}>
+                From today&apos;s desk · {noteDate}
+              </p>
+              <p className="text-base leading-relaxed break-words" style={{ color: "#0b2438" }}>
+                {noteBody}
+              </p>
+            </div>
           </article>
         </div>
 
@@ -148,19 +158,39 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="max-w-7xl mx-auto px-6 lg:px-8 py-16 grid md:grid-cols-3 gap-10">
+        {[
+          ["Not a tip group", "A call shows the entry, the stop, the target, and the written reason. There is no button that places the order."],
+          ["SEBI-registered research", "The notes come from a research analyst. They explain a view. They do not promise a return."],
+          ["New to the chart", "A course and a short video sit with the note, so you can study the setup instead of only following it."],
+        ].map(([title, body]) => (
+          <div key={title}>
+            <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "DM Serif Display, serif", color: "var(--foreground)" }}>
+              {title}
+            </h2>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+              {body}
+            </p>
+          </div>
+        ))}
+      </section>
+
       <Blogs />
 
       {/* Services */}
       <section className="py-8">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 mb-8">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase mb-2" style={{ color: "var(--primary)" }}>
+            If you already follow the market
+          </p>
           <h2
             className="text-3xl sm:text-4xl font-bold mb-3"
             style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
           >
-            Three ways to use the desk
+            Equity, F&amp;O, and the lesson behind them
           </h2>
           <p className="text-sm max-w-xl" style={{ color: 'var(--muted-foreground)' }}>
-            Read the research, study a course, or watch the setup explained.
+            Pick the desk you came for. The note tells you the level. The course tells you how to read it.
           </p>
         </div>
         <ServiceSlider />
@@ -190,11 +220,14 @@ export default function Landing() {
       <section className="py-20" style={{ background: 'var(--surface-secondary)' }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-end justify-between mb-10">
           <div>
+            <p className="text-xs font-semibold tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--primary)' }}>
+              If the chart is still new
+            </p>
             <h2
               className="text-3xl sm:text-4xl font-bold"
               style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
             >
-              Popular courses
+              Learn the setup, then read the note
             </h2>
           </div>
           <button
@@ -212,12 +245,17 @@ export default function Landing() {
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-end justify-between mb-10">
-            <h2
-              className="text-3xl sm:text-4xl font-bold"
-              style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
-            >
-              Latest tutorials
-            </h2>
+            <div>
+              <p className="text-xs font-semibold tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--primary)' }}>
+                Ten minutes
+              </p>
+              <h2
+                className="text-3xl sm:text-4xl font-bold"
+                style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
+              >
+                One idea you can use today
+              </h2>
+            </div>
             <button
               onClick={() => navigate('videos')}
               className="hidden sm:flex text-sm font-medium transition-opacity hover:opacity-70"
@@ -263,13 +301,19 @@ export default function Landing() {
 
       {/* Investor stories */}
       <section className="max-w-7xl mx-auto px-6 lg:px-8 py-20">
-        <div className="text-center mb-12">
+        <div className="mb-10 max-w-2xl">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--primary)' }}>
+            From learners
+          </p>
           <h2
-            className="text-3xl sm:text-4xl font-bold"
+            className="text-3xl sm:text-4xl font-bold mb-2"
             style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--foreground)' }}
           >
-            What investors say
+            What changed in how they read the market
           </h2>
+          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+            Comments on the notes and the courses. Not a record of returns.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -298,12 +342,6 @@ export default function Landing() {
                     {t.city}
                   </p>
                 </div>
-                <span
-                  className="text-sm font-bold flex-shrink-0"
-                  style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace' }}
-                >
-                  {t.returns}
-                </span>
               </div>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--secondary-foreground)' }}>
                 “{t.text}”
@@ -331,18 +369,18 @@ export default function Landing() {
             className="text-3xl sm:text-4xl font-bold mb-4"
             style={{ fontFamily: 'DM Serif Display, serif', color: '#ffffff' }}
           >
-            Ready when you are
+            The note for this session is already written.
           </h2>
           <p className="text-base mb-8" style={{ color: '#a8b8cc' }}>
             {paymentsEnabled
-              ? 'Join learners building market knowledge with ShubhShree. 7 days free, no card required.'
-              : 'Join learners building market knowledge with ShubhShree.'}
+              ? 'Read it on your phone. Seven days free, no card to start.'
+              : 'Sign in with your mobile number and read it before you open your broker.'}
           </p>
           <button
             onClick={() => navigate('login')}
             className="btn-action px-10 py-4 rounded-xl font-semibold text-base"
           >
-            {paymentsEnabled ? 'Start free trial' : 'Create your account'}
+            {paymentsEnabled ? 'Start free trial' : "Get today's note"}
           </button>
         </div>
       </section>
