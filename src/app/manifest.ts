@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "ShubhShreekh — Invest today. Grow tomorrow.",
-    short_name: "ShubhShreekh",
+    short_name: "ShubhShree",
     description:
       "Research notes, mutual fund explainers, and financial education for Indian investors.",
     start_url: "/",

@@ -24,8 +24,8 @@ def twaManifest = [
     applicationId: 'com.shubhshreekh.app',
     hostName: 'app.shubhshreeknowledgehub.com', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: 'ShubhShreekh', // The application name.
-    launcherName: 'ShubhShreekh', // The name shown on the Android Launcher.
+    name: 'ShubhShree', // The application name.
+    launcherName: 'ShubhShree', // The name shown on the Android Launcher.
     themeColor: '#0B2438', // The color used for the status bar.
     themeColorDark: '#000000', // The color used for the dark status bar.
     navigationColor: '#000000', // The color used for the navigation bar.
@@ -57,8 +57,8 @@ android {
         applicationId "com.shubhshreekh.app"
         minSdkVersion 21
         targetSdkVersion 36
-        versionCode 3
-        versionName "3"
+        versionCode 4
+        versionName "4"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
