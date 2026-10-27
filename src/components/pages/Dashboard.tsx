@@ -64,53 +64,32 @@ export default function Dashboard() {
             </p>
           )}
           <p className="text-sm" style={{ color: '#b9c8e0' }}>
-            Thursday, 21 August 2026 · NSE Open
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}
           </p>
+          <a
+            href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 block rounded-3xl p-6 sm:p-8"
+            style={{ background: 'linear-gradient(180deg, #fffaf3 0%, #fff4df 100%)' }}
+          >
+            <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-2" style={{ color: '#0f766e' }}>
+              Today&apos;s note
+            </p>
+            <p className="text-2xl sm:text-3xl font-bold leading-snug mb-3" style={{ color: '#0b2438', fontFamily: 'DM Serif Display, serif' }}>
+              {pdfTitle}
+            </p>
+            <p className="text-base leading-relaxed max-w-3xl mb-4" style={{ color: '#334155' }}>
+              {pdfSummary}
+            </p>
+            <span className="text-sm font-semibold" style={{ color: '#0f766e' }}>
+              Open the note →
+            </span>
+          </a>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <a
-          href={pdfHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="motion-lift rounded-2xl p-5 mb-8 flex items-center gap-4"
-          style={{
-            background: 'linear-gradient(120deg, #e3ebf8 0%, #e8eef9 65%, #f8efd4 100%)',
-            borderLeft: '4px solid var(--navy-gold)',
-            boxShadow: '0 3px 10px rgba(11,42,85,0.08)',
-          }}
-        >
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, var(--navy), var(--navy-2))',
-              boxShadow: 'inset 0 0 0 1.5px var(--navy-gold-soft)',
-            }}
-          >
-            📄
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--navy-gold-text)' }}>
-              Today&apos;s Update
-            </p>
-            <p className="font-semibold text-sm mb-0.5 truncate" style={{ color: 'var(--navy)' }}>
-              {pdfTitle}
-            </p>
-            <p className="text-xs" style={{ color: 'var(--muted-text)' }}>
-              {pdfSummary}
-            </p>
-          </div>
-          <span
-            className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-xl"
-            style={{
-              background: 'linear-gradient(135deg, var(--navy), var(--navy-2))',
-              color: '#ffffff',
-            }}
-          >
-            View PDF →
-          </span>
-        </a>
 
         {/* Metric tiles — compact, navy + gold border combination */}
         <div
