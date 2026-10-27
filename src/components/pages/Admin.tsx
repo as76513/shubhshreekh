@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import Logo from "@/components/Logo";
 import {
   listAllInsights,
   createInsight,
@@ -89,6 +90,20 @@ function fmtDateTime(iso?: string): string {
     hour12: true,
     timeZone: "Asia/Kolkata",
   });
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+// Working list: drafts and still-open calls stay, however old. Closed and
+// archived rows drop off once their latest activity is more than 7 days ago.
+function recentEnough(row: AdminInsight, now = Date.now()): boolean {
+  if (row.status === "draft") return true
+  if (row.status !== "archived" && row.tradeStatus !== "closed") return true
+  const times = [row.closedAt, row.publishedAt, row.updatedAt, row.createdAt]
+    .map((iso) => (iso ? new Date(iso).getTime() : NaN))
+    .filter((t) => !Number.isNaN(t))
+  if (times.length === 0) return true
+  return Math.max(...times) >= now - WEEK_MS
 }
 
 function tradeTimeLines(row: AdminInsight): string[] {
@@ -512,15 +527,23 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--screen-bg)" }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--blue-accent)" }}>
-          Admin
-        </p>
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #071426 0px, #0b1c33 168px, #e7eef6 168px)" }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+          <Logo height={52} withName onDark />
+          <div className="text-left sm:text-right">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] mb-1" style={{ color: "#d4af37" }}>
+              Research desk
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: "DM Serif Display, serif", color: "#ffffff" }}>
+              Publish today’s note
+            </h1>
+          </div>
+        </div>
 
         <div
           className="rounded-2xl p-5 mb-8"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
             Pricing discount
@@ -576,7 +599,7 @@ export default function Admin() {
 
         <div
           className="rounded-2xl p-5 mb-8"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
             Today&apos;s market overview
@@ -645,7 +668,7 @@ export default function Admin() {
 
         <div
           className="rounded-2xl p-5 mb-8"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
             Weekly market outlook PDF
@@ -722,7 +745,7 @@ export default function Admin() {
         <form
           onSubmit={handleSubmit}
           className="rounded-2xl p-5 mb-8 grid grid-cols-2 sm:grid-cols-3 gap-4"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           {field(
             "Stock",
@@ -926,7 +949,7 @@ export default function Admin() {
         <form
           onSubmit={handleScalpSubmit}
           className="rounded-2xl p-5 mb-8 grid grid-cols-2 sm:grid-cols-4 gap-4"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           {field(
             "Index",
@@ -1009,7 +1032,7 @@ export default function Admin() {
                   <div
                     key={row.id}
                     className="flex items-center justify-between gap-3 p-3.5 rounded-xl"
-                    style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+                    style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -1099,9 +1122,12 @@ export default function Admin() {
         )}
 
 
-        <h2 className="font-semibold text-base mb-3" style={{ color: "var(--navy)" }}>
-          All insights
+        <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
+          Insights
         </h2>
+        <p className="text-xs mb-3" style={{ color: "var(--muted-text)" }}>
+          Last 7 days, plus anything still open or in draft.
+        </p>
 
         {loading ? (
           <p className="text-sm" style={{ color: "var(--muted-text)" }}>
@@ -1111,10 +1137,14 @@ export default function Admin() {
           <p className="text-sm" style={{ color: "var(--muted-text)" }}>
             Nothing yet — create a draft above.
           </p>
+        ) : rows.filter((r) => r.instrumentType !== "scalping" && recentEnough(r)).length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--muted-text)" }}>
+            Nothing from the last 7 days. Older closed trades stay off this list.
+          </p>
         ) : (
           <div className="space-y-2.5">
             {rows
-              .filter((r) => r.instrumentType !== "scalping")
+              .filter((r) => r.instrumentType !== "scalping" && recentEnough(r))
               .map((row) => {
               // Defensive: a row with a missing/null `targets` attribute
               // (e.g. a malformed or pre-migration row backfillLegacy
@@ -1129,7 +1159,7 @@ export default function Admin() {
               <div
                 key={row.id}
                 className="flex items-center justify-between gap-3 p-3.5 rounded-xl"
-                style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+                style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -1290,7 +1320,7 @@ export default function Admin() {
         {/* Site content — stats strip + testimonials (admin-configurable, no deploy) */}
         <div
           className="rounded-2xl p-5 mb-8 mt-8"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
             Landing page stats
@@ -1358,7 +1388,7 @@ export default function Admin() {
 
         <div
           className="rounded-2xl p-5 mb-8"
-          style={{ background: "var(--card-bg)", border: "1px solid rgba(29,78,216,0.15)" }}
+          style={{ background: "#fffdf8", border: "1px solid rgba(11,28,51,0.08)", boxShadow: "inset 0 3px 0 #d4af37, 0 12px 28px rgba(7,20,38,0.05)" }}
         >
           <h2 className="font-semibold text-base mb-1" style={{ color: "var(--navy)" }}>
             Testimonials

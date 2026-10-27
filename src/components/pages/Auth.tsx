@@ -271,76 +271,46 @@ export default function Auth() {
   return (
     <div className="min-h-dvh flex">
       <div
-        className="hidden lg:flex flex-col justify-between w-[46%] p-14 relative overflow-hidden card-surface"
-        style={{ background: "var(--card)" }}
+        className="hidden lg:flex flex-col justify-between w-[46%] px-12 py-14 relative overflow-hidden"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 50% 18%, rgba(212,175,55,0.22) 0%, transparent 55%), linear-gradient(180deg, #071426 0%, #0b1c33 100%)",
+        }}
       >
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 70% at 20% 80%, var(--primary-08) 0%, transparent 60%), radial-gradient(ellipse 60% 60% at 80% 20%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 60%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, var(--border) 0, var(--border) 1px, transparent 1px, transparent 52px), repeating-linear-gradient(90deg, var(--border) 0, var(--border) 1px, transparent 1px, transparent 52px)",
-          }}
-        />
-
         <button
           onClick={() => navigate("landing")}
-          className="relative"
-          aria-label="ShubhShree Knowledge Hub Pvt Ltd home"
+          className="relative self-start"
+          aria-label="ShubhShree Knowledge Hub home"
         >
-          <Logo height={96} />
+          <Logo height={72} withName onDark />
         </button>
-
         <div className="relative">
           <h2
-            className="text-3xl lg:text-4xl font-bold leading-snug mb-6"
-            style={{ fontFamily: "DM Serif Display, serif", color: "#ffffff" }}
+            className="text-3xl font-bold leading-snug max-w-sm"
+            style={{ fontFamily: "DM Serif Display, serif", color: "#f6e7b4" }}
           >
-            Invest with clarity.
-            <br />
-            <span style={{ color: "var(--primary)" }}>Learn with confidence.</span>
+            The note is written. Read it before the bell.
           </h2>
-          <p className="text-sm leading-relaxed mb-10 max-w-sm" style={{ color: "#a8b8cc" }}>
-            Research notes and courses designed for Indian investors — start free
-            in under a minute.
+          <p className="mt-4 text-sm leading-relaxed max-w-xs" style={{ color: "#c5d0de" }}>
+            One session note, with the level and the reason. Sign in with the mobile number you already use.
           </p>
-
-          <div
-            className="rounded-2xl p-5"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            <p className="text-sm leading-relaxed mb-3" style={{ color: "#ffffff" }}>
-              “The research notes and courses made market concepts much easier to
-              follow.”
-            </p>
-            <p className="text-xs" style={{ color: "#a8b8cc" }}>
-              Arjun Patel · Mumbai
-            </p>
-          </div>
         </div>
-
-        <p className="relative text-xs" style={{ color: "#a0aec0" }}>
+        <p className="relative mt-10 text-xs" style={{ color: "#8ea0b5" }}>
           © 2026 Shubhshree Knowledge Hub Private Limited
         </p>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-start lg:justify-center px-5 py-8 sm:p-8 lg:p-14 overflow-y-auto">
+      <div
+        className="flex-1 flex flex-col items-center justify-start lg:justify-center px-5 py-8 sm:p-8 lg:p-14 overflow-y-auto"
+        style={{ background: "linear-gradient(180deg, #fffaf3 0%, #f4f7fb 40%)" }}
+      >
         <div className="w-full max-w-[22rem]">
           <button
             onClick={() => navigate("landing")}
-            className="lg:hidden mb-5"
-            aria-label="ShubhShree Knowledge Hub Pvt Ltd home"
+            className="lg:hidden mb-5 flex"
+            aria-label="ShubhShree Knowledge Hub home"
           >
-            <Logo height={72} />
+            <Logo height={48} withName />
           </button>
           <button
             onClick={() => navigate("landing")}

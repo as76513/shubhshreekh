@@ -1,21 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { todaysUpdate, videos } from "@/lib/data";
+import { videos } from "@/lib/data";
 import ServiceSlider from "@/components/ServiceSlider";
 import CourseSlider from "@/components/CourseSlider";
 import PlanSlider from "@/components/PlanSlider";
 import Blogs from "@/components/pages/Blogs";
 import { useAuth } from "@/lib/auth-context";
 import { paymentsEnabled } from "@/lib/payments";
-import { getSiteStats, getTestimonials, listOverviews, type Overview, type SiteStats, type Testimonial } from "@/lib/api";
-
-const defaultStats: SiteStats = {
-  learners: '50,000+',
-  ideasShared: '2,400+',
-  courses: '45+',
-  avgRating: '4.8★',
-}
+import { getTestimonials, listOverviews, type Overview, type Testimonial } from "@/lib/api";
 
 const defaultTestimonials: Testimonial[] = [
   { name: "Arjun Patel", city: "Mumbai", text: "The market insights are clearly explained. The course structure helped me study setups with more confidence.", returns: "+70%", initials: "AP" },
@@ -24,22 +17,93 @@ const defaultTestimonials: Testimonial[] = [
   { name: "Nisha Verma", city: "Bangalore", text: "Started as a complete beginner. Within 3 months of using Shubhshree, I can read Indian market charts with much more clarity.", returns: "+25%", initials: "NV" },
 ]
 
-function noteExcerpt(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= 280) return trimmed;
-  const cut = trimmed.slice(0, 280);
-  const stop = cut.lastIndexOf(" ");
-  return `${(stop > 160 ? cut.slice(0, stop) : cut).trim()}…`;
+type Step = "new" | "try" | "today"
+
+const steps: { id: Step; n: string; who: string; title: string; line: string; place: string; cta: string }[] = [
+  {
+    id: "new",
+    n: "1",
+    who: "Learn",
+    title: "What the bars mean",
+    line: "Red and green bars, and no idea what they mean yet. The courses explain them in ordinary words.",
+    place: "ShubhShree Courses",
+    cta: "Start as a beginner",
+  },
+  {
+    id: "try",
+    n: "2",
+    who: "Practise",
+    title: "Try the same chart",
+    line: "The platform is where that lesson gets tried. Nothing here places a trade.",
+    place: "ShubhShree Platform",
+    cta: "Practise on the platform",
+  },
+  {
+    id: "today",
+    n: "3",
+    who: "The note",
+    title: "What to watch today",
+    line: "The analyst has written the one thing that matters today, and why.",
+    place: "ShubhShree RA",
+    cta: "Read today’s note",
+  },
+]
+
+function StoryChart({ active, onPick }: { active: Step; onPick: (step: Step) => void }) {
+  const on = (id: Step) => active === id
+  return (
+    <svg viewBox="0 0 680 460" className="w-full h-auto" role="img" aria-label="Three steps on one chart: new, then practise, then today’s note.">
+      <defs>
+        <linearGradient id="greenBody" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4ade80" />
+          <stop offset="1" stopColor="#15803d" />
+        </linearGradient>
+        <linearGradient id="redBody" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f87171" />
+          <stop offset="1" stopColor="#b91c1c" />
+        </linearGradient>
+      </defs>
+      <path d="M90 340 C 180 340, 220 300, 300 260 S 460 120, 560 150" fill="none" stroke="#e8b84a" strokeWidth="2" strokeDasharray="6 7" opacity="0.85" />
+
+      <g opacity={on("new") ? 1 : 0.38} style={{ cursor: "pointer" }} onClick={() => onPick("new")}>
+        <line x1="78" y1="250" x2="78" y2="330" stroke="#fecaca" strokeWidth="2" />
+        <rect x="62" y="268" width="32" height="42" rx="5" fill="url(#redBody)" />
+        <line x1="132" y1="270" x2="132" y2="350" stroke="#fecaca" strokeWidth="2" />
+        <rect x="116" y="292" width="32" height="36" rx="5" fill="url(#redBody)" />
+        <text x="97" y="400" textAnchor="middle" fill="#f6e7b4" fontSize="13" fontFamily="Georgia, serif">Learn</text>
+      </g>
+
+      <g opacity={on("try") ? 1 : 0.38} style={{ cursor: "pointer" }} onClick={() => onPick("try")}>
+        <line x1="250" y1="200" x2="250" y2="310" stroke="#86efac" strokeWidth="2" />
+        <rect x="232" y="220" width="36" height="64" rx="5" fill="url(#greenBody)" />
+        <line x1="330" y1="150" x2="330" y2="300" stroke="#86efac" strokeWidth="2" />
+        <rect x="310" y="168" width="40" height="96" rx="6" fill="url(#greenBody)" />
+        <text x="290" y="400" textAnchor="middle" fill="#f6e7b4" fontSize="13" fontFamily="Georgia, serif">Practise</text>
+      </g>
+
+      <g opacity={on("today") ? 1 : 0.45} style={{ cursor: "pointer" }} onClick={() => onPick("today")}>
+        <line x1="500" y1="70" x2="500" y2="340" stroke="#bbf7d0" strokeWidth="3" />
+        <rect x="458" y="96" width="84" height="190" rx="10" fill="url(#greenBody)" />
+        <rect x="458" y="96" width="84" height="14" rx="7" fill="#ffffff" opacity="0.22" />
+        {on("today") && (
+          <g>
+            <line x1="500" y1="96" x2="500" y2="52" stroke="#f6e7b4" strokeWidth="1.5" />
+            <text x="500" y="42" textAnchor="middle" fill="#fffaf3" fontSize="14" fontFamily="Georgia, serif">What to watch</text>
+          </g>
+        )}
+        <text x="500" y="400" textAnchor="middle" fill="#f6e7b4" fontSize="13" fontFamily="Georgia, serif">The note</text>
+      </g>
+    </svg>
+  )
 }
 
 export default function Landing() {
   const { navigate } = useAuth();
-  const [siteStats, setSiteStats] = useState<SiteStats>(defaultStats);
+  const [mark, setMark] = useState<Step>("new");
   const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
   const [latestNote, setLatestNote] = useState<Overview | null>(null);
 
   useEffect(() => {
-    getSiteStats().then(setSiteStats).catch(() => {});
     getTestimonials().then(setTestimonials).catch(() => {});
     listOverviews()
       .then((rows) => setLatestNote(rows[0] ?? null))
@@ -49,16 +113,8 @@ export default function Landing() {
   const published = latestNote ? new Date(latestNote.publishedAt) : null;
   const noteDate =
     published && !Number.isNaN(published.getTime())
-      ? published.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
-      : "From the research desk";
-  const noteBody = noteExcerpt(latestNote?.text || todaysUpdate.summary);
-
-  const stats = [
-    { value: siteStats.learners, label: 'People on the desk' },
-    { value: siteStats.ideasShared, label: 'Notes published' },
-    { value: siteStats.courses, label: 'Courses to study' },
-    { value: siteStats.avgRating, label: 'Average course rating' },
-  ]
+      ? published.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+      : "Today";
 
   return (
     <div>
@@ -70,109 +126,72 @@ export default function Landing() {
             "radial-gradient(ellipse 55% 80% at 100% 0%, rgba(15,118,110,0.45) 0%, transparent 55%), linear-gradient(160deg, #071a2a 0%, #0b2438 48%, #12352f 100%)",
         }}
       >
-        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-14 lg:py-20 grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-10 lg:gap-16 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12 lg:pt-12 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-6 lg:gap-10 items-center">
           <div className="min-w-0">
-            <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-4" style={{ color: "#5eead4" }}>
-              For people who trade Indian markets
+            <StoryChart active={mark} onPick={setMark} />
+            <p className="text-[11px] mt-1" style={{ color: "#93a4b8" }}>
+              Learn, then practise, then read the note.
+            </p>
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-[0.22em] uppercase mb-3" style={{ color: "#f6e7b4" }}>
+              {steps.find((m) => m.id === mark)?.who}
             </p>
             <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] mb-5"
+              className="text-4xl sm:text-5xl font-bold leading-[1.05] mb-3 break-words"
               style={{ fontFamily: "DM Serif Display, serif", color: "#ffffff" }}
             >
-              Read the desk before you place the trade.
+              {steps.find((m) => m.id === mark)?.title}
             </h1>
-            <p className="text-lg max-w-xl mb-8 leading-relaxed" style={{ color: "#d5e2ee" }}>
-              One note each session, from a SEBI-registered research analyst. What moved, what to watch next, and the equity and F&amp;O levels — with the reason written out.
+            <p className="text-base leading-relaxed mb-6 max-w-md break-words" style={{ color: "#d5e2ee" }}>
+              {steps.find((m) => m.id === mark)?.line}
+              {mark === "today" ? ` Written ${noteDate}.` : ""}
             </p>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <button
-                onClick={() => navigate("login")}
-                className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
-              >
-                {paymentsEnabled ? "Start free trial" : "Get today's note"}
-              </button>
-              <button
-                onClick={() => document.getElementById("blogs")?.scrollIntoView({ behavior: "smooth" })}
-                className="px-5 py-3.5 rounded-xl text-sm font-semibold"
-                style={{ color: "#ffffff", border: "1px solid rgba(255,255,255,0.28)" }}
-              >
-                See the latest note
-              </button>
+            <div className="relative flex flex-col gap-2 mb-6 pl-1" role="tablist" aria-label="The story">
+              <span className="absolute left-[1.15rem] top-5 bottom-5 w-px" style={{ background: "rgba(232,184,74,0.45)" }} aria-hidden />
+              {steps.map((item) => {
+                const on = item.id === mark
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setMark(item.id)}
+                    className="relative text-left rounded-xl pl-12 pr-4 py-3 min-w-0"
+                    style={{
+                      background: on ? "rgba(246,231,180,0.12)" : "transparent",
+                      border: on ? "1px solid rgba(232,184,74,0.7)" : "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <span
+                      className="absolute left-3 top-3.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: on ? "#e8b84a" : "#0b2438", color: on ? "#0b2438" : "#f6e7b4", border: "1px solid #e8b84a" }}
+                    >
+                      {item.n}
+                    </span>
+                    <span className="block text-sm font-semibold" style={{ color: on ? "#fffaf3" : "#c5d0de" }}>
+                      {item.place}
+                    </span>
+                    <span className="block text-xs mt-0.5" style={{ color: "#e8b84a" }}>
+                      {item.who}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
-            <p className="text-xs mt-4" style={{ color: "#93a4b8" }}>
-              Sign in with your mobile number. Research, not an order to buy or sell.
+            <button
+              onClick={() => (mark === "new" ? navigate("courses") : navigate("login"))}
+              className="btn-action px-8 py-3.5 rounded-xl font-semibold text-sm"
+            >
+              {paymentsEnabled && mark !== "new" ? "Start free trial" : steps.find((m) => m.id === mark)?.cta}
+            </button>
+            <p className="text-xs mt-3" style={{ color: "#93a4b8" }}>
+              Research, not an order to buy or sell.
             </p>
-          </div>
-
-          <article
-            className="min-w-0 rounded-3xl p-6 sm:p-8"
-            style={{
-              background: "linear-gradient(180deg, #fffaf3 0%, #fff4df 100%)",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
-            }}
-          >
-            <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-4" style={{ color: "#0f766e" }}>
-              What you open each morning
-            </p>
-            <ol className="space-y-3 mb-6">
-              {[
-                ["01", "The session", "What actually moved, in plain language."],
-                ["02", "What to watch", "The next level that matters today."],
-                ["03", "The levels", "Entry, stop, target, and why."],
-              ].map(([n, title, line]) => (
-                <li key={n} className="flex gap-3 min-w-0">
-                  <span className="text-xs font-bold pt-0.5" style={{ color: "#b45309", fontFamily: "JetBrains Mono, monospace" }}>
-                    {n}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold" style={{ color: "#0b2438" }}>{title}</span>
-                    <span className="block text-sm" style={{ color: "#57534e" }}>{line}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-            <div className="pt-5" style={{ borderTop: "1px solid rgba(120,80,20,0.18)" }}>
-              <p className="text-[11px] font-bold tracking-[0.14em] uppercase mb-2" style={{ color: "#0f766e" }}>
-                From today&apos;s desk · {noteDate}
-              </p>
-              <p className="text-base leading-relaxed break-words" style={{ color: "#0b2438" }}>
-                {noteBody}
-              </p>
-            </div>
-          </article>
-        </div>
-
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 grid grid-cols-2 lg:grid-cols-4 gap-y-4">
-            {stats.map((s) => (
-              <div key={s.label}>
-                <p className="text-2xl font-bold" style={{ color: "#ffffff", fontFamily: "JetBrains Mono, monospace" }}>
-                  {s.value}
-                </p>
-                <p className="text-xs uppercase tracking-wide mt-1" style={{ color: "#b7c6d6" }}>
-                  {s.label}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
-      </section>
-
-      <section className="max-w-7xl mx-auto px-6 lg:px-8 py-16 grid md:grid-cols-3 gap-10">
-        {[
-          ["Not a tip group", "A call shows the entry, the stop, the target, and the written reason. There is no button that places the order."],
-          ["SEBI-registered research", "The notes come from a research analyst. They explain a view. They do not promise a return."],
-          ["New to the chart", "A course and a short video sit with the note, so you can study the setup instead of only following it."],
-        ].map(([title, body]) => (
-          <div key={title}>
-            <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "DM Serif Display, serif", color: "var(--foreground)" }}>
-              {title}
-            </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-              {body}
-            </p>
-          </div>
-        ))}
       </section>
 
       <Blogs />
@@ -369,7 +388,7 @@ export default function Landing() {
             className="text-3xl sm:text-4xl font-bold mb-4"
             style={{ fontFamily: 'DM Serif Display, serif', color: '#ffffff' }}
           >
-            The note for this session is already written.
+            Today’s candle is already marked.
           </h2>
           <p className="text-base mb-8" style={{ color: '#a8b8cc' }}>
             {paymentsEnabled

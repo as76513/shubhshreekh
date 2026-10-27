@@ -22,32 +22,36 @@ export default function Navbar() {
 
   const canWrite = user?.role === 'analyst' || user?.role === 'admin'
   const links = canWrite ? [...navLinks, { label: 'Admin', view: 'admin' as AppView }] : navLinks
+  const onLanding = view === 'landing'
 
   return (
     <header
-      className="glass-nav sticky top-0 z-50"
-      style={{
+      className={`${onLanding ? '' : 'glass-nav'} sticky top-0 z-50`}
+      style={onLanding ? {
+        background: 'radial-gradient(ellipse 70% 80% at 18% 0%, rgba(212,175,55,0.16) 0%, transparent 55%), linear-gradient(180deg, #071426 0%, #0b1c33 100%)',
+        borderBottom: '1px solid rgba(212,175,55,0.28)',
+      } : {
         borderBottom: '1px solid var(--border)',
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+        <div className={`flex items-center justify-between ${onLanding ? 'min-h-[5.25rem] py-2.5' : 'h-16'}`}>
           <button
             type="button"
             onClick={() => navigate(user ? 'dashboard' : 'landing')}
             className="flex items-center min-w-0 shrink bg-transparent border-0 p-0 cursor-pointer"
             aria-label="ShubhShree Knowledge Hub — home"
           >
-            <Logo height={36} withName />
+            <Logo height={onLanding ? 72 : 40} withName onDark={onLanding} />
           </button>
 
           {user && (
-            <nav className="hidden md:flex items-center gap-0.5" aria-label="Primary">
+            <nav className="hidden lg:flex items-center gap-0.5" aria-label="Primary">
               {links.map(link => (
                 <button
                   key={link.view}
                   onClick={() => navigate(link.view)}
-                  className="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                   style={{
                     background: view === link.view ? 'var(--secondary)' : 'transparent',
                     color: view === link.view ? 'var(--foreground)' : 'var(--muted-foreground)',
@@ -179,7 +183,7 @@ export default function Navbar() {
                 <button
                   onClick={() => navigate('login')}
                   className="hidden sm:inline-flex px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap"
-                  style={{ color: 'var(--muted-foreground)' }}
+                  style={{ color: onLanding ? '#f6e7b4' : 'var(--muted-foreground)' }}
                 >
                   Sign in
                 </button>
@@ -197,7 +201,7 @@ export default function Navbar() {
 
       {user && (
         <div
-          className="md:hidden flex items-center gap-1 px-4 pb-2.5 overflow-x-auto"
+          className="lg:hidden flex items-center gap-1 px-4 pb-2.5 overflow-x-auto"
           style={{ scrollbarWidth: 'none' }}
         >
           {links.map(link => (

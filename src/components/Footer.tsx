@@ -17,7 +17,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <div className="mb-4">
-              <Logo height={72} withName />
+              <Logo height={56} withName onDark />
             </div>
             <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--muted-foreground)' }}>
               Helping 50,000+ retail investors in India with research notes, mutual fund explainers, and financial education.
@@ -107,6 +107,16 @@ export default function Footer() {
                 <span className="text-sm" style={{ color: 'var(--secondary-foreground)' }}>
                   +91 82080 49965
                 </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-base mt-0.5">💬</span>
+                <a
+                  href="https://wa.me/918999753565"
+                  className="text-sm transition-colors hover:text-primary"
+                  style={{ color: 'var(--secondary-foreground)' }}
+                >
+                  WhatsApp +91 89997 53565
+                </a>
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="text-base mt-0.5">🏢</span>
